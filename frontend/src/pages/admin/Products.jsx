@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Plus, Pencil, Trash2, X } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Pencil, Trash2, X, Upload } from 'lucide-react'
 
 function Products() {
   const [products, setProducts] = useState([])
@@ -16,10 +16,13 @@ function Products() {
     category_id: '',
     is_available: true,
     is_featured: false,
-    is_on_sale: false
+    is_on_sale: false,
+    image_url: ''
   })
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     fetchData()
@@ -56,7 +59,8 @@ function Products() {
         category_id: product.category_id?.toString() || '',
         is_available: product.is_available !== false,
         is_featured: product.is_featured || false,
-        is_on_sale: product.is_on_sale || false
+        is_on_sale: product.is_on_sale || false,
+        image_url: product.image_url || ''
       })
     } else {
       setEditingProduct(null)
@@ -69,10 +73,43 @@ function Products() {
         category_id: '',
         is_available: true,
         is_featured: false,
-        is_on_sale: false
+        is_on_sale: false,
+        image_url: ''
       })
     }
     setShowModal(true)
+  }
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const token = localStorage.getItem('token')
+      const formDataUpload = new FormData()
+      formDataUpload.append('image', file)
+
+      const response = await fetch('/api/upload/image', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formDataUpload
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setFormData(prev => ({ ...prev, image_url: data.url }))
+      } else {
+        const data = await response.json()
+        alert(data.error || 'Error al subir imagen')
+      }
+    } catch (error) {
+      alert('Error al subir imagen')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -95,7 +132,8 @@ function Products() {
           ...formData,
           price: parseFloat(formData.price),
           original_price: formData.original_price ? parseFloat(formData.original_price) : null,
-          category_id: formData.category_id ? parseInt(formData.category_id) : null
+          category_id: formData.category_id ? parseInt(formData.category_id) : null,
+          image_url: formData.image_url || null
         })
       })
 
@@ -249,6 +287,46 @@ function Products() {
                   className="input"
                   rows={3}
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Imagen</label>
+                <div className="flex items-center gap-4">
+                  {formData.image_url ? (
+                    <div className="w-20 h-20 bg-gray-100 rounded overflow-hidden">
+                      <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400">
+                      <Upload size={24} />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="btn-secondary text-sm"
+                    >
+                      {uploading ? 'Subiendo...' : 'Subir imagen'}
+                    </button>
+                    {formData.image_url && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, image_url: '' })}
+                        className="ml-2 text-red-500 text-sm hover:underline"
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search, X } from 'lucide-react'
+import { Search, X, AlertCircle, RefreshCw } from 'lucide-react'
 import ProductCard from '../components/ProductCard'
 
 function Products() {
@@ -8,6 +8,7 @@ function Products() {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [search, setSearch] = useState(searchParams.get('buscar') || '')
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('categoria') || '')
 
@@ -33,6 +34,7 @@ function Products() {
 
   const fetchProducts = async () => {
     setLoading(true)
+    setError(null)
     try {
       const params = new URLSearchParams()
       if (selectedCategory) params.append('category', selectedCategory)
@@ -42,9 +44,12 @@ function Products() {
       if (response.ok) {
         const data = await response.json()
         setProducts(data)
+      } else {
+        setError('No pudimos cargar los productos. Por favor intenta de nuevo.')
       }
     } catch (error) {
       console.error('Error fetching products:', error)
+      setError('Error de conexion. Verifica tu internet e intenta de nuevo.')
     } finally {
       setLoading(false)
     }
@@ -123,7 +128,16 @@ function Products() {
       </div>
 
       {/* Results */}
-      {loading ? (
+      {error ? (
+        <div className="text-center py-12">
+          <AlertCircle className="mx-auto text-red-400 mb-4" size={48} />
+          <p className="text-gray-700 text-lg mb-4">{error}</p>
+          <button onClick={fetchProducts} className="btn-primary flex items-center gap-2 mx-auto">
+            <RefreshCw size={18} />
+            Reintentar
+          </button>
+        </div>
+      ) : loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array(8).fill(0).map((_, i) => (
             <div key={i} className="card animate-pulse">
