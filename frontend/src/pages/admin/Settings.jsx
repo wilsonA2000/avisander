@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Save } from 'lucide-react'
 
 function Settings() {
@@ -9,9 +9,24 @@ function Settings() {
     delivery_hours: '',
     whatsapp_number: ''
   })
+  const [originalSettings, setOriginalSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
+
+  const hasChanges = originalSettings && JSON.stringify(settings) !== JSON.stringify(originalSettings)
+
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasChanges) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasChanges])
 
   useEffect(() => {
     fetchSettings()
@@ -25,13 +40,15 @@ function Settings() {
       })
       if (response.ok) {
         const data = await response.json()
-        setSettings({
+        const loadedSettings = {
           delivery_cost: data.delivery_cost || '5000',
           business_hours_weekday: data.business_hours_weekday || '7:00 AM - 7:00 PM',
           business_hours_weekend: data.business_hours_weekend || '7:00 AM - 1:00 PM',
           delivery_hours: data.delivery_hours || '8:00 AM - 6:00 PM',
           whatsapp_number: data.whatsapp_number || '3162530287'
-        })
+        }
+        setSettings(loadedSettings)
+        setOriginalSettings(loadedSettings)
       }
     } catch (error) {
       console.error('Error:', error)
@@ -58,6 +75,7 @@ function Settings() {
 
       if (response.ok) {
         setMessage({ type: 'success', text: 'Configuracion guardada correctamente' })
+        setOriginalSettings({ ...settings })
       } else {
         const data = await response.json()
         setMessage({ type: 'error', text: data.error || 'Error al guardar' })
