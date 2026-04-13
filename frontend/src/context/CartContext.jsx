@@ -108,7 +108,7 @@ export function CartProvider({ children }) {
   }
 
   const getWhatsAppUrl = () => {
-    const phone = '573162530287' // Colombia country code + local number
+    const phone = '3162530287' // Local number (wa.me handles country detection)
     const message = generateWhatsAppMessage()
     return `https://wa.me/${phone}?text=${message}`
   }

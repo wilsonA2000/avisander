@@ -18,7 +18,9 @@ function Products() {
   }, [])
 
   useEffect(() => {
-    fetchProducts()
+    const abortController = new AbortController()
+    fetchProducts(abortController.signal)
+    return () => abortController.abort()
   }, [selectedCategory, search, sortBy])
 
   const fetchCategories = async () => {
@@ -33,7 +35,7 @@ function Products() {
     }
   }
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (signal) => {
     setLoading(true)
     setError(null)
     try {
@@ -41,7 +43,7 @@ function Products() {
       if (selectedCategory) params.append('category', selectedCategory)
       if (search) params.append('search', search)
 
-      const response = await fetch(`/api/products?${params}`)
+      const response = await fetch(`/api/products?${params}`, { signal })
       if (response.ok) {
         let data = await response.json()
         // Apply sorting
@@ -59,6 +61,7 @@ function Products() {
         setError('No pudimos cargar los productos. Por favor intenta de nuevo.')
       }
     } catch (error) {
+      if (error.name === 'AbortError') return // Request was cancelled
       console.error('Error fetching products:', error)
       setError('Error de conexion. Verifica tu internet e intenta de nuevo.')
     } finally {

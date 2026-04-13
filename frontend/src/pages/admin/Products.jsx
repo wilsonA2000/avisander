@@ -22,6 +22,7 @@ function Products() {
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [uploading, setUploading] = useState(false)
+  const [message, setMessage] = useState({ type: '', text: '' })
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -114,6 +115,17 @@ function Products() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    // Validate whitespace-only input
+    if (!formData.name.trim()) {
+      alert('El nombre del producto es requerido')
+      return
+    }
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      alert('El precio debe ser mayor a 0')
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -139,13 +151,19 @@ function Products() {
 
       if (response.ok) {
         setShowModal(false)
+        setMessage({
+          type: 'success',
+          text: editingProduct ? 'Producto actualizado correctamente' : 'Producto creado correctamente'
+        })
         fetchData()
+        // Auto-clear message after 5 seconds
+        setTimeout(() => setMessage({ type: '', text: '' }), 5000)
       } else {
         const data = await response.json()
-        alert(data.error || 'Error al guardar')
+        setMessage({ type: 'error', text: data.error || 'Error al guardar' })
       }
     } catch (error) {
-      alert('Error al guardar producto')
+      setMessage({ type: 'error', text: 'Error al guardar producto' })
     } finally {
       setSaving(false)
     }
@@ -177,6 +195,15 @@ function Products() {
           Agregar Producto
         </button>
       </div>
+
+      {/* Success/Error Message */}
+      {message.text && (
+        <div className={`p-4 rounded-lg mb-6 ${
+          message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+        }`}>
+          {message.text}
+        </div>
+      )}
 
       {/* Products Table */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
