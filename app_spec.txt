@@ -1,0 +1,416 @@
+<project_specification>
+  <project_name>Avisander</project_name>
+
+  <overview>
+    Landing page y e-commerce para Avisander, una carnicería premium ubicada en Bucaramanga que ofrece carnes de res, cerdo, pollo, huevos, lácteos y otros productos. Los clientes pueden explorar el catálogo, agregar productos al carrito y enviar su pedido directamente a WhatsApp para coordinar pago y entrega a domicilio.
+  </overview>
+
+  <business_info>
+    <name>Avisander</name>
+    <address>Cra 23 #20-70 Local 2, Bucaramanga</address>
+    <phone>3162530287</phone>
+    <whatsapp>3162530287</whatsapp>
+    <delivery>Entregas a domicilio disponibles</delivery>
+  </business_info>
+
+  <technology_stack>
+    <frontend>
+      <framework>React 18 con Vite</framework>
+      <styling>Tailwind CSS</styling>
+      <state_management>React Context + hooks</state_management>
+      <routing>React Router v6</routing>
+      <icons>Lucide React</icons>
+    </frontend>
+    <backend>
+      <runtime>Node.js con Express</runtime>
+      <database>SQLite con better-sqlite3</database>
+      <authentication>JWT (JSON Web Tokens)</authentication>
+      <file_upload>Multer para imágenes de productos</file_upload>
+    </backend>
+    <communication>
+      <api>REST API</api>
+      <whatsapp_integration>URL scheme wa.me para envío de pedidos</whatsapp_integration>
+    </communication>
+  </technology_stack>
+
+  <prerequisites>
+    <environment_setup>
+      Node.js 18+ instalado
+      npm o yarn como gestor de paquetes
+    </environment_setup>
+  </prerequisites>
+
+  <feature_count>85</feature_count>
+
+  <security_and_access_control>
+    <user_roles>
+      <role name="visitor">
+        <permissions>
+          - Ver landing page y catálogo de productos
+          - Agregar productos al carrito
+          - Enviar pedido a WhatsApp
+          - Ver información de contacto y ubicación
+        </permissions>
+      </role>
+      <role name="customer">
+        <permissions>
+          - Todo lo de visitante
+          - Crear cuenta e iniciar sesión
+          - Ver historial de pedidos
+          - Repetir pedidos anteriores
+          - Guardar productos favoritos
+        </permissions>
+      </role>
+      <role name="admin">
+        <permissions>
+          - Acceso completo al panel de administración
+          - Crear, editar y eliminar productos
+          - Gestionar categorías
+          - Actualizar precios
+          - Marcar productos como agotados o en oferta
+          - Ver pedidos recibidos
+          - Configurar costo de domicilio
+          - Configurar horarios de atención
+        </permissions>
+        <protected_routes>
+          - /admin/*
+        </protected_routes>
+      </role>
+    </user_roles>
+    <authentication>
+      <method>Email y contraseña</method>
+      <session_timeout>7 días</session_timeout>
+      <password_requirements>Mínimo 6 caracteres</password_requirements>
+    </authentication>
+  </security_and_access_control>
+
+  <core_features>
+    <landing_page>
+      - Hero banner con propuesta de valor "Carnes Premium a domicilio en Bucaramanga"
+      - Sección de categorías principales con iconos
+      - Productos destacados / Ofertas de la semana
+      - Información de contacto y ubicación con mapa
+      - Horarios de atención
+      - Botón flotante de WhatsApp siempre visible
+      - Footer con información del negocio
+    </landing_page>
+
+    <catalogo_productos>
+      - Grid de productos con imagen, nombre y precio
+      - Filtrar por categoría (Res, Cerdo, Pollo, Huevos, Lácteos, Otros)
+      - Indicador de producto agotado
+      - Indicador de producto en oferta con precio anterior
+      - Precio por kilo o por paquete según producto
+      - Búsqueda de productos por nombre
+    </catalogo_productos>
+
+    <carrito_compras>
+      - Agregar productos al carrito
+      - Seleccionar cantidad (kilos o unidades)
+      - Ver resumen del carrito
+      - Modificar cantidades en el carrito
+      - Eliminar productos del carrito
+      - Ver subtotal y total
+      - Mostrar costo de domicilio
+      - Botón para enviar pedido a WhatsApp
+      - Mensaje de WhatsApp formateado con lista de productos
+    </carrito_compras>
+
+    <cuentas_clientes>
+      - Registro de cuenta con email y contraseña
+      - Inicio de sesión
+      - Cerrar sesión
+      - Ver historial de pedidos
+      - Repetir pedido anterior con un clic
+      - Editar datos de perfil (nombre, teléfono, dirección)
+    </cuentas_clientes>
+
+    <panel_administracion>
+      - Dashboard con resumen de pedidos y productos
+      - Gestión de productos (CRUD completo)
+      - Subir y cambiar imágenes de productos
+      - Gestión de categorías
+      - Actualizar precios (fácil para cambios semanales)
+      - Marcar productos como agotados
+      - Marcar productos como oferta de la semana
+      - Ver lista de pedidos recibidos
+      - Configurar costo de domicilio
+      - Configurar horarios de atención y entregas
+    </panel_administracion>
+
+    <ofertas_semana>
+      - Sección destacada en landing page
+      - Productos marcados como oferta muestran precio anterior tachado
+      - Administrador puede activar/desactivar ofertas fácilmente
+    </ofertas_semana>
+
+    <contacto_ubicacion>
+      - Dirección con mapa integrado
+      - Número de teléfono clickeable
+      - Botón de WhatsApp
+      - Horarios de atención
+      - Horarios de entregas a domicilio
+    </contacto_ubicacion>
+  </core_features>
+
+  <database_schema>
+    <tables>
+      <users>
+        - id (INTEGER PRIMARY KEY)
+        - email (TEXT UNIQUE NOT NULL)
+        - password_hash (TEXT NOT NULL)
+        - name (TEXT)
+        - phone (TEXT)
+        - address (TEXT)
+        - role (TEXT DEFAULT 'customer')
+        - created_at (DATETIME DEFAULT CURRENT_TIMESTAMP)
+        - updated_at (DATETIME)
+      </users>
+
+      <categories>
+        - id (INTEGER PRIMARY KEY)
+        - name (TEXT NOT NULL)
+        - icon (TEXT)
+        - display_order (INTEGER)
+        - created_at (DATETIME DEFAULT CURRENT_TIMESTAMP)
+      </categories>
+
+      <products>
+        - id (INTEGER PRIMARY KEY)
+        - category_id (INTEGER REFERENCES categories)
+        - name (TEXT NOT NULL)
+        - description (TEXT)
+        - price (DECIMAL NOT NULL)
+        - original_price (DECIMAL)
+        - unit (TEXT DEFAULT 'kg')
+        - image_url (TEXT)
+        - is_available (BOOLEAN DEFAULT true)
+        - is_featured (BOOLEAN DEFAULT false)
+        - is_on_sale (BOOLEAN DEFAULT false)
+        - created_at (DATETIME DEFAULT CURRENT_TIMESTAMP)
+        - updated_at (DATETIME)
+      </products>
+
+      <orders>
+        - id (INTEGER PRIMARY KEY)
+        - user_id (INTEGER REFERENCES users)
+        - total (DECIMAL NOT NULL)
+        - delivery_cost (DECIMAL)
+        - status (TEXT DEFAULT 'pending')
+        - customer_name (TEXT)
+        - customer_phone (TEXT)
+        - customer_address (TEXT)
+        - notes (TEXT)
+        - created_at (DATETIME DEFAULT CURRENT_TIMESTAMP)
+      </orders>
+
+      <order_items>
+        - id (INTEGER PRIMARY KEY)
+        - order_id (INTEGER REFERENCES orders)
+        - product_id (INTEGER REFERENCES products)
+        - product_name (TEXT NOT NULL)
+        - quantity (DECIMAL NOT NULL)
+        - unit_price (DECIMAL NOT NULL)
+        - subtotal (DECIMAL NOT NULL)
+      </order_items>
+
+      <settings>
+        - key (TEXT PRIMARY KEY)
+        - value (TEXT)
+        - updated_at (DATETIME)
+      </settings>
+    </tables>
+  </database_schema>
+
+  <api_endpoints_summary>
+    <auth>
+      - POST /api/auth/register
+      - POST /api/auth/login
+      - POST /api/auth/logout
+      - GET /api/auth/me
+    </auth>
+
+    <products>
+      - GET /api/products
+      - GET /api/products/:id
+      - GET /api/products/featured
+      - GET /api/products/on-sale
+      - POST /api/products (admin)
+      - PUT /api/products/:id (admin)
+      - DELETE /api/products/:id (admin)
+    </products>
+
+    <categories>
+      - GET /api/categories
+      - POST /api/categories (admin)
+      - PUT /api/categories/:id (admin)
+      - DELETE /api/categories/:id (admin)
+    </categories>
+
+    <orders>
+      - GET /api/orders (admin: todos, customer: propios)
+      - GET /api/orders/:id
+      - POST /api/orders
+      - PUT /api/orders/:id/status (admin)
+    </orders>
+
+    <settings>
+      - GET /api/settings
+      - PUT /api/settings (admin)
+    </settings>
+
+    <upload>
+      - POST /api/upload/image (admin)
+    </upload>
+  </api_endpoints_summary>
+
+  <ui_layout>
+    <main_structure>
+      Header fijo con logo, navegación y carrito
+      Contenido principal con scroll
+      Footer con información de contacto
+      Botón flotante de WhatsApp en esquina inferior derecha
+    </main_structure>
+
+    <pages>
+      - / (Landing page)
+      - /productos (Catálogo completo)
+      - /categoria/:slug (Productos por categoría)
+      - /carrito (Carrito de compras)
+      - /login (Inicio de sesión)
+      - /registro (Crear cuenta)
+      - /mi-cuenta (Perfil y pedidos del cliente)
+      - /admin (Dashboard de administración)
+      - /admin/productos (Gestión de productos)
+      - /admin/categorias (Gestión de categorías)
+      - /admin/pedidos (Lista de pedidos)
+      - /admin/configuracion (Ajustes del sistema)
+    </pages>
+  </ui_layout>
+
+  <design_system>
+    <color_palette>
+      <primary>Rojo (#DC2626) - Color principal, transmite carne fresca</primary>
+      <secondary>Rojo oscuro (#991B1B) - Hover y acentos</secondary>
+      <background>Blanco (#FFFFFF) - Limpieza y frescura</background>
+      <surface>Gris claro (#F9FAFB) - Fondos secundarios</surface>
+      <text_primary>Negro (#111827) - Texto principal</text_primary>
+      <text_secondary>Gris (#6B7280) - Texto secundario</text_secondary>
+      <success>Verde (#16A34A) - Confirmaciones</success>
+      <warning>Amarillo (#EAB308) - Ofertas y alertas</warning>
+      <error>Rojo (#EF4444) - Errores</error>
+    </color_palette>
+
+    <typography>
+      <font_family>Inter, system-ui, sans-serif</font_family>
+      <headings>Bold, tamaños escalonados</headings>
+      <body>Regular, legible</body>
+    </typography>
+
+    <components>
+      - Botones con esquinas redondeadas
+      - Cards con sombra sutil
+      - Inputs con bordes claros
+      - Badges para ofertas y estado
+      - Modales para confirmaciones
+      - Toasts para notificaciones
+    </components>
+  </design_system>
+
+  <implementation_steps>
+    <step number="1">
+      <title>Configuración del Proyecto</title>
+      <tasks>
+        - Crear estructura de carpetas frontend/backend
+        - Configurar Vite + React + Tailwind
+        - Configurar Express + SQLite
+        - Crear esquema de base de datos
+        - Configurar rutas básicas
+      </tasks>
+    </step>
+
+    <step number="2">
+      <title>Backend API</title>
+      <tasks>
+        - Implementar autenticación (registro, login, JWT)
+        - CRUD de productos
+        - CRUD de categorías
+        - Sistema de pedidos
+        - Upload de imágenes
+        - Configuración del sistema
+      </tasks>
+    </step>
+
+    <step number="3">
+      <title>Frontend - Público</title>
+      <tasks>
+        - Landing page con hero y secciones
+        - Catálogo de productos
+        - Carrito de compras
+        - Integración con WhatsApp
+        - Páginas de login/registro
+        - Responsive design
+      </tasks>
+    </step>
+
+    <step number="4">
+      <title>Frontend - Panel Admin</title>
+      <tasks>
+        - Dashboard de administración
+        - Gestión de productos con upload de imágenes
+        - Gestión de categorías
+        - Lista de pedidos
+        - Configuración del sistema
+      </tasks>
+    </step>
+
+    <step number="5">
+      <title>Área de Cliente</title>
+      <tasks>
+        - Perfil del usuario
+        - Historial de pedidos
+        - Repetir pedidos
+      </tasks>
+    </step>
+
+    <step number="6">
+      <title>Pulido Final</title>
+      <tasks>
+        - Optimización de rendimiento
+        - Pruebas de funcionalidad
+        - Mejoras de UX
+        - Manejo de errores
+      </tasks>
+    </step>
+  </implementation_steps>
+
+  <success_criteria>
+    <functionality>
+      - Clientes pueden navegar productos y hacer pedidos vía WhatsApp
+      - Administrador puede gestionar todo el catálogo
+      - Carrito funciona correctamente
+      - Autenticación segura para clientes y admin
+    </functionality>
+
+    <user_experience>
+      - Carga rápida de la página
+      - Diseño atractivo y profesional
+      - Fácil de usar en móviles
+      - Proceso de compra intuitivo
+    </user_experience>
+
+    <technical_quality>
+      - Código limpio y mantenible
+      - Base de datos bien estructurada
+      - API RESTful bien diseñada
+      - Sin errores en consola
+    </technical_quality>
+
+    <design_polish>
+      - Colores consistentes con la marca
+      - Tipografía legible
+      - Espaciado y alineación correctos
+      - Animaciones sutiles donde corresponda
+    </design_polish>
+  </success_criteria>
+</project_specification>
