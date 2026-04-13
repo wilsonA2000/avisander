@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search, X, AlertCircle, RefreshCw } from 'lucide-react'
+import { Search, X, AlertCircle, RefreshCw, ArrowUpDown } from 'lucide-react'
 import ProductCard from '../components/ProductCard'
 
 function Products() {
@@ -11,6 +11,7 @@ function Products() {
   const [error, setError] = useState(null)
   const [search, setSearch] = useState(searchParams.get('buscar') || '')
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('categoria') || '')
+  const [sortBy, setSortBy] = useState(searchParams.get('orden') || '')
 
   useEffect(() => {
     fetchCategories()
@@ -18,7 +19,7 @@ function Products() {
 
   useEffect(() => {
     fetchProducts()
-  }, [selectedCategory, search])
+  }, [selectedCategory, search, sortBy])
 
   const fetchCategories = async () => {
     try {
@@ -42,7 +43,17 @@ function Products() {
 
       const response = await fetch(`/api/products?${params}`)
       if (response.ok) {
-        const data = await response.json()
+        let data = await response.json()
+        // Apply sorting
+        if (sortBy === 'price-asc') {
+          data = data.sort((a, b) => a.price - b.price)
+        } else if (sortBy === 'price-desc') {
+          data = data.sort((a, b) => b.price - a.price)
+        } else if (sortBy === 'name-asc') {
+          data = data.sort((a, b) => a.name.localeCompare(b.name, 'es'))
+        } else if (sortBy === 'name-desc') {
+          data = data.sort((a, b) => b.name.localeCompare(a.name, 'es'))
+        }
         setProducts(data)
       } else {
         setError('No pudimos cargar los productos. Por favor intenta de nuevo.')
@@ -71,13 +82,23 @@ function Products() {
     setSearchParams(params)
   }
 
+  const handleSortChange = (sort) => {
+    setSortBy(sort)
+    const params = new URLSearchParams()
+    if (search) params.set('buscar', search)
+    if (selectedCategory) params.set('categoria', selectedCategory)
+    if (sort) params.set('orden', sort)
+    setSearchParams(params)
+  }
+
   const clearFilters = () => {
     setSearch('')
     setSelectedCategory('')
+    setSortBy('')
     setSearchParams({})
   }
 
-  const hasFilters = search || selectedCategory
+  const hasFilters = search || selectedCategory || sortBy
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -112,6 +133,19 @@ function Products() {
                 {cat.name}
               </option>
             ))}
+          </select>
+
+          {/* Sort */}
+          <select
+            value={sortBy}
+            onChange={(e) => handleSortChange(e.target.value)}
+            className="input md:w-48"
+          >
+            <option value="">Ordenar por</option>
+            <option value="price-asc">Precio: Menor a Mayor</option>
+            <option value="price-desc">Precio: Mayor a Menor</option>
+            <option value="name-asc">Nombre: A-Z</option>
+            <option value="name-desc">Nombre: Z-A</option>
           </select>
 
           {/* Clear filters */}
