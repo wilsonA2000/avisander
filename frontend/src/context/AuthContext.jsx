@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { api, setTokens, clearTokens } from '../lib/apiClient'
 
 const AuthContext = createContext(null)
 
@@ -7,78 +8,46 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for existing session on mount
     const token = localStorage.getItem('token')
-    if (token) {
-      fetchUser(token)
-    } else {
+    if (!token) {
       setLoading(false)
+      return
     }
+    api
+      .get('/api/auth/me')
+      .then((data) => setUser(data.user))
+      .catch(() => clearTokens())
+      .finally(() => setLoading(false))
   }, [])
 
-  const fetchUser = async (token) => {
-    try {
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setUser(data.user)
-      } else {
-        localStorage.removeItem('token')
-      }
-    } catch (error) {
-      console.error('Error fetching user:', error)
-      localStorage.removeItem('token')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const login = async (email, password) => {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ email, password })
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Error al iniciar sesion')
-    }
-
-    localStorage.setItem('token', data.token)
+    const data = await api.post('/api/auth/login', { email, password }, { skipAuth: true })
+    setTokens(data)
     setUser(data.user)
     return data
   }
 
   const register = async (userData) => {
-    const response = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(userData)
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Error al registrar')
-    }
-
-    localStorage.setItem('token', data.token)
+    const data = await api.post('/api/auth/register', userData, { skipAuth: true })
+    setTokens(data)
     setUser(data.user)
     return data
   }
 
-  const logout = () => {
-    localStorage.removeItem('token')
+  const forgotPassword = (email) =>
+    api.post('/api/auth/forgot-password', { email }, { skipAuth: true })
+
+  const resetPassword = (token, password) =>
+    api.post('/api/auth/reset-password', { token, password }, { skipAuth: true })
+
+  const logout = async () => {
+    const refreshToken = localStorage.getItem('refreshToken')
+    try {
+      await api.post('/api/auth/logout', { refreshToken }, { skipAuth: true })
+    } catch {
+      /* ignore */
+    }
+    clearTokens()
     setUser(null)
   }
 
@@ -88,21 +57,17 @@ export function AuthProvider({ children }) {
     login,
     register,
     logout,
+    forgotPassword,
+    resetPassword,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin'
   }
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
   const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider')
   return context
 }

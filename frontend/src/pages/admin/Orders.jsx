@@ -1,10 +1,70 @@
-import { useState, useEffect } from 'react'
-import { Eye, X } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Eye, X, Search, Printer } from 'lucide-react'
 
 function Orders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [q, setQ] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+
+  // Filtrado client-side (los pedidos siempre vienen completos para este admin)
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    return orders.filter((o) => {
+      if (statusFilter && o.status !== statusFilter) return false
+      if (!needle) return true
+      return (
+        String(o.id).includes(needle) ||
+        (o.customer_name || '').toLowerCase().includes(needle) ||
+        (o.customer_phone || '').includes(needle)
+      )
+    })
+  }, [orders, q, statusFilter])
+
+  const printOrder = (order) => {
+    const win = window.open('', '_blank', 'width=600,height=800')
+    if (!win) return
+    const fmt = (n) => `$${Number(n || 0).toLocaleString('es-CO')}`
+    const rows = (order.items || []).map((it) => `
+      <tr>
+        <td style="padding:6px 8px;border-bottom:1px solid #ddd">${it.product_name}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #ddd">${it.sale_type === 'by_weight' ? `${it.weight_grams} g` : `${it.quantity} ${it.product_name.length ? '' : ''}`}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #ddd;text-align:right">${fmt(it.subtotal)}</td>
+      </tr>
+    `).join('')
+    win.document.write(`
+      <html><head><title>Pedido #${order.id} - Avisander</title>
+      <style>body{font-family:system-ui;max-width:500px;margin:16px auto;padding:12px;color:#222}
+        h1{color:#b91c1c;margin:0 0 4px;font-size:22px}
+        .muted{color:#666;font-size:12px}
+        table{width:100%;border-collapse:collapse;margin:12px 0}
+        th{text-align:left;padding:6px 8px;background:#f5f5f5;font-size:12px}
+        .totals{margin-top:12px;text-align:right}
+        .totals b{font-size:18px;color:#b91c1c}
+      </style>
+      </head><body>
+        <h1>Avisander — Pedido #${order.id}</h1>
+        <p class="muted">${new Date(order.created_at).toLocaleString('es-CO')}</p>
+        <hr/>
+        <p><strong>Cliente:</strong> ${order.customer_name || '—'}<br/>
+        <strong>Teléfono:</strong> ${order.customer_phone || '—'}<br/>
+        <strong>Dirección:</strong> ${order.customer_address || '—'}<br/>
+        <strong>Entrega:</strong> ${order.delivery_method === 'pickup' ? 'Recoge en tienda' : 'Domicilio'}<br/>
+        <strong>Pago:</strong> ${order.payment_method || '—'}</p>
+        <table>
+          <thead><tr><th>Producto</th><th>Cantidad</th><th style="text-align:right">Subtotal</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="totals">
+          Domicilio: ${fmt(order.delivery_cost)}<br/>
+          <b>TOTAL: ${fmt(order.total)}</b>
+        </div>
+      </body></html>
+    `)
+    win.document.close()
+    setTimeout(() => win.print(), 300)
+  }
 
   useEffect(() => {
     fetchOrders()
@@ -65,12 +125,40 @@ function Orders() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Pedidos</h1>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <h1 className="text-2xl font-bold">Pedidos</h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="ID, nombre, teléfono…"
+              className="input pl-9 w-64"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="input w-auto"
+          >
+            <option value="">Todos los estados</option>
+            <option value="pending">Pendientes</option>
+            <option value="processing">En proceso</option>
+            <option value="completed">Completados</option>
+            <option value="cancelled">Cancelados</option>
+          </select>
+          <span className="text-sm text-gray-500">
+            {filtered.length} de {orders.length}
+          </span>
+        </div>
+      </div>
 
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">Cargando...</div>
-        ) : orders.length > 0 ? (
+        ) : filtered.length > 0 ? (
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
@@ -83,7 +171,7 @@ function Orders() {
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
+              {filtered.map((order) => (
                 <tr key={order.id} className="border-t">
                   <td className="px-4 py-3">#{order.id}</td>
                   <td className="px-4 py-3">
@@ -116,6 +204,13 @@ function Orders() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
+                      onClick={() => printOrder(order)}
+                      className="p-2 text-gray-500 hover:text-green-600"
+                      title="Imprimir"
+                    >
+                      <Printer size={18} />
+                    </button>
+                    <button
                       onClick={() => setSelectedOrder(order)}
                       className="p-2 text-gray-500 hover:text-blue-600"
                       title="Ver detalles"
@@ -128,7 +223,9 @@ function Orders() {
             </tbody>
           </table>
         ) : (
-          <div className="p-8 text-center text-gray-500">No hay pedidos</div>
+          <div className="p-8 text-center text-gray-500">
+            {orders.length === 0 ? 'No hay pedidos' : 'Ningún pedido coincide con los filtros'}
+          </div>
         )}
       </div>
 

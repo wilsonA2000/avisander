@@ -7,6 +7,7 @@ function Register() {
     name: '',
     email: '',
     password: '',
+    passwordConfirm: '',
     phone: ''
   })
   const [errors, setErrors] = useState({})
@@ -14,6 +15,8 @@ function Register() {
 
   const { register } = useAuth()
   const navigate = useNavigate()
+
+  const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$/
 
   const validateForm = () => {
     const newErrors = {}
@@ -25,13 +28,17 @@ function Register() {
     if (!formData.email.trim()) {
       newErrors.email = 'El correo es requerido'
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'El correo no es valido'
+      newErrors.email = 'El correo no es válido'
     }
 
     if (!formData.password) {
-      newErrors.password = 'La contrasena es requerida'
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'La contrasena debe tener al menos 6 caracteres'
+      newErrors.password = 'La contraseña es requerida'
+    } else if (!passwordPolicy.test(formData.password)) {
+      newErrors.password = 'Mínimo 8 caracteres, con mayúscula, minúscula y número'
+    }
+
+    if (formData.password !== formData.passwordConfirm) {
+      newErrors.passwordConfirm = 'Las contraseñas no coinciden'
     }
 
     setErrors(newErrors)
@@ -55,7 +62,8 @@ function Register() {
     setLoading(true)
 
     try {
-      await register(formData)
+      const { passwordConfirm: _pc, ...payload } = formData
+      await register(payload)
       navigate('/mi-cuenta')
     } catch (err) {
       setErrors({ submit: err.message || 'Error al registrar. Intenta de nuevo.' })
@@ -128,6 +136,27 @@ function Register() {
               />
               {errors.password && (
                 <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Mínimo 8 caracteres, con mayúscula, minúscula y número.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="passwordConfirm" className="block text-sm font-medium text-gray-700 mb-1">
+                Confirmar contraseña
+              </label>
+              <input
+                id="passwordConfirm"
+                name="passwordConfirm"
+                type="password"
+                value={formData.passwordConfirm}
+                onChange={handleChange}
+                className={`input ${errors.passwordConfirm ? 'border-red-500' : ''}`}
+                autoComplete="new-password"
+              />
+              {errors.passwordConfirm && (
+                <p className="text-red-500 text-sm mt-1">{errors.passwordConfirm}</p>
               )}
             </div>
 

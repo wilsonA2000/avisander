@@ -7,7 +7,10 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  ChefHat,
+  Image as ImageIcon,
+  Users
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -17,7 +20,10 @@ const navItems = [
   { to: '/admin/productos', icon: Package, label: 'Productos' },
   { to: '/admin/categorias', icon: FolderOpen, label: 'Categorias' },
   { to: '/admin/pedidos', icon: ShoppingBag, label: 'Pedidos' },
-  { to: '/admin/configuracion', icon: Settings, label: 'Configuracion' },
+  { to: '/admin/clientes', icon: Users, label: 'Clientes' },
+  { to: '/admin/recetas', icon: ChefHat, label: 'Recetas' },
+  { to: '/admin/biblioteca', icon: ImageIcon, label: 'Biblioteca' },
+  { to: '/admin/configuracion', icon: Settings, label: 'Configuración' },
 ]
 
 function AdminLayout() {

@@ -1,61 +1,170 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Trash2, Plus, Minus, ShoppingBag, MessageSquare, Banknote, Wallet } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
+import { api } from '../lib/apiClient'
+import DeliveryPicker from '../components/DeliveryPicker'
+import ProductImage from '../components/ProductImage'
+
+function fmt(n) {
+  return `$${Number(n || 0).toLocaleString('es-CO')}`
+}
 
 function Cart() {
   const {
     items,
-    updateQuantity,
-    removeItem,
+    updateLine,
+    removeLine,
     clearCart,
     subtotal,
-    deliveryCost,
-    total,
-    getWhatsAppUrl
+    getWhatsAppUrl,
+    toOrderItems,
+    lineTotal
   } = useCart()
   const { user } = useAuth()
+  const toast = useToast()
   const [submitting, setSubmitting] = useState(false)
+  const [openNotesId, setOpenNotesId] = useState(null)
+
+  const navigate = useNavigate()
+
+  // Estado de entrega manejado por DeliveryPicker
+  const [delivery, setDelivery] = useState({
+    method: 'delivery',
+    cost: 0,
+    in_coverage: false
+  })
+
+  // Método de pago: 'whatsapp' (default) | 'bold' | 'cash'
+  const [paymentMethod, setPaymentMethod] = useState('whatsapp')
+  const [boldConfig, setBoldConfig] = useState({ enabled: false, identity_key: null, widget_url: null })
+
+  useEffect(() => {
+    // Saber si Bold está habilitado (llaves configuradas en backend)
+    api.get('/api/payments/config', { skipAuth: true })
+      .then((c) => setBoldConfig({
+        enabled: !!c.bold_enabled,
+        identity_key: c.bold_identity_key,
+        widget_url: c.bold_widget_url
+      }))
+      .catch(() => setBoldConfig({ enabled: false, identity_key: null, widget_url: null }))
+  }, [])
+
+  const deliveryCost = delivery.method === 'pickup' ? 0 : Number(delivery.cost) || 0
+  const total = subtotal + (items.length > 0 ? deliveryCost : 0)
+
+  const canCheckout = useMemo(() => {
+    if (items.length === 0) return false
+    if (delivery.method === 'pickup') return true
+    return !!delivery.in_coverage
+  }, [items.length, delivery])
+
+  /**
+   * Lanza el botón de pago Bold.
+   * El patrón de Bold no usa `new Widget()` — es un <script data-bold-button> con
+   * atributos que renderiza un botón. Para activarlo programáticamente:
+   *   1. Creamos un container en el DOM.
+   *   2. Inyectamos el <script> con los data-bold-* dentro del container.
+   *   3. El script de Bold observa el container y renderiza un botón.
+   *   4. Esperamos a que el botón aparezca y hacemos click().
+   */
+  const launchBoldCheckout = (payload) => new Promise((resolve) => {
+    const containerId = 'bold-checkout-container'
+    let container = document.getElementById(containerId)
+    if (!container) {
+      container = document.createElement('div')
+      container.id = containerId
+      container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;'
+      document.body.appendChild(container)
+    }
+    container.innerHTML = '' // limpiar runs anteriores
+
+    const script = document.createElement('script')
+    script.setAttribute('data-bold-button', 'dark-L')
+    script.setAttribute('data-api-key', payload.identity_key)
+    script.setAttribute('data-order-id', payload.order_id)
+    script.setAttribute('data-amount', String(payload.amount_in_cents))
+    script.setAttribute('data-currency', payload.currency)
+    script.setAttribute('data-integrity-signature', payload.signature)
+    script.setAttribute('data-description', payload.description || 'Pedido Avisander')
+    script.setAttribute(
+      'data-redirection-url',
+      `${window.location.origin}/pago/${payload.order_id}`
+    )
+
+    // Precargamos la librería global si no está
+    const ensureLib = new Promise((res) => {
+      if (window.boldPaymentButton) return res()
+      const lib = document.createElement('script')
+      lib.src = payload.widget_url
+      lib.onload = () => res()
+      lib.onerror = () => res()
+      document.head.appendChild(lib)
+    })
+
+    ensureLib.then(() => {
+      container.appendChild(script)
+      // Esperar a que el botón se renderice, hacer click programático
+      const startedAt = Date.now()
+      const tick = setInterval(() => {
+        const btn = container.querySelector('button')
+        if (btn) {
+          clearInterval(tick)
+          btn.click()
+          resolve(true)
+        } else if (Date.now() - startedAt > 8000) {
+          clearInterval(tick)
+          resolve(false)
+        }
+      }, 150)
+    })
+  })
 
   const handleSubmitOrder = async () => {
+    if (!canCheckout) {
+      toast.error('Completa los datos de entrega antes de continuar.')
+      return
+    }
     setSubmitting(true)
+    const customer = {
+      name: user?.name,
+      phone: user?.phone,
+      address: delivery.method === 'delivery' ? delivery.address : 'Recoge en tienda'
+    }
     try {
-      // Save order to database
-      const token = localStorage.getItem('token')
-      const orderData = {
-        items: items.map(item => ({
-          product_id: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity
-        })),
-        customer_name: user?.name,
-        customer_phone: user?.phone,
-        customer_address: user?.address
-      }
-
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` })
-        },
-        body: JSON.stringify(orderData)
+      const res = await api.post('/api/orders', {
+        items: toOrderItems(),
+        customer_name: customer.name,
+        customer_phone: customer.phone,
+        customer_address: customer.address,
+        delivery_method: delivery.method,
+        delivery_lat: delivery.lat,
+        delivery_lng: delivery.lng,
+        delivery_city: delivery.city,
+        payment_method: paymentMethod
       })
 
-      if (response.ok) {
-        // Order saved, now open WhatsApp
-        window.open(getWhatsAppUrl(), '_blank')
-        clearCart()
+      if (paymentMethod === 'bold' && res.bold) {
+        const ok = await launchBoldCheckout(res.bold)
+        if (!ok) {
+          toast.error('No se pudo cargar Bold. Intenta otro método de pago.')
+          return
+        }
+        // Bold abre su UI. Al terminar redirige a /pago/:reference.
+        // No limpiamos carrito aún: lo hace PaymentResult cuando el pago está aprobado.
       } else {
-        // Still open WhatsApp even if save fails
-        window.open(getWhatsAppUrl(), '_blank')
+        // WhatsApp / Cash: abrimos WhatsApp y limpiamos carrito
+        window.open(getWhatsAppUrl({ ...customer, deliveryInfo: delivery }), '_blank')
+        clearCart()
+        toast.success('¡Pedido enviado! Te contactamos por WhatsApp.')
       }
-    } catch (error) {
-      console.error('Error saving order:', error)
-      // Still open WhatsApp even if save fails
-      window.open(getWhatsAppUrl(), '_blank')
+    } catch (err) {
+      toast.error(err.message || 'No pudimos guardar el pedido. Abriendo WhatsApp igual.')
+      if (paymentMethod !== 'bold') {
+        window.open(getWhatsAppUrl({ ...customer, deliveryInfo: delivery }), '_blank')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -65,142 +174,303 @@ function Cart() {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
         <ShoppingBag className="mx-auto text-gray-300 mb-4" size={64} />
-        <h1 className="text-2xl font-bold text-gray-800 mb-4">Tu carrito esta vacio</h1>
-        <p className="text-gray-600 mb-8">
-          Agrega productos de nuestro catalogo para empezar tu pedido.
-        </p>
-        <Link to="/productos" className="btn-primary">
-          Ver Productos
-        </Link>
+        <h1 className="text-2xl font-bold text-gray-800 mb-4">Tu carrito está vacío</h1>
+        <p className="text-gray-600 mb-8">Agrega productos del catálogo para empezar tu pedido.</p>
+        <Link to="/productos" className="btn-primary">Ver productos</Link>
       </div>
     )
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Carrito de Compras</h1>
+      <h1 className="text-3xl font-bold mb-8">Carrito de compras</h1>
 
       <div className="grid lg:grid-cols-3 gap-8">
-        {/* Cart Items */}
-        <div className="lg:col-span-2">
+        {/* Items + entrega */}
+        <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-lg shadow-sm">
-            {items.map((item, index) => (
-              <div
-                key={item.product.id}
-                className={`p-4 flex items-center gap-4 ${
-                  index > 0 ? 'border-t' : ''
-                }`}
-              >
-                {/* Image */}
-                <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
-                  {item.product.image_url ? (
-                    <img
-                      src={item.product.image_url}
-                      alt={item.product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      <ShoppingBag size={24} />
+            {items.map((item, index) => {
+              const lt = lineTotal(item)
+              const isWeight = item.sale_type === 'by_weight'
+              const ppk = item.product.price_per_kg ?? item.product.price
+              return (
+                <div key={item.id} className={`p-4 ${index > 0 ? 'border-t' : ''}`}>
+                  <div className="flex items-start gap-4">
+                    <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
+                      <ProductImage product={item.product} size="xs" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-800 truncate">{item.product.name}</h3>
+                      <p className="text-sm text-primary font-medium">
+                        {isWeight
+                          ? `${fmt(ppk)} / kg`
+                          : `${fmt(item.product.price)} / ${item.product.unit || 'und'}`}
+                      </p>
+                      {isWeight && (
+                        <p className="text-sm text-gray-600 mt-1">
+                          Pediste: <strong>{item.weight_grams} g</strong>
+                        </p>
+                      )}
+                      {item.notes && (
+                        <p className="text-sm text-amber-700 mt-1 italic">📝 {item.notes}</p>
+                      )}
+                    </div>
+
+                    {!isWeight && (
+                      <div className="flex items-center border rounded-lg">
+                        <button
+                          onClick={() => updateLine(item.id, { quantity: Math.max(1, item.quantity - 1) })}
+                          className="p-2 hover:bg-gray-100 transition-colors"
+                          aria-label="Reducir cantidad"
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <span className="w-12 text-center font-medium">{item.quantity}</span>
+                        <button
+                          onClick={() => updateLine(item.id, { quantity: item.quantity + 1 })}
+                          className="p-2 hover:bg-gray-100 transition-colors"
+                          aria-label="Aumentar cantidad"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="text-right min-w-[100px]">
+                      <p className="font-semibold text-gray-800">{fmt(lt)}</p>
+                    </div>
+
+                    <button
+                      onClick={() => removeLine(item.id)}
+                      className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                      aria-label="Eliminar producto"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+
+                  {/* Notas */}
+                  <div className="mt-3 ml-24">
+                    {openNotesId === item.id ? (
+                      <div>
+                        <textarea
+                          rows={2}
+                          maxLength={500}
+                          value={item.notes || ''}
+                          onChange={(e) => updateLine(item.id, { notes: e.target.value })}
+                          placeholder="Ej: sin piel, en pedazos, en bolsas separadas…"
+                          className="input resize-none text-sm"
+                        />
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs text-gray-500">{(item.notes || '').length}/500</span>
+                          <button onClick={() => setOpenNotesId(null)} className="text-sm text-primary hover:underline">
+                            Listo
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setOpenNotesId(item.id)}
+                        className="text-xs text-gray-500 hover:text-primary inline-flex items-center gap-1"
+                      >
+                        <MessageSquare size={12} />
+                        {item.notes ? 'Editar observaciones' : 'Agregar observaciones'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Cambiar gramos */}
+                  {isWeight && (
+                    <div className="mt-2 ml-24 flex items-center gap-2">
+                      <span className="text-xs text-gray-500">Cambiar gramos:</span>
+                      <input
+                        type="number"
+                        min={50}
+                        max={20000}
+                        step={50}
+                        value={item.weight_grams}
+                        onChange={(e) =>
+                          updateLine(item.id, {
+                            weight_grams: Math.max(50, Math.min(20000, Number(e.target.value) || 50))
+                          })
+                        }
+                        className="w-24 px-2 py-1 border rounded text-sm"
+                      />
+                      <span className="text-xs text-gray-500">g</span>
                     </div>
                   )}
                 </div>
-
-                {/* Details */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-800 truncate">
-                    {item.product.name}
-                  </h3>
-                  <p className="text-primary font-medium">
-                    ${item.product.price.toLocaleString('es-CO')}/{item.product.unit || 'kg'}
-                  </p>
-                </div>
-
-                {/* Quantity */}
-                <div className="flex items-center border rounded-lg">
-                  <button
-                    onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                    className="p-2 hover:bg-gray-100 transition-colors"
-                    aria-label="Reducir cantidad"
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span className="w-12 text-center font-medium">{item.quantity}</span>
-                  <button
-                    onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                    className="p-2 hover:bg-gray-100 transition-colors"
-                    aria-label="Aumentar cantidad"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-
-                {/* Subtotal */}
-                <div className="text-right">
-                  <p className="font-semibold text-gray-800">
-                    ${(item.product.price * item.quantity).toLocaleString('es-CO')}
-                  </p>
-                </div>
-
-                {/* Remove */}
-                <button
-                  onClick={() => removeItem(item.product.id)}
-                  className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                  aria-label="Eliminar producto"
-                >
-                  <Trash2 size={20} />
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
-          <div className="mt-4 flex justify-between">
-            <Link to="/productos" className="text-primary hover:underline">
-              Continuar comprando
-            </Link>
-            <button
-              onClick={clearCart}
-              className="text-gray-500 hover:text-red-500 transition-colors"
-            >
+          <div className="flex justify-between">
+            <Link to="/productos" className="text-primary hover:underline">← Continuar comprando</Link>
+            <button onClick={clearCart} className="text-gray-500 hover:text-red-500 transition-colors text-sm">
               Vaciar carrito
             </button>
           </div>
+
+          {/* Entrega */}
+          <div className="bg-white rounded-lg shadow-sm p-5">
+            <h2 className="text-lg font-bold mb-4">Entrega</h2>
+            <DeliveryPicker
+              subtotal={subtotal}
+              value={delivery}
+              onChange={setDelivery}
+            />
+          </div>
+
+          {/* Método de pago */}
+          <div className="bg-white rounded-lg shadow-sm p-5">
+            <h2 className="text-lg font-bold mb-4">Método de pago</h2>
+            <div className="grid sm:grid-cols-3 gap-2">
+              {boldConfig.enabled && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('bold')}
+                  className={`relative border-2 rounded-lg p-3 text-left transition ${
+                    paymentMethod === 'bold' ? 'border-primary bg-red-50' : 'border-gray-200 hover:border-gray-400'
+                  }`}
+                >
+                  <span className="absolute -top-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                    Más económico
+                  </span>
+                  <div className="flex items-center gap-2 font-medium">
+                    <Banknote size={16} /> Pagar con PSE / Nequi
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Transferencia directa · tarjetas también</p>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('whatsapp')}
+                className={`border-2 rounded-lg p-3 text-left transition ${
+                  paymentMethod === 'whatsapp' ? 'border-primary bg-red-50' : 'border-gray-200 hover:border-gray-400'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-medium">
+                  <MessageSquare size={16} /> WhatsApp
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Coordinamos contigo</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('cash')}
+                className={`border-2 rounded-lg p-3 text-left transition ${
+                  paymentMethod === 'cash' ? 'border-primary bg-red-50' : 'border-gray-200 hover:border-gray-400'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-medium">
+                  <Wallet size={16} /> Contra entrega
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Pagas al recibir</p>
+              </button>
+            </div>
+            {!boldConfig.enabled && (
+              <p className="text-xs text-gray-400 mt-3">
+                💡 Próximamente: pago online con PSE, Nequi y tarjetas.
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Order Summary */}
+        {/* Resumen */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg shadow-sm p-6 sticky top-24">
-            <h2 className="text-xl font-bold mb-4">Resumen del Pedido</h2>
+            <h2 className="text-xl font-bold mb-4">Resumen del pedido</h2>
 
             <div className="space-y-3 text-gray-600">
               <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span>${subtotal.toLocaleString('es-CO')}</span>
+                <span>Subtotal <span className="text-xs text-gray-400">({items.length} {items.length === 1 ? 'producto' : 'productos'})</span></span>
+                <span className="font-medium text-gray-800">{fmt(subtotal)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Domicilio</span>
-                <span>${deliveryCost.toLocaleString('es-CO')}</span>
+              <div className="flex justify-between items-start">
+                <span>
+                  {delivery.method === 'pickup' ? 'Recoge en tienda' : 'Domicilio'}
+                  {delivery.method === 'delivery' && !delivery.in_coverage && (
+                    <span className="block text-[11px] text-gray-400">Elige tu dirección arriba</span>
+                  )}
+                </span>
+                <span className={
+                  delivery.method === 'pickup' || delivery.free
+                    ? 'text-green-600 font-semibold'
+                    : delivery.in_coverage ? 'font-medium text-gray-800' : 'text-gray-400 text-sm'
+                }>
+                  {delivery.method === 'pickup'
+                    ? 'Gratis'
+                    : (delivery.in_coverage
+                      ? (delivery.free ? 'Gratis' : fmt(deliveryCost))
+                      : 'Por calcular')}
+                </span>
               </div>
-              <div className="border-t pt-3 flex justify-between text-lg font-bold text-gray-800">
-                <span>Total</span>
-                <span>${total.toLocaleString('es-CO')}</span>
+              <div className="border-t pt-3 flex justify-between items-baseline">
+                <span className="font-bold text-gray-800">Total</span>
+                <span className="text-2xl font-extrabold text-primary">{fmt(total)}</span>
               </div>
             </div>
 
+            {items.some((it) => it.sale_type === 'by_weight') && (
+              <p className="mt-3 text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded p-2">
+                ⚖️ Los productos por peso se ajustan al pesar real. Confirmamos el total por WhatsApp antes de cobrar.
+              </p>
+            )}
+
             <button
               onClick={handleSubmitOrder}
-              disabled={submitting}
-              className="mt-6 w-full btn flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white disabled:bg-gray-400"
+              disabled={submitting || !canCheckout}
+              className={`mt-6 w-full btn py-3 flex items-center justify-center gap-2 font-semibold transition-all text-white ${
+                paymentMethod === 'bold'
+                  ? 'bg-primary hover:bg-primary-dark disabled:bg-gray-300'
+                  : 'bg-green-500 hover:bg-green-600 disabled:bg-gray-300'
+              } disabled:cursor-not-allowed`}
             >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-              </svg>
-              {submitting ? 'Enviando...' : 'Enviar Pedido a WhatsApp'}
+              {submitting ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25"/>
+                    <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                  </svg>
+                  Procesando…
+                </>
+              ) : !canCheckout ? (
+                <>
+                  {delivery.method === 'delivery' && !delivery.in_coverage
+                    ? '📍 Completa la dirección de entrega'
+                    : '🛒 Selecciona cómo recibir'}
+                </>
+              ) : paymentMethod === 'bold' ? (
+                <>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                  </svg>
+                  Pagar {fmt(total)} de forma segura
+                </>
+              ) : paymentMethod === 'cash' ? (
+                <>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93V19h-2v.93A8.01 8.01 0 014.07 13H5v-2h-.93A8.01 8.01 0 0111 4.07V5h2v-.93A8.01 8.01 0 0119.93 11H19v2h.93A8.01 8.01 0 0113 19.93z"/>
+                  </svg>
+                  Confirmar pedido {fmt(total)}
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                  </svg>
+                  Enviar pedido por WhatsApp
+                </>
+              )}
             </button>
 
-            <p className="mt-4 text-sm text-gray-500 text-center">
-              Al hacer clic, seras redirigido a WhatsApp para confirmar tu pedido.
-            </p>
+            {canCheckout && (
+              <p className="mt-3 text-xs text-gray-500 text-center leading-relaxed">
+                {paymentMethod === 'bold' && '🔒 Tu pago es procesado por Bold (Bancolombia). Nunca guardamos tu tarjeta.'}
+                {paymentMethod === 'whatsapp' && '💬 Te redirigimos a WhatsApp para confirmar tu pedido.'}
+                {paymentMethod === 'cash' && '💵 Pagas en efectivo al recibir. Solo disponible en Bucaramanga.'}
+              </p>
+            )}
           </div>
         </div>
       </div>

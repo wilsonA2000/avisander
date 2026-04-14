@@ -7,7 +7,14 @@ function Settings() {
     business_hours_weekday: '',
     business_hours_weekend: '',
     delivery_hours: '',
-    whatsapp_number: ''
+    whatsapp_number: '',
+    store_name: '',
+    store_address: '',
+    store_lat: '',
+    store_lng: '',
+    admin_notification_email: '',
+    free_shipping_threshold: '',
+    tax_rate: ''
   })
   const [originalSettings, setOriginalSettings] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -35,7 +42,8 @@ function Settings() {
   const fetchSettings = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('/api/settings', {
+      // Usamos /all para obtener también los no-públicos (admin_notification_email)
+      const response = await fetch('/api/settings/all', {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (response.ok) {
@@ -45,7 +53,14 @@ function Settings() {
           business_hours_weekday: data.business_hours_weekday || '7:00 AM - 7:00 PM',
           business_hours_weekend: data.business_hours_weekend || '7:00 AM - 1:00 PM',
           delivery_hours: data.delivery_hours || '8:00 AM - 6:00 PM',
-          whatsapp_number: data.whatsapp_number || '3162530287'
+          whatsapp_number: data.whatsapp_number || '3123005253',
+          store_name: data.store_name || 'Avisander',
+          store_address: data.store_address || 'Cra 30 #20-70 Local 2, San Alonso, Bucaramanga',
+          store_lat: data.store_lat || '7.1192',
+          store_lng: data.store_lng || '-73.1227',
+          admin_notification_email: data.admin_notification_email || '',
+          free_shipping_threshold: data.free_shipping_threshold || '200000',
+          tax_rate: data.tax_rate || '0'
         }
         setSettings(loadedSettings)
         setOriginalSettings(loadedSettings)
@@ -172,21 +187,119 @@ function Settings() {
         </div>
 
         <div className="bg-white rounded-lg shadow-sm p-6 space-y-6 mt-6">
+          <h2 className="text-lg font-semibold border-b pb-2">Tienda</h2>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Nombre de la tienda</label>
+            <input
+              type="text"
+              value={settings.store_name}
+              onChange={(e) => setSettings({ ...settings, store_name: e.target.value })}
+              className="input"
+              placeholder="Avisander"
+            />
+            <p className="text-sm text-gray-500 mt-1">Aparece en header, footer y emails.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Dirección</label>
+            <input
+              type="text"
+              value={settings.store_address}
+              onChange={(e) => setSettings({ ...settings, store_address: e.target.value })}
+              className="input"
+              placeholder="Cra 30 #20-70 Local 2, San Alonso, Bucaramanga"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Latitud tienda</label>
+              <input
+                type="number"
+                step="0.0001"
+                value={settings.store_lat}
+                onChange={(e) => setSettings({ ...settings, store_lat: e.target.value })}
+                className="input"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Longitud tienda</label>
+              <input
+                type="number"
+                step="0.0001"
+                value={settings.store_lng}
+                onChange={(e) => setSettings({ ...settings, store_lng: e.target.value })}
+                className="input"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 -mt-2">Coordenadas usadas para calcular distancia del domicilio.</p>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm p-6 space-y-6 mt-6">
+          <h2 className="text-lg font-semibold border-b pb-2">Envíos y facturación</h2>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Umbral de envío gratis (COP)</label>
+            <input
+              type="number"
+              value={settings.free_shipping_threshold}
+              onChange={(e) => setSettings({ ...settings, free_shipping_threshold: e.target.value })}
+              className="input"
+              min="0"
+              step="1000"
+            />
+            <p className="text-sm text-gray-500 mt-1">Pedidos en Bucaramanga sobre este monto no pagan domicilio.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Tasa de IVA (%)</label>
+            <input
+              type="number"
+              value={settings.tax_rate}
+              onChange={(e) => setSettings({ ...settings, tax_rate: e.target.value })}
+              className="input"
+              min="0"
+              max="100"
+              step="0.1"
+            />
+            <p className="text-sm text-gray-500 mt-1">0 si no aplicas IVA directamente (los productos ya lo incluyen).</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm p-6 space-y-6 mt-6">
           <h2 className="text-lg font-semibold border-b pb-2">Contacto</h2>
 
           <div>
             <label className="block text-sm font-medium mb-1">
-              Numero de WhatsApp
+              Número de WhatsApp
             </label>
             <input
               type="text"
               value={settings.whatsapp_number}
               onChange={(e) => setSettings({ ...settings, whatsapp_number: e.target.value })}
               className="input"
-              placeholder="3162530287"
+              placeholder="3123005253"
             />
             <p className="text-sm text-gray-500 mt-1">
-              Sin codigo de pais, solo el numero local
+              Sin código de país, solo el número local.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Email para notificaciones de pedidos
+            </label>
+            <input
+              type="email"
+              value={settings.admin_notification_email}
+              onChange={(e) => setSettings({ ...settings, admin_notification_email: e.target.value })}
+              className="input"
+              placeholder="admin@avisander.com"
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              Aquí llegará un correo cada vez que un cliente haga un pedido.
             </p>
           </div>
         </div>

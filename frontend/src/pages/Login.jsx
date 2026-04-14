@@ -72,6 +72,15 @@ function Login() {
               />
             </div>
 
+            <div className="text-right -mt-2">
+              <Link
+                to="/recuperar-password"
+                className="text-sm text-primary hover:underline"
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
+
             <button
               type="submit"
               disabled={loading}

@@ -1,142 +1,232 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+// Carrito con soporte para dos modos de venta:
+//   - 'fixed': qty × price unitario (bandejas, piezas)
+//   - 'by_weight': gramos × (price_per_kg / 1000)
+// Cada ítem puede llevar `notes` (sin piel, en pedazos, bolsas separadas...).
+// Persistencia: localStorage. Total y mensaje WhatsApp se calculan desde acá.
+
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { useSettings, whatsappLink } from './SettingsContext'
 
 const CartContext = createContext(null)
 
-const CART_STORAGE_KEY = 'avisander_cart'
+const CART_STORAGE_KEY = 'avisander_cart_v2'
+
+function lineTotal(item) {
+  if (item.sale_type === 'by_weight') {
+    const ppk = item.product.price_per_kg ?? item.product.price ?? 0
+    return (ppk * (item.weight_grams || 0)) / 1000
+  }
+  return (item.product.price ?? 0) * (item.quantity || 0)
+}
+
+function lineKey(item) {
+  // Para productos by_weight, cada agregado es una línea independiente
+  // (cada uno puede tener gramos/notas distintas). Para fixed, agrupamos por id.
+  if (item.sale_type === 'by_weight') return `w-${item.product.id}-${Math.random()}`
+  return `f-${item.product.id}`
+}
+
+// Lazy init desde localStorage para evitar race: el effect de persistencia
+// machacaba el estado antes de que el effect de carga corriera.
+function loadInitialCart() {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(CART_STORAGE_KEY) : null
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
 
 export function CartProvider({ children }) {
-  const [items, setItems] = useState([])
-  const [deliveryCost, setDeliveryCost] = useState(5000) // Default delivery cost
+  const { settings } = useSettings()
+  const [items, setItems] = useState(loadInitialCart)
+  const deliveryCost = Number(settings.delivery_cost) || 5000
 
-  // Load cart from localStorage on mount
-  useEffect(() => {
-    const savedCart = localStorage.getItem(CART_STORAGE_KEY)
-    if (savedCart) {
-      try {
-        setItems(JSON.parse(savedCart))
-      } catch (e) {
-        console.error('Error loading cart:', e)
-      }
-    }
-
-    // Fetch delivery cost from settings
-    fetchDeliveryCost()
-  }, [])
-
-  // Save cart to localStorage whenever it changes
+  // Persistir cambios
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
   }, [items])
 
-  const fetchDeliveryCost = async () => {
-    try {
-      const response = await fetch('/api/settings')
-      if (response.ok) {
-        const data = await response.json()
-        if (data.delivery_cost) {
-          setDeliveryCost(Number(data.delivery_cost))
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching delivery cost:', error)
-    }
-  }
-
-  const addItem = (product, quantity = 1) => {
-    setItems(prevItems => {
-      const existingIndex = prevItems.findIndex(item => item.product.id === product.id)
-
-      if (existingIndex >= 0) {
-        const newItems = [...prevItems]
-        newItems[existingIndex].quantity += quantity
-        return newItems
-      }
-
-      return [...prevItems, { product, quantity }]
-    })
-  }
-
-  const updateQuantity = (productId, quantity) => {
-    if (quantity <= 0) {
-      removeItem(productId)
-      return
-    }
-
-    setItems(prevItems =>
-      prevItems.map(item =>
-        item.product.id === productId
-          ? { ...item, quantity }
-          : item
+  const addFixed = useCallback((product, quantity = 1, notes = '') => {
+    setItems((prev) => {
+      const idx = prev.findIndex(
+        (it) => it.sale_type === 'fixed' && it.product.id === product.id
       )
+      if (idx >= 0) {
+        const copy = [...prev]
+        copy[idx] = {
+          ...copy[idx],
+          quantity: copy[idx].quantity + quantity,
+          notes: notes || copy[idx].notes
+        }
+        return copy
+      }
+      return [
+        ...prev,
+        { id: lineKey({ sale_type: 'fixed', product }), sale_type: 'fixed', product, quantity, notes }
+      ]
+    })
+  }, [])
+
+  const addByWeight = useCallback((product, weightGrams, notes = '') => {
+    setItems((prev) => [
+      ...prev,
+      {
+        id: lineKey({ sale_type: 'by_weight', product }),
+        sale_type: 'by_weight',
+        product,
+        weight_grams: weightGrams,
+        notes
+      }
+    ])
+  }, [])
+
+  // API unificada: detecta el sale_type del producto.
+  const addItem = useCallback(
+    (product, opts = {}) => {
+      const saleType = product.sale_type || 'fixed'
+      if (saleType === 'by_weight') {
+        addByWeight(product, opts.weight_grams || 500, opts.notes || '')
+      } else {
+        addFixed(product, opts.quantity || 1, opts.notes || '')
+      }
+    },
+    [addFixed, addByWeight]
+  )
+
+  const updateLine = useCallback((lineId, patch) => {
+    setItems((prev) =>
+      prev.map((it) => (it.id === lineId ? { ...it, ...patch } : it))
     )
-  }
+  }, [])
 
-  const removeItem = (productId) => {
-    setItems(prevItems => prevItems.filter(item => item.product.id !== productId))
-  }
+  const removeLine = useCallback((lineId) => {
+    setItems((prev) => prev.filter((it) => it.id !== lineId))
+  }, [])
 
-  const clearCart = () => {
-    setItems([])
-  }
+  const clearCart = useCallback(() => setItems([]), [])
 
-  const subtotal = items.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
+  const subtotal = items.reduce((sum, it) => sum + lineTotal(it), 0)
+  const total = subtotal + (items.length > 0 ? deliveryCost : 0)
+  const itemCount = items.reduce(
+    (sum, it) => sum + (it.sale_type === 'by_weight' ? 1 : it.quantity),
     0
   )
 
-  const total = subtotal + (items.length > 0 ? deliveryCost : 0)
-
-  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
-
-  const generateWhatsAppMessage = () => {
+  const generateWhatsAppMessage = (customer = {}) => {
     if (items.length === 0) return ''
+    // Formato WhatsApp: *negrita*, _cursiva_, ~tachado~, ```mono```.
+    // Diseño visual con caracteres unicode que se renderizan bien en chat.
+    const fmt = (n) => `$${Number(n).toLocaleString('es-CO')}`
+    const sep = '━━━━━━━━━━━━━━━━━━'
+    const dash = '·························'
+    const now = new Date()
+    const fecha = now.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+    const hora = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
 
-    let message = 'Hola! Me gustaria hacer el siguiente pedido:\n\n'
+    let msg = ''
+    msg += `🥩 *PEDIDO AVISANDER* 🥩\n`
+    msg += `_Carnicería Premium · Bucaramanga_\n`
+    msg += `${sep}\n`
+    msg += `📅 ${fecha}  ⏰ ${hora}\n\n`
 
-    items.forEach(item => {
-      const itemTotal = item.product.price * item.quantity
-      message += `- ${item.product.name}\n`
-      message += `  ${item.quantity} ${item.product.unit} x $${item.product.price.toLocaleString('es-CO')} = $${itemTotal.toLocaleString('es-CO')}\n`
+    msg += `🛒 *Detalle del pedido*\n${dash}\n`
+    items.forEach((it, i) => {
+      const lt = lineTotal(it)
+      const num = String(i + 1).padStart(2, '0')
+      msg += `\n*${num}. ${it.product.name}*\n`
+      if (it.sale_type === 'by_weight') {
+        const ppk = it.product.price_per_kg ?? it.product.price
+        const kg = (it.weight_grams / 1000).toFixed(it.weight_grams % 1000 === 0 ? 0 : 2)
+        msg += `   ⚖️ Peso solicitado: *${it.weight_grams} g* _(≈ ${kg} kg)_\n`
+        msg += `   💵 ${fmt(ppk)} / kg\n`
+        msg += `   ➜ Subtotal: *${fmt(lt)}*\n`
+      } else {
+        msg += `   📦 ${it.quantity} × ${it.product.unit || 'und'}\n`
+        msg += `   💵 ${fmt(it.product.price)} c/u\n`
+        msg += `   ➜ Subtotal: *${fmt(lt)}*\n`
+      }
+      if (it.notes) {
+        msg += `   📝 _${it.notes}_\n`
+      }
     })
 
-    message += `\nSubtotal: $${subtotal.toLocaleString('es-CO')}`
-    message += `\nDomicilio: $${deliveryCost.toLocaleString('es-CO')}`
-    message += `\n*Total: $${total.toLocaleString('es-CO')}*`
-    message += '\n\nGracias!'
+    msg += `\n${sep}\n`
+    msg += `💰 *RESUMEN*\n`
+    msg += `Subtotal:  ${fmt(subtotal)}\n`
+    msg += `Domicilio: ${fmt(deliveryCost)}\n`
+    msg += `*TOTAL:* *${fmt(total)}*\n`
+    msg += `${sep}\n\n`
 
-    return encodeURIComponent(message)
+    const di = customer.deliveryInfo
+    if (customer.name || customer.phone || customer.address || di) {
+      msg += `👤 *Datos del cliente*\n${dash}\n`
+      if (customer.name) msg += `Nombre:    ${customer.name}\n`
+      if (customer.phone) msg += `Teléfono:  ${customer.phone}\n`
+
+      if (di?.method === 'pickup') {
+        msg += `\n🏬 *Modalidad:* Recoge en tienda\n`
+        msg += `Punto: Cra 30 #20-70 Local 2, San Alonso\n`
+      } else if (di?.method === 'delivery') {
+        msg += `\n🚚 *Modalidad:* Domicilio\n`
+        if (di.address) msg += `Dirección: ${di.address}\n`
+        if (di.distance_km != null) msg += `Distancia: ≈ ${di.distance_km.toFixed(1)} km\n`
+        if (di.city) msg += `Ciudad: ${di.city.charAt(0).toUpperCase() + di.city.slice(1)}\n`
+      } else if (customer.address) {
+        msg += `Dirección: ${customer.address}\n`
+      }
+      if (customer.notes) msg += `\nObservaciones generales:\n_${customer.notes}_\n`
+      msg += `\n`
+    }
+
+    const hasByWeight = items.some((it) => it.sale_type === 'by_weight')
+    if (hasByWeight) {
+      msg += `ℹ️ _Los productos por peso se ajustan al pesar real. Te confirmamos el peso y total final por aquí mismo antes de cobrar._\n\n`
+    }
+
+    msg += `¡Gracias por preferirnos! 🙌\n`
+    msg += `_Avisander · Calidad premium en cada corte_`
+    return msg
   }
 
-  const getWhatsAppUrl = () => {
-    const phone = '3162530287' // Local number (wa.me handles country detection)
-    const message = generateWhatsAppMessage()
-    return `https://wa.me/${phone}?text=${message}`
-  }
+  const getWhatsAppUrl = (customer) =>
+    whatsappLink(settings.whatsapp_number, generateWhatsAppMessage(customer))
+
+  // Payload para POST /api/orders
+  const toOrderItems = () =>
+    items.map((it) => ({
+      product_id: it.product.id,
+      name: it.product.name,
+      sale_type: it.sale_type,
+      price: it.product.price,
+      quantity: it.sale_type === 'fixed' ? it.quantity : undefined,
+      weight_grams: it.sale_type === 'by_weight' ? it.weight_grams : undefined,
+      notes: it.notes || null
+    }))
 
   const value = {
     items,
     addItem,
-    updateQuantity,
-    removeItem,
+    updateLine,
+    removeLine,
     clearCart,
     subtotal,
     deliveryCost,
     total,
     itemCount,
-    getWhatsAppUrl
+    getWhatsAppUrl,
+    generateWhatsAppMessage,
+    toOrderItems,
+    lineTotal
   }
 
-  return (
-    <CartContext.Provider value={value}>
-      {children}
-    </CartContext.Provider>
-  )
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>
 }
 
 export function useCart() {
-  const context = useContext(CartContext)
-  if (!context) {
-    throw new Error('useCart must be used within a CartProvider')
-  }
-  return context
+  const ctx = useContext(CartContext)
+  if (!ctx) throw new Error('useCart must be used within a CartProvider')
+  return ctx
 }

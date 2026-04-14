@@ -52,8 +52,33 @@ coverage/
 backend/uploads/*
 !backend/uploads/.gitkeep
 
+# Backups
+backend/backups/
+
+# Media — subcarpetas con contenido pesado (fotos, videos, publicidad)
+backend/media/biblioteca/*
+backend/media/videos/*
+backend/media/productos/*
+backend/media/recetas/*
+backend/media/avatares/*
+backend/media/publicidad/**/*
+!backend/media/**/.gitkeep
+# Los íconos de categorías SÍ se commitean (10 PNG pequeños, MIT, parte del diseño)
+
 # Feature tracking (managed by API)
 features.db
+features.db-*
+assistant.db
+
+# Claude / dev assistant artifacts
+.agent_logs/
+.claude_assistant_settings.json
+.claude_settings.json
+.playwright-mcp/
+prompts/
+
+# Screenshots en root (solo para debug manual)
+screenshot-*.png
 
 # Temporary files
 *.tmp

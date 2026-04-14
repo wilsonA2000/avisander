@@ -1,0 +1,174 @@
+// App Express exportable (sin listen) para reusar en server.js y tests.
+const express = require('express')
+const cors = require('cors')
+const helmet = require('helmet')
+const rateLimit = require('express-rate-limit')
+const pinoHttp = require('pino-http')
+const path = require('path')
+
+const logger = require('./lib/logger')
+
+const authRoutes = require('./routes/auth')
+const productRoutes = require('./routes/products')
+const categoryRoutes = require('./routes/categories')
+const orderRoutes = require('./routes/orders')
+const settingsRoutes = require('./routes/settings')
+const uploadRoutes = require('./routes/upload')
+const deliveryRoutes = require('./routes/delivery')
+const recipeRoutes = require('./routes/recipes')
+const mediaRoutes = require('./routes/media')
+const paymentRoutes = require('./routes/payments')
+const customerRoutes = require('./routes/customers')
+
+function createApp({ enableRateLimit = true } = {}) {
+  const app = express()
+  const isProd = process.env.NODE_ENV === 'production'
+
+  app.set('trust proxy', 1)
+
+  if (process.env.NODE_ENV !== 'test') {
+    app.use(
+      pinoHttp({
+        logger,
+        customLogLevel: (_req, res, err) => {
+          if (err || res.statusCode >= 500) return 'error'
+          if (res.statusCode >= 400) return 'warn'
+          return 'info'
+        },
+        serializers: {
+          req: (req) => ({ method: req.method, url: req.url, id: req.id }),
+          res: (res) => ({ statusCode: res.statusCode })
+        }
+      })
+    )
+  }
+
+  app.use(
+    helmet({
+      contentSecurityPolicy: isProd
+        ? {
+            directives: {
+              defaultSrc: ["'self'"],
+              imgSrc: ["'self'", 'data:', 'blob:'],
+              connectSrc: ["'self'", 'https://wa.me'],
+              scriptSrc: ["'self'"],
+              styleSrc: ["'self'", "'unsafe-inline'"]
+            }
+          }
+        : false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' }
+    })
+  )
+
+  const allowedOrigins = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  app.use(
+    cors({
+      origin: (origin, cb) => {
+        if (!origin || allowedOrigins.includes(origin)) return cb(null, true)
+        return cb(new Error('Origen no permitido por CORS'))
+      },
+      credentials: true
+    })
+  )
+
+  // El webhook de Bold necesita el body RAW para verificar HMAC-SHA256.
+  // Si el express.json() lo parsea antes, perdemos la firma.
+  // Saltamos esta ruta del parser global.
+  app.use((req, res, next) => {
+    if (req.originalUrl === '/api/payments/bold/webhook') return next()
+    return express.json({ limit: '1mb' })(req, res, next)
+  })
+
+  if (enableRateLimit) {
+    // En desarrollo subimos el máximo; tests E2E y HMR pueden disparar cientos de requests legítimas.
+    const globalMax = process.env.NODE_ENV === 'production' ? 300 : 3000
+    app.use(
+      rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: globalMax,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: { error: 'Demasiadas solicitudes, intenta más tarde.' }
+      })
+    )
+  }
+
+  const authLimiter = enableRateLimit
+    ? rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 5,
+        standardHeaders: true,
+        legacyHeaders: false,
+        skipSuccessfulRequests: true,
+        message: { error: 'Demasiados intentos. Intenta de nuevo en 15 minutos.' }
+      })
+    : (_req, _res, next) => next()
+
+  app.use(
+    '/uploads',
+    express.static(path.join(__dirname, 'uploads'), {
+      dotfiles: 'deny',
+      maxAge: '30d',
+      index: false
+    })
+  )
+
+  // Medios (fotos productos, videos, recetas, publicidad). Ver backend/media/README.md
+  app.use(
+    '/media',
+    express.static(path.join(__dirname, 'media'), {
+      dotfiles: 'deny',
+      maxAge: '7d',
+      index: false
+    })
+  )
+
+  app.use('/api/auth', authLimiter, authRoutes)
+  app.use('/api/products', productRoutes)
+  app.use('/api/categories', categoryRoutes)
+  app.use('/api/orders', orderRoutes)
+  app.use('/api/settings', settingsRoutes)
+  app.use('/api/upload', uploadRoutes)
+  app.use('/api/delivery', deliveryRoutes)
+  app.use('/api/recipes', recipeRoutes)
+  app.use('/api/media', mediaRoutes)
+  app.use('/api/payments', paymentRoutes)
+  app.use('/api/customers', customerRoutes)
+
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() })
+  })
+
+  app.use((_req, res) => {
+    res.status(404).json({ error: 'Recurso no encontrado' })
+  })
+
+  app.use((err, req, res, _next) => {
+    const status = err.status || err.statusCode || 500
+
+    if (err.name === 'ZodError') {
+      return res.status(400).json({
+        error: 'Datos inválidos',
+        details: err.issues?.map((i) => ({ path: i.path.join('.'), message: i.message }))
+      })
+    }
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token inválido o expirado' })
+    }
+    if (err.message && err.message.includes('CORS')) {
+      return res.status(403).json({ error: err.message })
+    }
+
+    req.log ? req.log.error({ err }) : logger.error({ err })
+    res.status(status).json({
+      error: isProd ? 'Error interno del servidor' : err.message || 'Error interno del servidor'
+    })
+  })
+
+  return app
+}
+
+module.exports = { createApp }
