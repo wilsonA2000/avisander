@@ -1,15 +1,36 @@
-import { Link, NavLink } from 'react-router-dom'
-import { ShoppingCart, User, Menu, X, ChefHat } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import {
+  ShoppingCart,
+  User,
+  Menu,
+  X,
+  LayoutDashboard,
+  ChevronDown,
+  ChefHat,
+  Building2,
+  Users as UsersIcon,
+  MapPin,
+  HelpCircle,
+  MessageSquare,
+  Phone
+} from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
+import { useSettings, whatsappLink, telLink, formatPhone } from '../context/SettingsContext'
 import { api } from '../lib/apiClient'
 import SearchBar from './SearchBar'
+import MegaMenu from './MegaMenu'
+import CartMiniPreview from './CartMiniPreview'
 
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [mobileSection, setMobileSection] = useState(null) // productos|sobre|ayuda|contacto|null
+  const [cartPreviewOpen, setCartPreviewOpen] = useState(false)
+  const cartPreviewTimerRef = useRef(null)
   const { user, isAuthenticated, isAdmin, logout } = useAuth()
   const { itemCount } = useCart()
+  const { settings } = useSettings()
   const [bumpKey, setBumpKey] = useState(0)
   const prevCount = useRef(itemCount)
   const [categories, setCategories] = useState([])
@@ -50,13 +71,31 @@ function Header() {
           <div className="hidden md:flex items-center gap-4 flex-shrink-0">
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
-                <Link
-                  to="/mi-cuenta"
-                  className="flex items-center gap-1 text-gray-700 hover:text-primary text-sm"
-                >
-                  <User size={18} />
-                  <span className="max-w-[120px] truncate">{user?.name || 'Mi Cuenta'}</span>
-                </Link>
+                {isAdmin ? (
+                  <Link
+                    to="/admin"
+                    className="inline-flex items-center gap-1.5 bg-primary text-white hover:bg-primary-dark text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    <LayoutDashboard size={16} />
+                    Panel Admin
+                  </Link>
+                ) : (
+                  <Link
+                    to="/mi-cuenta"
+                    className="flex items-center gap-2 text-gray-700 hover:text-primary text-sm"
+                  >
+                    {user?.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt=""
+                        className="w-7 h-7 rounded-full object-cover border border-gray-200"
+                      />
+                    ) : (
+                      <User size={18} />
+                    )}
+                    <span className="max-w-[120px] truncate">{user?.name || 'Mi Cuenta'}</span>
+                  </Link>
+                )}
                 <button onClick={logout} className="text-gray-400 hover:text-primary text-sm">
                   Salir
                 </button>
@@ -66,29 +105,37 @@ function Header() {
                 Iniciar sesión
               </Link>
             )}
-            {isAdmin && (
-              <Link to="/admin" className="text-primary hover:text-primary-dark text-sm font-medium">
-                Admin
-              </Link>
-            )}
 
-            <Link
-              to="/carrito"
-              className="relative p-2 text-gray-700 hover:text-primary transition-colors"
-              aria-label="Carrito de compras"
+            <div
+              className="relative"
+              onMouseEnter={() => {
+                if (cartPreviewTimerRef.current) clearTimeout(cartPreviewTimerRef.current)
+                setCartPreviewOpen(true)
+              }}
+              onMouseLeave={() => {
+                // Pequeño delay para poder mover el cursor al dropdown sin que se cierre.
+                cartPreviewTimerRef.current = setTimeout(() => setCartPreviewOpen(false), 200)
+              }}
             >
-              <span key={`d-${bumpKey}`} className={bumpKey ? 'inline-block animate-cart-bounce' : 'inline-block'}>
-                <ShoppingCart size={24} />
-              </span>
-              {itemCount > 0 && (
-                <span
-                  key={`db-${bumpKey}`}
-                  className="absolute -top-1 -right-1 bg-primary text-white text-xs min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center animate-badge-pop"
-                >
-                  {itemCount}
+              <Link
+                to="/carrito"
+                className="relative p-2 text-gray-700 hover:text-primary transition-colors inline-block"
+                aria-label="Carrito de compras"
+              >
+                <span key={`d-${bumpKey}`} className={bumpKey ? 'inline-block animate-cart-bounce' : 'inline-block'}>
+                  <ShoppingCart size={24} />
                 </span>
-              )}
-            </Link>
+                {itemCount > 0 && (
+                  <span
+                    key={`db-${bumpKey}`}
+                    className="absolute -top-1 -right-1 bg-primary text-white text-xs min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center animate-badge-pop"
+                  >
+                    {itemCount}
+                  </span>
+                )}
+              </Link>
+              <CartMiniPreview open={cartPreviewOpen} />
+            </div>
           </div>
 
           {/* Mobile cart + menu */}
@@ -115,64 +162,131 @@ function Header() {
         </div>
       </div>
 
-      {/* Segunda fila: categorías scrolleables */}
-      <nav className="bg-gray-50 border-y border-gray-200">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-2 text-sm">
-            <NavLink
-              to="/productos"
-              end
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-full whitespace-nowrap transition-colors ${
-                  isActive ? 'bg-primary text-white' : 'text-gray-700 hover:bg-white'
-                }`
-              }
-            >
-              Todos los productos
-            </NavLink>
-            {categories.map((c) => (
-              <Link
-                key={c.id}
-                to={`/productos?category=${encodeURIComponent(c.name.toLowerCase())}`}
-                className="px-3 py-1.5 rounded-full whitespace-nowrap text-gray-700 hover:bg-white transition-colors"
-              >
-                {c.icon} {c.name}
-              </Link>
-            ))}
-            <Link
-              to="/recetas"
-              className="px-3 py-1.5 rounded-full whitespace-nowrap text-gray-700 hover:bg-white transition-colors ml-auto flex items-center gap-1"
-            >
-              <ChefHat size={14} /> Recetas
-            </Link>
-          </div>
-        </div>
-      </nav>
+      {/* Segunda fila: MegaMenu (solo desktop) */}
+      <div className="hidden md:block">
+        <MegaMenu onNavigate={() => setMobileSection(null)} />
+      </div>
 
-      {/* Mobile menu */}
+      {/* Menú móvil con acordeones */}
       {isMenuOpen && (
-        <div className="md:hidden py-4 border-t container mx-auto px-4">
-          <nav className="flex flex-col gap-3">
-            <Link to="/" className="text-gray-700" onClick={() => setIsMenuOpen(false)}>Inicio</Link>
-            <Link to="/productos" className="text-gray-700" onClick={() => setIsMenuOpen(false)}>Productos</Link>
-            <Link to="/recetas" className="text-gray-700" onClick={() => setIsMenuOpen(false)}>Recetas</Link>
-            {isAdmin && <Link to="/admin" className="text-primary font-medium" onClick={() => setIsMenuOpen(false)}>Admin</Link>}
-            {isAuthenticated ? (
-              <>
-                <Link to="/mi-cuenta" className="text-gray-700" onClick={() => setIsMenuOpen(false)}>Mi Cuenta</Link>
-                <button onClick={() => { logout(); setIsMenuOpen(false) }} className="text-left text-gray-500">
-                  Cerrar sesión
-                </button>
-              </>
-            ) : (
-              <Link to="/login" className="text-primary font-medium" onClick={() => setIsMenuOpen(false)}>
-                Iniciar sesión
-              </Link>
-            )}
-          </nav>
+        <div className="md:hidden border-t bg-white">
+          <div className="container mx-auto px-4 py-4 max-h-[80vh] overflow-y-auto">
+            <Link
+              to="/productos"
+              onClick={() => setIsMenuOpen(false)}
+              className="block py-3 text-sm font-medium text-charcoal border-b border-gray-100"
+            >
+              Productos
+            </Link>
+
+            <MobileSection
+              label="Sobre Avisander"
+              expanded={mobileSection === 'sobre'}
+              onToggle={() => setMobileSection(mobileSection === 'sobre' ? null : 'sobre')}
+            >
+              {[
+                { to: '/nosotros', Icon: Building2, label: 'Nosotros' },
+                { to: '/equipo', Icon: UsersIcon, label: 'Nuestro equipo' },
+                { to: '/ubicacion', Icon: MapPin, label: 'Ubicación' },
+                { to: '/recetas', Icon: ChefHat, label: 'Recetas' }
+              ].map(({ to, Icon, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-cream rounded"
+                >
+                  <Icon size={14} className="text-primary" />
+                  {label}
+                </Link>
+              ))}
+            </MobileSection>
+
+            <MobileSection
+              label="Ayuda"
+              expanded={mobileSection === 'ayuda'}
+              onToggle={() => setMobileSection(mobileSection === 'ayuda' ? null : 'ayuda')}
+            >
+              {[
+                { to: '/ayuda', Icon: HelpCircle, label: 'Centro de ayuda' },
+                { to: '/pqrs', Icon: MessageSquare, label: 'PQRS' }
+              ].map(({ to, Icon, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-cream rounded"
+                >
+                  <Icon size={14} className="text-primary" />
+                  {label}
+                </Link>
+              ))}
+            </MobileSection>
+
+            <MobileSection
+              label="Contacto"
+              expanded={mobileSection === 'contacto'}
+              onToggle={() => setMobileSection(mobileSection === 'contacto' ? null : 'contacto')}
+            >
+              <a href={telLink(settings.whatsapp_number)} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-cream rounded">
+                <Phone size={14} className="text-primary" />
+                {formatPhone(settings.whatsapp_number)}
+              </a>
+              <a
+                href={whatsappLink(settings.whatsapp_number)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-emerald-700 hover:bg-cream rounded"
+              >
+                <MessageSquare size={14} />
+                Escribir por WhatsApp
+              </a>
+            </MobileSection>
+
+            <div className="border-t mt-4 pt-4 space-y-2">
+              {isAuthenticated ? (
+                <>
+                  {isAdmin ? (
+                    <Link to="/admin" className="block px-3 py-2 text-sm font-medium text-primary" onClick={() => setIsMenuOpen(false)}>
+                      Panel Admin
+                    </Link>
+                  ) : (
+                    <Link to="/mi-cuenta" className="block px-3 py-2 text-sm text-gray-700" onClick={() => setIsMenuOpen(false)}>
+                      Mi Cuenta
+                    </Link>
+                  )}
+                  <button onClick={() => { logout(); setIsMenuOpen(false) }} className="block w-full text-left px-3 py-2 text-sm text-gray-500">
+                    Cerrar sesión
+                  </button>
+                </>
+              ) : (
+                <Link to="/login" className="block px-3 py-2 text-sm font-medium text-primary" onClick={() => setIsMenuOpen(false)}>
+                  Iniciar sesión
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </header>
+  )
+}
+
+function MobileSection({ label, expanded, onToggle, children }) {
+  return (
+    <div className="border-b border-gray-100 last:border-b-0">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between py-3 text-left text-sm font-medium text-gray-800"
+      >
+        {label}
+        <ChevronDown
+          size={16}
+          className={`text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {expanded && <div className="pb-3 space-y-1">{children}</div>}
+    </div>
   )
 }
 

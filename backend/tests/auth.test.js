@@ -114,11 +114,18 @@ describe('Auth & hardening', () => {
     const allowed = [
       'delivery_cost',
       'business_hours_weekday',
+      'business_hours_saturday',
       'business_hours_weekend',
+      'business_hours_holiday',
       'delivery_hours',
       'whatsapp_number',
       'store_name',
-      'store_address'
+      'store_short_name',
+      'store_address',
+      'store_lat',
+      'store_lng',
+      'free_shipping_threshold',
+      'tax_rate'
     ]
     expect(keys.every((k) => allowed.includes(k))).toBe(true)
   })

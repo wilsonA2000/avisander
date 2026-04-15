@@ -28,6 +28,18 @@ import AdminSettings from './pages/admin/Settings'
 import AdminRecipes from './pages/admin/Recipes'
 import AdminMedia from './pages/admin/MediaLibrary'
 import AdminCustomers from './pages/admin/Customers'
+import AdminInventario from './pages/admin/Inventario'
+import AdminProveedores from './pages/admin/Proveedores'
+import AdminCompras from './pages/admin/Compras'
+import AdminPqrs from './pages/admin/Pqrs'
+import AdminEstudioAI from './pages/admin/EstudioAI'
+import Nosotros from './pages/Nosotros'
+import Equipo from './pages/Equipo'
+import Ubicacion from './pages/Ubicacion'
+import Ayuda from './pages/Ayuda'
+import PqrsPage from './pages/Pqrs'
+import PoliticaPrivacidad from './pages/PoliticaPrivacidad'
+import PoliticaSarlaft from './pages/PoliticaSarlaft'
 
 function App() {
   return (
@@ -46,6 +58,13 @@ function App() {
         <Route path="recetas" element={<Recipes />} />
         <Route path="recetas/:slug" element={<RecipeDetail />} />
         <Route path="pago/:reference" element={<PaymentResult />} />
+        <Route path="nosotros" element={<Nosotros />} />
+        <Route path="equipo" element={<Equipo />} />
+        <Route path="ubicacion" element={<Ubicacion />} />
+        <Route path="ayuda" element={<Ayuda />} />
+        <Route path="pqrs" element={<PqrsPage />} />
+        <Route path="politica-privacidad" element={<PoliticaPrivacidad />} />
+        <Route path="politica-sarlaft" element={<PoliticaSarlaft />} />
         <Route
           path="mi-cuenta"
           element={
@@ -73,6 +92,11 @@ function App() {
         <Route path="recetas" element={<AdminRecipes />} />
         <Route path="biblioteca" element={<AdminMedia />} />
         <Route path="clientes" element={<AdminCustomers />} />
+        <Route path="inventario" element={<AdminInventario />} />
+        <Route path="proveedores" element={<AdminProveedores />} />
+        <Route path="compras" element={<AdminCompras />} />
+        <Route path="pqrs" element={<AdminPqrs />} />
+        <Route path="estudio-ai" element={<AdminEstudioAI />} />
       </Route>
 
       {/* 404 */}

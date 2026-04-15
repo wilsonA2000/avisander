@@ -52,7 +52,9 @@ const orderCreateSchema = z.object({
   delivery_lat: z.number().min(-90).max(90).optional().nullable(),
   delivery_lng: z.number().min(-180).max(180).optional().nullable(),
   delivery_city: z.string().trim().max(80).optional().nullable(),
-  payment_method: z.enum(['whatsapp', 'bold', 'cash', 'pickup']).optional().default('whatsapp')
+  // 'cash' (contra entrega) eliminado: política — Wilson no despacha sin pago previo.
+  // 'pickup' nunca fue un método de pago real, era un alias confuso.
+  payment_method: z.enum(['whatsapp', 'bold']).optional().default('whatsapp')
 })
 
 const orderStatusSchema = z.object({

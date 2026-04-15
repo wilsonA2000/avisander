@@ -1,6 +1,7 @@
 import { ShoppingCart, Eye, Truck, Plus, Minus } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { useCart } from '../context/CartContext'
 import { useToast } from '../context/ToastContext'
 import AddToCartModal from './AddToCartModal'
@@ -14,7 +15,11 @@ function ProductCard({ product, variant = 'grid' }) {
   const [open, setOpen] = useState(false)
   const [qty, setQty] = useState(1)
 
-  const isAvailable = product.is_available !== false
+  const hasStockField = product.stock !== undefined && product.stock !== null
+  const stock = Number(product.stock) || 0
+  // Si el producto tiene stock numérico y es 0, está agotado aunque is_available sea true.
+  const isAvailable = product.is_available !== false && (!hasStockField || stock > 0)
+  const lowStock = hasStockField && stock > 0 && stock <= 3
   const isWeight = product.sale_type === 'by_weight'
   const displayPrice = isWeight ? (product.price_per_kg ?? product.price) : product.price
   const detailPath = `/producto/${product.id}`
@@ -24,16 +29,33 @@ function ProductCard({ product, variant = 'grid' }) {
     window.dispatchEvent(new CustomEvent('avisander:cart-bump'))
   }
 
+  // Maneja el resultado del add: si stock limitó la cantidad, avisa al cliente.
+  const reportAddResult = (result, requestedDetail) => {
+    if (!result) return
+    if (result.added <= 0) {
+      toast.error(`${product.name} sin stock disponible.`)
+      return
+    }
+    if (result.sale_type === 'fixed' && result.added < result.requested) {
+      toast.warn(
+        `Solo agregamos ${result.added} de ${result.requested} de "${product.name}" (queda ${result.stock} en stock).`
+      )
+      window.dispatchEvent(new CustomEvent('avisander:cart-bump'))
+      return
+    }
+    triggerAdded(requestedDetail)
+  }
+
   const handleModalConfirm = (opts) => {
-    addItem(product, opts)
+    const result = addItem(product, opts)
     setOpen(false)
     const detail = isWeight ? `${opts.weight_grams} g` : `${opts.quantity} ${product.unit || 'und'}`
-    triggerAdded(detail)
+    reportAddResult(result, detail)
   }
 
   const handleQuickAdd = () => {
-    addItem(product, { quantity: qty })
-    triggerAdded(`${qty} ${product.unit || 'und'}`)
+    const result = addItem(product, { quantity: qty })
+    reportAddResult(result, `${qty} ${product.unit || 'und'}`)
     setQty(1)
   }
 
@@ -63,6 +85,9 @@ function ProductCard({ product, variant = 'grid' }) {
               {isWeight && <span className="badge-by-weight">Por peso</span>}
               {showFreeShip && <span className="badge bg-green-100 text-green-800"><Truck size={10} className="inline mr-0.5" /> Envío gratis</span>}
               {!isAvailable && <span className="badge-out-of-stock">Agotado</span>}
+              {isAvailable && lowStock && (
+                <span className="badge bg-amber-500 text-white">Últimas unidades</span>
+              )}
             </div>
           </div>
           <div className="flex flex-col items-end gap-2 flex-shrink-0">
@@ -84,7 +109,11 @@ function ProductCard({ product, variant = 'grid' }) {
   // Grid (default)
   return (
     <>
-      <div className="card group flex flex-col h-full">
+      <motion.div
+        whileHover={{ y: -4 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+        className="card group flex flex-col h-full"
+      >
         <Link to={detailPath} className="relative aspect-square bg-gray-100 block overflow-hidden">
           <ProductImage
             product={product}
@@ -99,6 +128,9 @@ function ProductCard({ product, variant = 'grid' }) {
             {product.is_on_sale && <span className="badge-sale">Oferta</span>}
             {isWeight && <span className="badge-by-weight">Por peso</span>}
             {!isAvailable && <span className="badge-out-of-stock">Agotado</span>}
+              {isAvailable && lowStock && (
+                <span className="badge bg-amber-500 text-white">Últimas unidades</span>
+              )}
           </div>
           {showFreeShip && (
             <div className="absolute bottom-2 left-2">
@@ -173,7 +205,7 @@ function ProductCard({ product, variant = 'grid' }) {
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
       {open && <AddToCartModal product={product} onClose={() => setOpen(false)} onConfirm={handleModalConfirm} />}
     </>
   )

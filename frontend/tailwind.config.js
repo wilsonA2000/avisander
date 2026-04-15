@@ -7,18 +7,35 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Paleta institucional Avisander (extraída del logo y branding Facebook).
+        // Naranja vibrante = color principal. Rojo = acento. Amarillo = destacados/CTAs premium.
         primary: {
-          DEFAULT: '#DC2626', // Rojo - Color principal
-          dark: '#991B1B',    // Rojo oscuro - Hover y acentos
+          DEFAULT: '#F58220',   // Naranja Avisander
+          dark: '#D86E12'
         },
-        surface: '#F9FAFB',   // Gris claro - Fondos secundarios
-        success: '#16A34A',   // Verde - Confirmaciones
-        warning: '#EAB308',   // Amarillo - Ofertas y alertas
-        error: '#EF4444',     // Rojo - Errores
+        accent: {
+          DEFAULT: '#D32F2F',   // Rojo carnicero (acento)
+          dark: '#A02020'
+        },
+        gold: {
+          DEFAULT: '#FFD800',   // Amarillo del logo (banner cápsula)
+          dark: '#E5C200'
+        },
+        charcoal: '#0A0A0A',    // Negro profundo
+        cream: '#FFFAF3',       // Blanco crema cálido
+        sage: '#6B7F6D',
+        surface: '#F9FAFB',
+        success: '#10B981',
+        warning: '#F58220',     // Reusa naranja para coherencia
+        error: '#D32F2F'
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['"Playfair Display"', 'Georgia', 'serif']
       },
+      boxShadow: {
+        soft: '0 40px 80px -20px rgba(0, 0, 0, 0.08), 0 8px 16px -4px rgba(0, 0, 0, 0.05)'
+      }
     },
   },
   plugins: [],

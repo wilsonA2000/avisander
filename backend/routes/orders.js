@@ -5,6 +5,7 @@ const { validate } = require('../middleware/validate')
 const { orderCreateSchema, orderStatusSchema } = require('../schemas/order')
 const { quoteDelivery } = require('../lib/delivery')
 const bold = require('../lib/bold')
+const inventory = require('../lib/inventory')
 // Nota: el body del webhook /api/payments/bold/webhook se recibe como RAW Buffer
 // (ver exclusión del express.json global en app.js) para poder verificar HMAC-SHA256.
 const { sendMail, orderAdminEmail, orderCustomerEmail } = require('../lib/mailer')
@@ -58,6 +59,48 @@ router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => 
       delivery_city,
       payment_method = 'whatsapp'
     } = req.body
+
+    // Defensa en profundidad: productos por peso solo se cobran por WhatsApp.
+    // El frontend ya lo bloquea, pero un cliente con DevTools podría intentar saltárselo.
+    const hasByWeight = items.some((it) => (it.sale_type || 'fixed') === 'by_weight')
+    if (hasByWeight && payment_method !== 'whatsapp') {
+      const e = new Error(
+        'Los productos por peso solo se pueden coordinar por WhatsApp (el peso real puede variar). Cambia el método de pago a WhatsApp o quita los productos por peso.'
+      )
+      e.status = 400
+      throw e
+    }
+
+    // Defensa en profundidad: validar stock antes de crear la orden.
+    // Productos by_weight no aplican (stock se descuenta en kg al cortar).
+    const stockErrors = []
+    for (const it of items) {
+      if (!it.product_id) continue
+      if ((it.sale_type || 'fixed') === 'by_weight') continue
+      const prod = db
+        .prepare('SELECT id, name, stock, is_available FROM products WHERE id = ?')
+        .get(it.product_id)
+      if (!prod) {
+        stockErrors.push(`Producto ${it.product_id} no existe`)
+        continue
+      }
+      if (prod.is_available === 0) {
+        stockErrors.push(`"${prod.name}" no está disponible`)
+        continue
+      }
+      const stock = Number(prod.stock) || 0
+      if (stock <= 0) {
+        stockErrors.push(`"${prod.name}" sin stock`)
+      } else if (it.quantity > stock) {
+        stockErrors.push(`"${prod.name}" solo tiene ${stock} en stock (pediste ${it.quantity})`)
+      }
+    }
+    if (stockErrors.length > 0) {
+      const e = new Error(stockErrors.join(' · '))
+      e.status = 400
+      e.code = 'insufficient_stock'
+      throw e
+    }
 
     let subtotal = 0
     const orderItems = items.map((item) => {
@@ -234,9 +277,40 @@ router.put(
   validate(orderStatusSchema),
   (req, res, next) => {
     try {
-      const existing = db.prepare('SELECT id FROM orders WHERE id = ?').get(req.params.id)
+      const existing = db
+        .prepare('SELECT id, status, payment_method, payment_status, stock_deducted FROM orders WHERE id = ?')
+        .get(req.params.id)
       if (!existing) return res.status(404).json({ error: 'Pedido no encontrado' })
-      db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(req.body.status, req.params.id)
+
+      const newStatus = req.body.status
+      const confirmStatuses = ['processing', 'completed']
+
+      // Al confirmar pedido (whatsapp/efectivo) se descuenta stock.
+      // Para pedidos Bold, el descuento ya ocurrió al aprobar el pago.
+      if (
+        confirmStatuses.includes(newStatus) &&
+        !existing.stock_deducted &&
+        existing.payment_method !== 'bold'
+      ) {
+        try {
+          inventory.recordSaleFromOrder({ orderId: existing.id, userId: req.user.id })
+          db.prepare('UPDATE orders SET stock_deducted = 1 WHERE id = ?').run(existing.id)
+        } catch (err) {
+          if (err.code === 'insufficient_stock') {
+            return res.status(400).json({
+              error: err.message,
+              code: 'insufficient_stock',
+              product_id: err.product_id,
+              product_name: err.product_name,
+              stock: err.stock,
+              requested: err.requested
+            })
+          }
+          throw err
+        }
+      }
+
+      db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(newStatus, req.params.id)
       res.json(db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id))
     } catch (error) {
       next(error)

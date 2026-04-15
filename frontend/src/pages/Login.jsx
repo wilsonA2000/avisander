@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import useScrollToTop from '../hooks/useScrollToTop'
 
 function Login() {
+  useScrollToTop('#email')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -12,7 +14,7 @@ function Login() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const from = location.state?.from?.pathname || '/'
+  const from = location.state?.from?.pathname
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -20,8 +22,11 @@ function Login() {
     setLoading(true)
 
     try {
-      await login(email, password)
-      navigate(from, { replace: true })
+      const data = await login(email, password)
+      // Priorizar `from` si venía redirigido desde un protected route.
+      // Si no, el admin va al panel, el cliente al home.
+      const target = from || (data?.user?.role === 'admin' ? '/admin' : '/')
+      navigate(target, { replace: true })
     } catch (err) {
       setError(err.message || 'Credenciales invalidas')
     } finally {
@@ -54,6 +59,7 @@ function Login() {
                 className="input"
                 required
                 autoComplete="email"
+                autoFocus
               />
             </div>
 

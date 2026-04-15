@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import useScrollToTop from '../hooks/useScrollToTop'
 
 function Register() {
+  useScrollToTop('#name')
   const [formData, setFormData] = useState({
     name: '',
     email: '',

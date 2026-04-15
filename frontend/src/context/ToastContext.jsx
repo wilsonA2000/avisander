@@ -1,5 +1,7 @@
-// Toast premium con íconos, gradiente sutil, barra de progreso animada,
-// animación slide + fade, dismiss manual y mobile-first.
+// Toast premium con estética institucional Avisander:
+// - Naranja #F58220 (success/info) · Rojo #D32F2F (error) · Amarillo #FFD800 (warn)
+// - Fondo charcoal con acento cálido, borde vertical del color correspondiente,
+//   ícono con halo circular, barra de progreso y efecto slide editorial.
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react'
@@ -7,34 +9,40 @@ import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react'
 const ToastContext = createContext(null)
 let idCounter = 0
 
+// Estilos institucionales. Los colores NO usan Tailwind `bg-*` customs para que
+// no dependan del JIT purge y se rendericen siempre (inline styles).
 const STYLE = {
   success: {
     Icon: CheckCircle2,
-    iconBg: 'bg-emerald-100 text-emerald-600',
-    bar: 'bg-emerald-500',
-    ring: 'ring-emerald-500/20',
-    accent: 'border-l-emerald-500'
+    accentColor: '#F58220',   // Naranja Avisander
+    haloBg: 'rgba(245, 130, 32, 0.15)',
+    iconColor: '#F58220',
+    progressColor: '#F58220',
+    label: 'success'
   },
   error: {
     Icon: XCircle,
-    iconBg: 'bg-rose-100 text-rose-600',
-    bar: 'bg-rose-500',
-    ring: 'ring-rose-500/20',
-    accent: 'border-l-rose-500'
+    accentColor: '#D32F2F',   // Rojo carnicero
+    haloBg: 'rgba(211, 47, 47, 0.15)',
+    iconColor: '#D32F2F',
+    progressColor: '#D32F2F',
+    label: 'error'
   },
   warn: {
     Icon: AlertTriangle,
-    iconBg: 'bg-amber-100 text-amber-600',
-    bar: 'bg-amber-500',
-    ring: 'ring-amber-500/20',
-    accent: 'border-l-amber-500'
+    accentColor: '#E5C200',   // Amarillo gold-dark (mejor contraste sobre blanco)
+    haloBg: 'rgba(255, 216, 0, 0.2)',
+    iconColor: '#B89800',
+    progressColor: '#FFD800',
+    label: 'warn'
   },
   info: {
     Icon: Info,
-    iconBg: 'bg-sky-100 text-sky-600',
-    bar: 'bg-sky-500',
-    ring: 'ring-sky-500/20',
-    accent: 'border-l-sky-500'
+    accentColor: '#0A0A0A',   // Negro institucional
+    haloBg: 'rgba(10, 10, 10, 0.12)',
+    iconColor: '#1A1A1A',
+    progressColor: '#F58220',
+    label: 'info'
   }
 }
 
@@ -48,7 +56,6 @@ function Toast({ id, message, type, duration, onClose }) {
     setTimeout(() => onClose(id), 220)
   }
 
-  // Auto-cierre
   useEffect(() => {
     if (duration <= 0) return
     const t = setTimeout(close, duration)
@@ -60,34 +67,41 @@ function Toast({ id, message, type, duration, onClose }) {
     <div
       role="status"
       aria-live="polite"
-      className={`
-        pointer-events-auto overflow-hidden rounded-2xl bg-white shadow-xl shadow-black/10
-        ring-1 ${style.ring} border-l-4 ${style.accent}
-        ${leaving ? 'animate-toast-out' : 'animate-toast-in'}
-      `}
+      className={`pointer-events-auto overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 ${
+        leaving ? 'animate-toast-out' : 'animate-toast-in'
+      }`}
+      style={{
+        borderLeftWidth: 4,
+        borderLeftColor: style.accentColor,
+        borderLeftStyle: 'solid'
+      }}
     >
       <div className="flex items-start gap-3 p-4 pr-3">
-        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${style.iconBg}`}>
-          <Icon size={20} strokeWidth={2.5} />
+        <div
+          className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: style.haloBg }}
+        >
+          <Icon size={20} strokeWidth={2.5} style={{ color: style.iconColor }} />
         </div>
         <div className="flex-1 min-w-0 pt-1">
-          <p className="text-sm text-gray-800 font-medium leading-snug whitespace-pre-line">
+          <p className="text-sm text-charcoal font-medium leading-snug whitespace-pre-line">
             {message}
           </p>
         </div>
         <button
           onClick={close}
           aria-label="Cerrar notificación"
-          className="flex-shrink-0 -mt-1 -mr-1 p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          className="flex-shrink-0 -mt-1 -mr-1 p-1.5 rounded-full text-gray-400 hover:text-charcoal hover:bg-gray-100 transition-colors"
         >
           <X size={16} />
         </button>
       </div>
       {duration > 0 && (
-        <div className="h-[3px] w-full bg-gray-100 overflow-hidden">
+        <div className="h-1 w-full overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.06)' }}>
           <div
-            className={`h-full ${style.bar} origin-left`}
+            className="h-full origin-left"
             style={{
+              backgroundColor: style.progressColor,
               animation: `toast-progress ${duration}ms linear forwards`
             }}
           />
@@ -123,7 +137,6 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      {/* Contenedor: posición fluida bottom en mobile, top-right en desktop */}
       <div
         className="fixed z-[9999] flex flex-col gap-3 pointer-events-none
                    left-4 right-4 bottom-4

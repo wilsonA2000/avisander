@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import useScrollToTop from '../hooks/useScrollToTop'
 
 const policy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,128}$/
 
 function ResetPassword() {
+  useScrollToTop('#pw')
   const { token } = useParams()
   const navigate = useNavigate()
   const { resetPassword } = useAuth()

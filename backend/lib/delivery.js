@@ -3,35 +3,35 @@
 // Modelo: distancia haversine desde la tienda → tarifa por anillos para Bucaramanga,
 // y tarifa fija por ciudad para municipios cercanos (Girón, Floridablanca, Piedecuesta).
 
+// Coordenadas EXACTAS del local real de Avisander, verificadas vía Google Places
+// (búsqueda "Avisander" el 2026-04-14): Cra. 30 #20-70, Bucaramanga, Santander.
 const STORE = {
-  lat: Number(process.env.STORE_LAT) || 7.1192,
-  lng: Number(process.env.STORE_LNG) || -73.1227,
+  lat: Number(process.env.STORE_LAT) || 7.1294038,
+  lng: Number(process.env.STORE_LNG) || -73.1170752,
   city: 'bucaramanga',
   address: 'Cra 30 #20-70 Local 2, San Alonso, Bucaramanga'
 }
 
-const MAX_DISTANCE_KM = 20
+const MAX_DISTANCE_KM = 15
 const FREE_DELIVERY_THRESHOLD = 200000 // pesos (solo Bucaramanga)
 
-// Tarifa fija por municipio del área metropolitana
+// Tarifa fija por municipio del área metropolitana (definida con Wilson 2026-04-14).
 const CITY_FLAT_RATE = {
-  giron: 18000,
+  giron: 15000,
   floridablanca: 15000,
-  piedecuesta: 20000
+  piedecuesta: 18000
 }
 
-// Anillos para Bucaramanga ciudad
+// Anillos para Bucaramanga ciudad. Tarifa mínima $4.000 hasta 1km desde San Alonso.
+// Cacique (CC) y sectores cercanos quedan en ~3.5–4 km → $8.000.
 function bucaramangaTier(km) {
-  if (km <= 0.5) return 2000
-  if (km <= 1) return 3000
-  if (km <= 2) return 4500
-  if (km <= 3) return 6000
-  if (km <= 5) return 8000
-  if (km <= 8) return 11000
-  if (km <= 12) return 14000
-  if (km <= 16) return 17000
-  if (km <= 20) return 20000
-  return null // fuera de cobertura
+  if (km <= 1) return 4000   // Centro / San Alonso / Cabecera cercana
+  if (km <= 2) return 6000
+  if (km <= 4) return 8000   // Cacique CC, La Floresta, Provenza
+  if (km <= 7) return 11000
+  if (km <= 10) return 14000 // Norte / Sur lejano de Bucaramanga
+  if (km <= 15) return 15000 // Cap al máximo declarado
+  return null                // fuera de cobertura urbana
 }
 
 function haversineKm(lat1, lng1, lat2, lng2) {

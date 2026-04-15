@@ -19,6 +19,12 @@ const recipeRoutes = require('./routes/recipes')
 const mediaRoutes = require('./routes/media')
 const paymentRoutes = require('./routes/payments')
 const customerRoutes = require('./routes/customers')
+const supplierRoutes = require('./routes/suppliers')
+const purchaseRoutes = require('./routes/purchases')
+const inventoryRoutes = require('./routes/inventory')
+const reportsRoutes = require('./routes/reports')
+const pqrsRoutes = require('./routes/pqrs')
+const aiRoutes = require('./routes/ai')
 
 function createApp({ enableRateLimit = true } = {}) {
   const app = express()
@@ -137,6 +143,12 @@ function createApp({ enableRateLimit = true } = {}) {
   app.use('/api/media', mediaRoutes)
   app.use('/api/payments', paymentRoutes)
   app.use('/api/customers', customerRoutes)
+  app.use('/api/suppliers', supplierRoutes)
+  app.use('/api/purchases', purchaseRoutes)
+  app.use('/api/inventory', inventoryRoutes)
+  app.use('/api/reports', reportsRoutes)
+  app.use('/api/pqrs', pqrsRoutes)
+  app.use('/api/ai', aiRoutes)
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() })

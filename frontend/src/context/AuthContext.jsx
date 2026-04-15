@@ -40,6 +40,23 @@ export function AuthProvider({ children }) {
   const resetPassword = (token, password) =>
     api.post('/api/auth/reset-password', { token, password }, { skipAuth: true })
 
+  // Refresca desde /api/auth/me. Útil tras editar perfil para reflejar cambios en el header.
+  const refreshUser = async () => {
+    try {
+      const data = await api.get('/api/auth/me')
+      setUser(data.user)
+      return data.user
+    } catch (_e) {
+      return null
+    }
+  }
+
+  const updateProfile = async (payload) => {
+    const data = await api.put('/api/auth/me', payload)
+    setUser(data.user)
+    return data.user
+  }
+
   const logout = async () => {
     const refreshToken = localStorage.getItem('refreshToken')
     try {
@@ -59,6 +76,8 @@ export function AuthProvider({ children }) {
     logout,
     forgotPassword,
     resetPassword,
+    refreshUser,
+    updateProfile,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin'
   }

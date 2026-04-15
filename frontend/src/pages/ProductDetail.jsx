@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
+import useScrollToTop from '../hooks/useScrollToTop'
 import {
   ShoppingCart,
   ArrowLeft,
@@ -22,6 +23,8 @@ import VideoPlayer from '../components/VideoPlayer'
 import ProductImage from '../components/ProductImage'
 import RecipeImage from '../components/RecipeImage'
 import SEO from '../components/SEO'
+import CulinaryIcon from '../components/CulinaryIcon'
+import ImageZoom3D from '../components/ImageZoom3D'
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed'
 
 const PRESETS_GRAMS = [250, 500, 750, 1000, 1500, 2000]
@@ -38,6 +41,11 @@ function formatCOP(n) {
 
 function ProductDetail() {
   const { id } = useParams()
+  // Scroll a top en cada cambio de producto (cliente entra desde un grid scrolleado).
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [id])
+  useScrollToTop()
   const navigate = useNavigate()
   const { addItem } = useCart()
   const toast = useToast()
@@ -114,7 +122,10 @@ function ProductDetail() {
   }
 
   const isWeight = product.sale_type === 'by_weight'
-  const isAvailable = product.is_available !== false
+  const hasStockField = product.stock !== undefined && product.stock !== null
+  const stock = Number(product.stock) || 0
+  const isAvailable = product.is_available !== false && (!hasStockField || stock > 0)
+  const lowStock = hasStockField && stock > 0 && stock <= 3
   const pricePerKg = product.price_per_kg ?? product.price
   const computedTotal = isWeight ? (pricePerKg * grams) / 1000 : product.price * qty
 
@@ -131,13 +142,30 @@ function ProductDetail() {
       }
       addItem(product, { weight_grams: g, notes: notes.trim() })
       toast.success(`✓ ${product.name} (${g} g) agregado al carrito`)
+      window.dispatchEvent(new CustomEvent('avisander:cart-bump'))
+      return
+    }
+    const q = Number(qty)
+    if (!q || q < 1) {
+      toast.error('Cantidad mínima 1')
+      return
+    }
+    if (hasStockField && stock <= 0) {
+      toast.error('Producto agotado')
+      return
+    }
+    if (hasStockField && q > stock) {
+      toast.warn(`Solo quedan ${stock} unidades de "${product.name}"`)
+      return
+    }
+    const result = addItem(product, { quantity: q, notes: notes.trim() })
+    if (result?.added <= 0) {
+      toast.error(`${product.name} sin stock disponible.`)
+      return
+    }
+    if (result?.added < result?.requested) {
+      toast.warn(`Solo agregamos ${result.added} (queda ${result.stock} en stock).`)
     } else {
-      const q = Number(qty)
-      if (!q || q < 1) {
-        toast.error('Cantidad mínima 1')
-        return
-      }
-      addItem(product, { quantity: q, notes: notes.trim() })
       toast.success(`✓ ${product.name} (${q} ${product.unit || 'und'}) agregado al carrito`)
     }
     window.dispatchEvent(new CustomEvent('avisander:cart-bump'))
@@ -188,25 +216,30 @@ function ProductDetail() {
         )}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
+      <div className="grid md:grid-cols-2 lg:grid-cols-[440px_1fr] gap-8 lg:gap-10">
         {/* GALERÍA */}
-        <div>
-          <div className="relative aspect-square bg-gray-100 rounded-2xl overflow-hidden">
+        <div className="lg:sticky lg:top-24 lg:self-start">
+          <div className="relative aspect-[4/3] max-h-[420px]">
             {currentImage ? (
-              <img
+              <ImageZoom3D
                 src={currentImage}
                 alt={product.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full"
               />
             ) : (
-              <ProductImage product={product} />
+              <div className="bg-gray-100 rounded-2xl overflow-hidden w-full h-full">
+                <ProductImage product={product} />
+              </div>
             )}
 
-            {/* Badges */}
-            <div className="absolute top-3 left-3 flex flex-col gap-2">
+            {/* Badges (sobre el zoom, no se pierden) */}
+            <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
               {product.is_on_sale && <span className="badge-sale">Oferta</span>}
               {isWeight && <span className="badge-by-weight">Por peso</span>}
               {!isAvailable && <span className="badge-out-of-stock">Agotado</span>}
+              {isAvailable && lowStock && (
+                <span className="badge bg-amber-500 text-white">Últimas unidades</span>
+              )}
             </div>
 
             {allImages.length > 1 && (
@@ -402,10 +435,15 @@ function ProductDetail() {
 
               <button
                 onClick={handleAdd}
-                className="mt-4 w-full btn-primary py-3 flex items-center justify-center gap-2"
+                disabled={!isAvailable}
+                className={`mt-4 w-full py-3 flex items-center justify-center gap-2 rounded-lg font-medium transition-colors ${
+                  isAvailable
+                    ? 'btn-primary'
+                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 <ShoppingCart size={20} />
-                Agregar al carrito
+                {isAvailable ? 'Agregar al carrito' : 'Agotado · sin stock'}
               </button>
 
               {/* Signos de confianza */}
@@ -420,6 +458,49 @@ function ProductDetail() {
             <button disabled className="w-full btn bg-gray-300 text-gray-500 cursor-not-allowed mb-5">
               No disponible por ahora
             </button>
+          )}
+
+          {/* Bondades nutricionales */}
+          {product.benefits && (
+            <div className="bg-gradient-to-br from-cream to-white border border-primary/15 rounded-2xl p-6 shadow-sm">
+              <h2 className="font-display text-lg font-bold text-charcoal mb-3 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm">✦</span>
+                Bondades y beneficios
+              </h2>
+              <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+                {product.benefits.split('\n').map((line, i) => {
+                  const trimmed = line.trim()
+                  if (!trimmed) return <br key={i} />
+                  // Negrita simple con **...**
+                  const parts = trimmed.split(/(\*\*[^*]+\*\*)/g)
+                  const rendered = parts.map((p, j) =>
+                    p.startsWith('**') && p.endsWith('**')
+                      ? <strong key={j} className="text-charcoal">{p.slice(2, -2)}</strong>
+                      : <span key={j}>{p}</span>
+                  )
+                  if (trimmed.startsWith('- ')) {
+                    return <li key={i} className="ml-4 mb-1 list-disc text-sm">{rendered.map((r, idx) => idx === 0 ? <span key={idx}>{trimmed.slice(2)}</span> : r)}</li>
+                  }
+                  return <p key={i} className="mb-2">{rendered}</p>
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Usos culinarios sugeridos */}
+          {Array.isArray(product.culinary_uses) && product.culinary_uses.length > 0 && (
+            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+              <h2 className="font-display text-lg font-bold text-charcoal mb-1 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-full bg-accent/15 text-accent-dark flex items-center justify-center text-sm">🍳</span>
+                Ideal para
+              </h2>
+              <p className="text-sm text-gray-500 mb-4">Métodos de cocción recomendados para este producto.</p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                {product.culinary_uses.map((slug) => (
+                  <CulinaryIcon key={slug} slug={slug} variant="card" size="md" />
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Especificaciones detalladas */}

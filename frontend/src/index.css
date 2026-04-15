@@ -93,6 +93,26 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+  /* Marquee infinito de categorías. La pista contiene la lista DUPLICADA;
+     desplazamos -50% para que el ciclo sea perfecto y se vea continuo. */
+  @keyframes category-marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  .category-marquee-track {
+    animation: category-marquee 35s linear infinite;
+    width: max-content;
+  }
+  /* Pausa al posar el cursor en cualquier parte del contenedor. */
+  .category-marquee-wrapper:hover .category-marquee-track,
+  .category-marquee-wrapper:focus-within .category-marquee-track {
+    animation-play-state: paused;
+  }
+  /* Respeta preferencia de reducir movimiento. */
+  @media (prefers-reduced-motion: reduce) {
+    .category-marquee-track { animation: none; }
+  }
+
   /* Toast animations */
   @keyframes toast-in {
     from {

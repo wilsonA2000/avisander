@@ -9,7 +9,7 @@ import ProductCard from '../components/ProductCard'
 import FiltersSidebar from '../components/FiltersSidebar'
 import Pagination from '../components/Pagination'
 
-const PER_PAGE = 24
+const PER_PAGE = 48
 
 function filtersToParams(f) {
   const p = new URLSearchParams()
@@ -124,7 +124,13 @@ function Products() {
 
         <div className="grid lg:grid-cols-[260px_1fr] gap-6">
           <div className="hidden lg:block">
-            <div className="sticky top-[140px]">
+            {/* Sticky con altura limitada al viewport y scroll interno propio.
+                Antes el sidebar no tenía scroll y forzaba al usuario a llegar
+                al final de los productos para poder mover los filtros. */}
+            <div
+              className="sticky top-[140px] overflow-y-auto pr-1"
+              style={{ maxHeight: 'calc(100vh - 160px)' }}
+            >
               <FiltersSidebar facets={facets} filters={filters} onChange={updateFilters} />
             </div>
           </div>

@@ -1,20 +1,29 @@
-// Home estilo eBay: hero + filas temáticas + recetas + recientemente vistos.
-// Banners se leen por convención de la carpeta backend/media/publicidad/banners.
-// Como no tenemos API de banners aún, probamos rutas conocidas y si 200, las mostramos.
+// Home premium: hero editorial + categorías + destacados + oferta + recetas.
+// Sin duplicación con el footer (contacto/horarios solo en el footer).
 
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Clock, Truck, Snowflake, MessageCircle } from 'lucide-react'
+import { motion } from 'framer-motion'
+import {
+  Clock,
+  Truck,
+  Snowflake,
+  MessageCircle,
+  Flame,
+  ChefHat,
+  ArrowRight,
+  ShieldCheck,
+  Sparkles
+} from 'lucide-react'
 import ProductCard from '../components/ProductCard'
 import ProductCarousel from '../components/ProductCarousel'
 import { api } from '../lib/apiClient'
-import { useSettings, whatsappLink, telLink, formatPhone } from '../context/SettingsContext'
+import { useSettings, whatsappLink } from '../context/SettingsContext'
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed'
 import RecipeImage from '../components/RecipeImage'
 import CategoryIcon from '../components/CategoryIcon'
 import SEO from '../components/SEO'
 
-// Rutas candidatas de banner. Si el archivo no existe, la imagen no se renderiza (onError).
 const BANNER_CANDIDATES = [
   { src: '/media/publicidad/banners/banner-1.webp', alt: 'Promoción Avisander', link: '/productos?on_sale=1' },
   { src: '/media/publicidad/banners/banner-2.webp', alt: 'Productos destacados', link: '/productos?sort=newest' },
@@ -26,9 +35,6 @@ function Hero({ settings }) {
   const [idx, setIdx] = useState(0)
   const [heroVideoOk, setHeroVideoOk] = useState(false)
 
-  // Chequeo si el video hero existe y es reproducible.
-  // HEAD 200 no basta: el archivo puede ser inválido. Cargamos los metadatos en un
-  // <video> oculto y solo activamos el hero cuando dispara `loadedmetadata`.
   useEffect(() => {
     let cancelled = false
     const probe = document.createElement('video')
@@ -43,7 +49,6 @@ function Hero({ settings }) {
     }
     probe.addEventListener('loadedmetadata', onOk)
     probe.addEventListener('error', onFail)
-    // Timeout de seguridad
     const t = setTimeout(onFail, 4000)
     return () => { cancelled = true; clearTimeout(t); cleanup() }
   }, [])
@@ -73,19 +78,16 @@ function Hero({ settings }) {
     return () => clearInterval(t)
   }, [banners.length])
 
-  // Si no hay banners reales todavía, hero con gradiente + CTA.
   if (banners.length === 0) {
-    // Hero premium: si existe /media/videos/hero.mp4 lo usamos como fondo (auto-play mudo loop).
-    // Si no, cae a foto de Unsplash. El admin puede sustituir en cualquier momento.
     return (
       <section
-        className="relative overflow-hidden rounded-2xl mb-8 min-h-[340px] md:min-h-[440px] flex items-center"
+        className="relative overflow-hidden rounded-3xl mb-10 min-h-[calc(100vh-180px)] md:min-h-[calc(100vh-200px)] flex items-center"
         style={
           heroVideoOk
             ? undefined
             : {
                 backgroundImage:
-                  "linear-gradient(90deg, rgba(153,27,27,0.92) 0%, rgba(153,27,27,0.55) 55%, rgba(0,0,0,0.15) 100%), url('https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=1920&q=75&auto=format&fit=crop')",
+                  "linear-gradient(95deg, rgba(26,26,26,0.85) 0%, rgba(90,20,26,0.75) 55%, rgba(26,26,26,0.35) 100%), url('https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=1920&q=80&auto=format&fit=crop')",
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
               }
@@ -107,55 +109,81 @@ function Hero({ settings }) {
               className="absolute inset-0"
               style={{
                 background:
-                  'linear-gradient(90deg, rgba(153,27,27,0.92) 0%, rgba(153,27,27,0.55) 55%, rgba(0,0,0,0.25) 100%)'
+                  'linear-gradient(95deg, rgba(26,26,26,0.85) 0%, rgba(90,20,26,0.7) 55%, rgba(26,26,26,0.35) 100%)'
               }}
               aria-hidden="true"
             />
           </>
         )}
-        <div className="relative z-10 p-8 md:p-14 max-w-2xl text-white">
-          <span className="inline-block text-[11px] uppercase tracking-[0.25em] bg-white/15 backdrop-blur rounded-full px-3 py-1 mb-4 border border-white/30">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="relative z-10 px-8 py-10 md:px-14 md:py-12 max-w-2xl text-white"
+        >
+          <span className="inline-flex items-center gap-2 text-[10px] md:text-[11px] uppercase tracking-[0.25em] bg-white/10 backdrop-blur-md rounded-full px-3 py-1 mb-3 border border-white/25">
+            <Sparkles size={11} className="text-gold" />
             {settings.store_name || 'Avisander'} · Bucaramanga
           </span>
-          <h1 className="text-4xl md:text-6xl font-extrabold mb-4 leading-[1.05] drop-shadow-md">
+          <h1 className="font-display text-4xl md:text-6xl font-bold mb-4 leading-[1.05] drop-shadow-md">
             Carnicería premium,<br />
-            <span className="text-white/90">cortes perfectos.</span>
+            <span className="italic text-primary">cortes perfectos.</span>
           </h1>
-          <p className="text-white/90 text-lg mb-7 max-w-lg">
-            Res, cerdo, pollo y especialidades seleccionadas. Cadena de frío garantizada y entrega a domicilio en toda el área metropolitana.
+          <p className="text-white/85 text-base md:text-lg mb-6 max-w-xl leading-relaxed">
+            Res, cerdo, pollo y especialidades seleccionadas. Cadena de frío garantizada
+            y entrega a domicilio en toda el área metropolitana.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link
-              to="/productos"
-              className="bg-white text-primary hover:bg-gray-100 font-bold px-6 py-3 rounded-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
-            >
-              Ver catálogo →
-            </Link>
-            <a
-              href={whatsappLink(settings.whatsapp_number)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-3 rounded-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 inline-flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-              </svg>
-              Pedir por WhatsApp
-            </a>
+            <motion.div whileHover={{ y: -3 }} whileTap={{ scale: 0.97 }}>
+              <Link
+                to="/productos"
+                className="inline-flex items-center gap-2 bg-white text-charcoal hover:bg-cream font-semibold px-6 py-3 md:px-7 md:py-3.5 rounded-xl transition-colors shadow-xl"
+              >
+                Ver catálogo
+                <ArrowRight size={16} />
+              </Link>
+            </motion.div>
+            <motion.div whileHover={{ y: -3 }} whileTap={{ scale: 0.97 }}>
+              <a
+                href={whatsappLink(settings.whatsapp_number)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 md:px-7 md:py-3.5 rounded-xl transition-colors shadow-xl"
+              >
+                <MessageCircle size={16} />
+                Pedir por WhatsApp
+              </a>
+            </motion.div>
           </div>
-          <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/80">
-            <span className="inline-flex items-center gap-1">❄️ Cadena de frío</span>
-            <span className="inline-flex items-center gap-1">🚚 Domicilios desde $2.000</span>
-            <span className="inline-flex items-center gap-1">💬 Atención por WhatsApp</span>
-          </div>
-        </div>
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.1, delayChildren: 0.3 } } }}
+            className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/75"
+          >
+            {[
+              { Icon: Snowflake, text: 'Cadena de frío' },
+              { Icon: Truck, text: 'Domicilios desde $2.000' },
+              { Icon: ShieldCheck, text: 'Calidad garantizada' }
+            ].map(({ Icon, text }) => (
+              <motion.span
+                key={text}
+                variants={{ hidden: { opacity: 0, x: -10 }, show: { opacity: 1, x: 0 } }}
+                className="inline-flex items-center gap-1.5"
+              >
+                <Icon size={14} className="text-accent" />
+                {text}
+              </motion.span>
+            ))}
+          </motion.div>
+        </motion.div>
       </section>
     )
   }
 
   const current = banners[idx]
   return (
-    <section className="relative rounded-2xl overflow-hidden mb-8 aspect-[21/9] md:aspect-[3/1] bg-gray-100">
+    <section className="relative rounded-3xl overflow-hidden mb-10 aspect-[21/9] md:aspect-[3/1] bg-gray-100 shadow-soft">
       <Link to={current.link}>
         <img src={current.src} alt={current.alt} className="w-full h-full object-cover" />
       </Link>
@@ -192,7 +220,7 @@ function Home() {
       api.get('/api/products/featured', { skipAuth: true }).catch(() => []),
       api.get('/api/products/on-sale', { skipAuth: true }).catch(() => []),
       api.get('/api/products?sort=newest&per_page=10&page=1', { skipAuth: true }).catch(() => ({ items: [] })),
-      api.get('/api/recipes?limit=6', { skipAuth: true }).catch(() => [])
+      api.get('/api/recipes?limit=3&random=1', { skipAuth: true }).catch(() => [])
     ])
       .then(([cats, feat, sale, newRaw, rec]) => {
         setCategories(cats || [])
@@ -224,57 +252,65 @@ function Home() {
       latitude: Number(settings.store_lat) || 7.1192,
       longitude: Number(settings.store_lng) || -73.1227
     },
-    openingHours: [
-      `Mo-Sa ${(settings.business_hours_weekday || '7:00 AM - 7:00 PM').replace(' AM', '').replace(' PM', '')}`,
-      `Su ${(settings.business_hours_weekend || '7:00 AM - 1:00 PM').replace(' AM', '').replace(' PM', '')}`
-    ],
     priceRange: '$$'
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-10 md:space-y-14">
+    <div className="container mx-auto px-4 py-6 space-y-12 md:space-y-16">
       <SEO jsonLd={jsonLd} />
       <Hero settings={settings} />
 
-      {/* Categorías circulares con glassmorfismo */}
+      {/* Categorías en marquee infinito (pausa con hover). Duplicamos la lista
+          para que el desplazamiento -50% se vea como loop continuo sin saltos. */}
       {categories.length > 0 && (
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Explora por categoría</h2>
-          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
-            {categories.map((c) => {
-              return (
+          <h2 className="font-display text-2xl font-bold text-charcoal mb-5">Explora por categoría</h2>
+          <div className="category-marquee-wrapper relative overflow-hidden py-2 -mx-4 px-4
+                          [mask-image:linear-gradient(to_right,transparent_0,black_5%,black_95%,transparent_100%)]">
+            <div className="category-marquee-track flex gap-6">
+              {[...categories, ...categories].map((c, idx) => (
                 <Link
-                  key={c.id}
+                  key={`${c.id}-${idx}`}
                   to={`/productos?category=${encodeURIComponent(c.name.toLowerCase())}`}
-                  className="flex-shrink-0 flex flex-col items-center gap-2 group"
+                  className="flex-shrink-0 flex flex-col items-center gap-2 group w-24"
+                  aria-hidden={idx >= categories.length ? 'true' : undefined}
+                  tabIndex={idx >= categories.length ? -1 : 0}
                 >
                   <CategoryIcon
                     category={c.name}
                     variant="circle"
-                    className="w-20 h-20 group-hover:scale-110 transition-transform duration-300"
+                    className="w-20 h-20 transition-all duration-300
+                               group-hover:scale-125 group-hover:-rotate-6 group-hover:drop-shadow-[0_8px_20px_rgba(245,130,32,0.45)]"
                   />
-                  <span className="text-xs font-medium text-gray-700 text-center max-w-[80px] truncate group-hover:text-primary transition-colors">{c.name}</span>
+                  <span className="text-xs font-medium text-gray-700 text-center max-w-[80px] truncate group-hover:text-primary transition-colors">
+                    {c.name}
+                  </span>
                 </Link>
-              )
-            })}
+              ))}
+            </div>
           </div>
         </section>
       )}
 
-      {/* Destacados */}
+      {/* Destacados — carrusel para soportar cualquier cantidad >= 1 */}
       {featured.length > 0 && (
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Destacados</h2>
-            <Link to="/productos?featured=1" className="text-sm text-primary hover:underline">Ver todos</Link>
+          <div className="flex items-end justify-between mb-5">
+            <div>
+              <h2 className="font-display text-2xl md:text-3xl font-bold text-charcoal">Destacados</h2>
+              <p className="text-sm text-gray-500 mt-1">Los cortes que no puedes dejar pasar.</p>
+            </div>
+            <Link
+              to="/productos?featured=1"
+              className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+            >
+              Ver todos <ArrowRight size={14} />
+            </Link>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {featured.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
-          </div>
+          <ProductCarousel items={featured} />
         </section>
       )}
 
-      {/* Recientemente vistos */}
       {recentlyViewed.length > 0 && (
         <section>
           <ProductCarousel title="Sigue comprando" items={recentlyViewed.slice(0, 12)} />
@@ -284,105 +320,85 @@ function Home() {
       {/* En oferta */}
       {onSale.length > 0 && (
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">🔥 En oferta</h2>
-            <Link to="/productos?on_sale=1" className="text-sm text-primary hover:underline">Ver todas</Link>
+          <div className="flex items-end justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-warning/20 text-warning flex items-center justify-center">
+                <Flame size={20} />
+              </div>
+              <div>
+                <h2 className="font-display text-2xl md:text-3xl font-bold text-charcoal">En oferta</h2>
+                <p className="text-sm text-gray-500">Aprovecha mientras dure.</p>
+              </div>
+            </div>
+            <Link
+              to="/productos?on_sale=1"
+              className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+            >
+              Ver todas <ArrowRight size={14} />
+            </Link>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {onSale.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
-          </div>
+          <ProductCarousel items={onSale} />
         </section>
       )}
 
-      {/* Recién agregados */}
       {newest.length > 0 && (
         <section>
           <ProductCarousel title="Recién agregados" items={newest} />
         </section>
       )}
 
-      {/* Banner promocional intermedio (si existe) */}
       <PromoBanner />
 
       {/* Recetas */}
       {recipes.length > 0 && (
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">👨‍🍳 Recetas para inspirarte</h2>
-            <Link to="/recetas" className="text-sm text-primary hover:underline">Ver todas</Link>
+          <div className="flex items-end justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <ChefHat size={20} />
+              </div>
+              <div>
+                <h2 className="font-display text-2xl md:text-3xl font-bold text-charcoal">
+                  Recetas para inspirarte
+                </h2>
+                <p className="text-sm text-gray-500">Saca el mejor provecho a cada corte.</p>
+              </div>
+            </div>
+            <Link
+              to="/recetas"
+              className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+            >
+              Ver todas <ArrowRight size={14} />
+            </Link>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {recipes.slice(0, 3).map((r) => (
-              <Link
-                key={r.id}
-                to={`/recetas/${r.slug}`}
-                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
-              >
-                <div className="aspect-video bg-gray-100 overflow-hidden">
-                  <RecipeImage recipe={r} size="sm" />
-                </div>
-                <div className="p-4 flex-1">
-                  <h3 className="font-bold text-gray-900 line-clamp-2">{r.title}</h3>
-                  {r.summary && <p className="text-sm text-gray-600 mt-1 line-clamp-2">{r.summary}</p>}
-                  <div className="mt-2 text-xs text-gray-500 flex items-center gap-3">
-                    {r.duration_min && <span className="inline-flex items-center gap-1"><Clock size={12} /> {r.duration_min} min</span>}
-                    {r.difficulty && <span className="capitalize">· {r.difficulty}</span>}
+              <motion.div key={r.id} whileHover={{ y: -4 }}>
+                <Link
+                  to={`/recetas/${r.slug}`}
+                  className="bg-white rounded-2xl shadow-sm hover:shadow-soft transition-shadow overflow-hidden flex flex-col h-full border border-gray-100"
+                >
+                  <div className="aspect-video bg-gray-100 overflow-hidden">
+                    <RecipeImage recipe={r} size="sm" />
                   </div>
-                </div>
-              </Link>
+                  <div className="p-5 flex-1">
+                    <h3 className="font-display font-bold text-lg text-charcoal line-clamp-2">{r.title}</h3>
+                    {r.summary && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{r.summary}</p>}
+                    <div className="mt-3 text-xs text-gray-500 flex items-center gap-3">
+                      {r.duration_min && (
+                        <span className="inline-flex items-center gap-1">
+                          <Clock size={12} /> {r.duration_min} min
+                        </span>
+                      )}
+                      {r.difficulty && <span className="capitalize">· {r.difficulty}</span>}
+                    </div>
+                  </div>
+                </Link>
+              </motion.div>
             ))}
           </div>
         </section>
       )}
-
-      {/* Confianza / Contacto */}
-      <section className="py-10 bg-gray-900 text-white rounded-2xl">
-        <div className="px-6 md:px-10 grid md:grid-cols-4 gap-6">
-          <div className="flex items-start gap-3">
-            <Truck className="text-primary flex-shrink-0" />
-            <div>
-              <h3 className="font-semibold">Entregas rápidas</h3>
-              <p className="text-sm text-gray-300">Domicilios en Bucaramanga y área metropolitana.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <Snowflake className="text-primary flex-shrink-0" />
-            <div>
-              <h3 className="font-semibold">Cadena de frío</h3>
-              <p className="text-sm text-gray-300">Todos los productos llegan refrigerados o congelados.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <MessageCircle className="text-primary flex-shrink-0" />
-            <div>
-              <h3 className="font-semibold">Atención WhatsApp</h3>
-              <p className="text-sm text-gray-300">Coordinamos cortes y peso exacto por chat.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <Clock className="text-primary flex-shrink-0" />
-            <div>
-              <h3 className="font-semibold">Horarios</h3>
-              <p className="text-sm text-gray-300">L–S {settings.business_hours_weekday}<br />D {settings.business_hours_weekend}</p>
-            </div>
-          </div>
-        </div>
-        <div className="px-6 md:px-10 mt-8 flex flex-wrap gap-3">
-          <a href={telLink(settings.whatsapp_number)} className="text-sm text-gray-300 hover:text-white">
-            📞 {formatPhone(settings.whatsapp_number)}
-          </a>
-          <span className="text-sm text-gray-500">·</span>
-          <span className="text-sm text-gray-300">{settings.store_address || 'Cra 30 #20-70, San Alonso, Bucaramanga'}</span>
-          <a
-            href={whatsappLink(settings.whatsapp_number)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2"
-          >
-            <MessageCircle size={14} /> Pedir por WhatsApp
-          </a>
-        </div>
-      </section>
 
       {loading && featured.length === 0 && (
         <div className="text-center text-gray-500 py-8">Cargando…</div>
@@ -391,7 +407,6 @@ function Home() {
   )
 }
 
-// Banner promocional intermedio. Muestra si existe /media/publicidad/promos/promo-1.*
 function PromoBanner() {
   const [src, setSrc] = useState(null)
   useEffect(() => {
@@ -414,8 +429,8 @@ function PromoBanner() {
   if (!src) return null
   return (
     <section>
-      <Link to="/productos?on_sale=1" className="block rounded-2xl overflow-hidden">
-        <img src={src} alt="Promoción" className="w-full object-cover max-h-[240px]" />
+      <Link to="/productos?on_sale=1" className="block rounded-3xl overflow-hidden shadow-soft">
+        <img src={src} alt="Promoción" className="w-full object-cover max-h-[260px]" />
       </Link>
     </section>
   )

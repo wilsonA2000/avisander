@@ -49,25 +49,39 @@ export function CartProvider({ children }) {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
   }, [items])
 
+  // Agrega N piezas. Si el producto tiene stock numérico, NO permite exceder el disponible.
+  // Devuelve el número realmente agregado (puede ser menor que el solicitado, o 0 si stock=0).
   const addFixed = useCallback((product, quantity = 1, notes = '') => {
+    const hasStockField = product.stock !== undefined && product.stock !== null
+    const stock = Number(product.stock) || 0
+    let added = quantity
+
     setItems((prev) => {
       const idx = prev.findIndex(
         (it) => it.sale_type === 'fixed' && it.product.id === product.id
       )
+      const currentInCart = idx >= 0 ? prev[idx].quantity : 0
+      // Si tiene stock controlado, limitamos al stock disponible.
+      if (hasStockField) {
+        const maxToAdd = Math.max(0, stock - currentInCart)
+        added = Math.min(quantity, maxToAdd)
+        if (added <= 0) return prev
+      }
       if (idx >= 0) {
         const copy = [...prev]
         copy[idx] = {
           ...copy[idx],
-          quantity: copy[idx].quantity + quantity,
+          quantity: copy[idx].quantity + added,
           notes: notes || copy[idx].notes
         }
         return copy
       }
       return [
         ...prev,
-        { id: lineKey({ sale_type: 'fixed', product }), sale_type: 'fixed', product, quantity, notes }
+        { id: lineKey({ sale_type: 'fixed', product }), sale_type: 'fixed', product, quantity: added, notes }
       ]
     })
+    return added
   }, [])
 
   const addByWeight = useCallback((product, weightGrams, notes = '') => {
@@ -84,13 +98,21 @@ export function CartProvider({ children }) {
   }, [])
 
   // API unificada: detecta el sale_type del producto.
+  // Devuelve { added, requested, stock } para que el caller pueda mostrar toast preciso.
   const addItem = useCallback(
     (product, opts = {}) => {
       const saleType = product.sale_type || 'fixed'
       if (saleType === 'by_weight') {
         addByWeight(product, opts.weight_grams || 500, opts.notes || '')
-      } else {
-        addFixed(product, opts.quantity || 1, opts.notes || '')
+        return { added: 1, requested: 1, stock: null, sale_type: 'by_weight' }
+      }
+      const requested = opts.quantity || 1
+      const added = addFixed(product, requested, opts.notes || '') || 0
+      return {
+        added,
+        requested,
+        stock: product.stock != null ? Number(product.stock) : null,
+        sale_type: 'fixed'
       }
     },
     [addFixed, addByWeight]

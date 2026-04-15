@@ -26,7 +26,22 @@ function FiltersSidebar({ facets, filters, onChange, onClose, inDrawer = false }
   }, [filters])
 
   const set = (patch) => onChange({ ...filters, ...patch, page: 1 })
-  const clear = () => onChange({ page: 1 })
+  // Limpiar TODOS los filtros: pasamos cada campo a su valor "vacío" para
+  // forzar el merge correcto en updateFilters (antes solo se enviaba page=1
+  // y los filtros activos se mantenían).
+  const clear = () =>
+    onChange({
+      q: '',
+      category: [],
+      subcategory: [],
+      brand: [],
+      min_price: '',
+      max_price: '',
+      sale_type: '',
+      in_stock: false,
+      on_sale: false,
+      page: 1
+    })
 
   const Section = ({ title, children }) => (
     <div className="border-b border-gray-200 py-3">

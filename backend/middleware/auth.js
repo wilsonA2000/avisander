@@ -17,7 +17,7 @@ function authenticateToken(req, res, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET)
     const user = db
-      .prepare('SELECT id, email, name, role FROM users WHERE id = ?')
+      .prepare('SELECT id, email, name, role, phone, address, avatar_url FROM users WHERE id = ?')
       .get(decoded.userId)
 
     if (!user) {
@@ -49,7 +49,7 @@ function optionalAuth(req, res, next) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET)
       const user = db
-        .prepare('SELECT id, email, name, role FROM users WHERE id = ?')
+        .prepare('SELECT id, email, name, role, phone, address, avatar_url FROM users WHERE id = ?')
         .get(decoded.userId)
       req.user = user
     } catch (_error) {

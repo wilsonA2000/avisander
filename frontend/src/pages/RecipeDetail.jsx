@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Clock, ChefHat, ShoppingCart, ArrowLeft } from 'lucide-react'
+import { Clock, ChefHat, ShoppingCart, ArrowLeft, MessageCircle, BookOpen } from 'lucide-react'
 import { api } from '../lib/apiClient'
 import { useCart } from '../context/CartContext'
 import { useToast } from '../context/ToastContext'
+import { useSettings, whatsappLink } from '../context/SettingsContext'
 import VideoPlayer from '../components/VideoPlayer'
 import RecipeImage from '../components/RecipeImage'
 import SEO from '../components/SEO'
+import useScrollToTop from '../hooks/useScrollToTop'
 
 // Convertidor de markdown muy simple (sin librería extra): sólo párrafos, listas y negritas.
 function renderMarkdown(md) {
@@ -71,10 +73,14 @@ function RecipeDetail() {
   const { slug } = useParams()
   const { addItem } = useCart()
   const toast = useToast()
+  const { settings } = useSettings()
   const [recipe, setRecipe] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  useScrollToTop()
+
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' })
     setLoading(true)
     api.get(`/api/recipes/by-slug/${slug}`, { skipAuth: true })
       .then(setRecipe)
@@ -132,8 +138,14 @@ function RecipeDetail() {
     author: { '@type': 'Organization', name: 'Avisander' }
   }
 
+  // Mensaje WhatsApp pre-llenado para CTA cuando la receta no tiene cuerpo.
+  const waUrl = whatsappLink(
+    settings.whatsapp_number,
+    `Hola, vi la receta "${recipe.title}" en Avisander y me gustaría que me ayuden con la preparación.`
+  )
+
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-4 py-6 pb-16 md:pb-24">
       <SEO
         title={recipe.title}
         description={recipe.summary || `Receta de ${recipe.title} con productos de Avisander.`}
@@ -167,7 +179,33 @@ function RecipeDetail() {
           )}
 
           <div className="prose max-w-none">
-            {renderMarkdown(recipe.body_markdown) || <p className="text-gray-400 italic">Sin contenido todavía.</p>}
+            {renderMarkdown(recipe.body_markdown) || (
+              <div className="bg-cream rounded-2xl p-7 border border-amber-100">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                    <BookOpen size={22} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-display text-lg font-bold text-charcoal mb-1">
+                      Esta receta aún no tiene la preparación detallada
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Tenemos los ingredientes listos para ti. Si quieres, te asesoramos por WhatsApp con
+                      la preparación, gramajes y trucos de nuestro maestro carnicero.
+                    </p>
+                    <a
+                      href={waUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-lg shadow-md transition-colors"
+                    >
+                      <MessageCircle size={16} />
+                      Pedir asesoría por WhatsApp
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </article>
 

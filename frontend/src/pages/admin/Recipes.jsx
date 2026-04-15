@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Pencil, Trash2, X, Eye, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Eye, Search, ChefHat } from 'lucide-react'
 import { api } from '../../lib/apiClient'
 import { useToast } from '../../context/ToastContext'
 
@@ -160,7 +160,7 @@ function Recipes() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gray-100 rounded overflow-hidden flex-shrink-0">
-                        {r.cover_image_url ? <img src={r.cover_image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300">🍳</div>}
+                        {r.cover_image_url ? <img src={r.cover_image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300"><ChefHat size={18} /></div>}
                       </div>
                       <div>
                         <p className="font-medium">{r.title}</p>

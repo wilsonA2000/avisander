@@ -5,6 +5,7 @@ const express = require('express')
 const { db } = require('../db/database')
 const bold = require('../lib/bold')
 const logger = require('../lib/logger')
+const inventory = require('../lib/inventory')
 
 const router = express.Router()
 
@@ -82,6 +83,23 @@ router.post(
         logger.warn({ reference }, 'Bold webhook para referencia no encontrada')
       } else {
         logger.info({ reference, newStatus, type }, 'Pedido actualizado por webhook Bold')
+
+        // Al aprobar el pago: descontar stock una sola vez (idempotente).
+        if (newStatus === 'approved') {
+          const order = db
+            .prepare('SELECT id, stock_deducted FROM orders WHERE payment_reference = ?')
+            .get(reference)
+          if (order && !order.stock_deducted) {
+            try {
+              inventory.recordSaleFromOrder({ orderId: order.id, userId: null })
+              db.prepare('UPDATE orders SET stock_deducted = 1 WHERE id = ?').run(order.id)
+              logger.info({ orderId: order.id }, 'Stock descontado por pago aprobado')
+            } catch (err) {
+              // No bloqueamos la respuesta del webhook, pero log + alerta al admin.
+              logger.error({ err, orderId: order.id }, 'Fallo al descontar stock; revisar manualmente')
+            }
+          }
+        }
       }
 
       // Bold requiere HTTP 200 en < 2s o reintenta

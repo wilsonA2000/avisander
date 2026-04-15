@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Trash2, Plus, Minus, ShoppingBag, MessageSquare, Banknote, Wallet } from 'lucide-react'
+import { Trash2, Plus, Minus, ShoppingBag, MessageSquare, Banknote } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -37,9 +37,37 @@ function Cart() {
     in_coverage: false
   })
 
-  // Método de pago: 'whatsapp' (default) | 'bold' | 'cash'
+  // Método de pago: 'whatsapp' (default) | 'bold'
+  // Pago contra entrega ('cash') eliminado: Wilson NO despacha sin pago previo.
   const [paymentMethod, setPaymentMethod] = useState('whatsapp')
   const [boldConfig, setBoldConfig] = useState({ enabled: false, identity_key: null, widget_url: null })
+
+  // Datos de contacto del cliente. Si está autenticado, pre-llenamos con su perfil.
+  const [contact, setContact] = useState({
+    name: user?.name || '',
+    phone: user?.phone || ''
+  })
+  // Re-sync si el user se hidrata después (AuthContext carga async).
+  useEffect(() => {
+    setContact((prev) => ({
+      name: prev.name || user?.name || '',
+      phone: prev.phone || user?.phone || ''
+    }))
+  }, [user?.id, user?.name, user?.phone])
+
+  // Si hay productos por peso, fuerza WhatsApp: el peso real puede diferir del solicitado
+  // y eso causaría descuadre con un cobro online ya autorizado.
+  const hasByWeight = useMemo(
+    () => items.some((it) => it.sale_type === 'by_weight'),
+    [items]
+  )
+
+  // Forzar paymentMethod=whatsapp si el carrito contiene productos por peso.
+  useEffect(() => {
+    if (hasByWeight && paymentMethod !== 'whatsapp') {
+      setPaymentMethod('whatsapp')
+    }
+  }, [hasByWeight, paymentMethod])
 
   useEffect(() => {
     // Saber si Bold está habilitado (llaves configuradas en backend)
@@ -55,8 +83,13 @@ function Cart() {
   const deliveryCost = delivery.method === 'pickup' ? 0 : Number(delivery.cost) || 0
   const total = subtotal + (items.length > 0 ? deliveryCost : 0)
 
+  // Teléfono colombiano simple: 10 dígitos (celular) o 7 dígitos (fijo).
+  const phoneDigits = (contact.phone || '').replace(/\D/g, '')
+  const contactValid = contact.name.trim().length >= 2 && (phoneDigits.length === 10 || phoneDigits.length === 7)
+
   const canCheckout = useMemo(() => {
     if (items.length === 0) return false
+    if (!contactValid) return false
     if (delivery.method === 'pickup') return true
     return !!delivery.in_coverage
   }, [items.length, delivery])
@@ -70,57 +103,60 @@ function Cart() {
    *   3. El script de Bold observa el container y renderiza un botón.
    *   4. Esperamos a que el botón aparezca y hacemos click().
    */
-  const launchBoldCheckout = (payload) => new Promise((resolve) => {
-    const containerId = 'bold-checkout-container'
-    let container = document.getElementById(containerId)
-    if (!container) {
-      container = document.createElement('div')
-      container.id = containerId
-      container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;'
-      document.body.appendChild(container)
-    }
-    container.innerHTML = '' // limpiar runs anteriores
+  // Muestra el botón Bold dentro de un modal overlay VISIBLE para que el cliente
+  // lo pulse explícitamente. El SDK de Bold valida el contexto del contenedor y
+  // no renderiza botón en divs fuera de viewport (por eso el "click programático"
+  // fallaba con timeout a 8s).
+  const [boldPayload, setBoldPayload] = useState(null)
 
+  const launchBoldCheckout = (payload) => {
+    // Devolvemos true de una: el click lo da el cliente desde el modal.
+    // Al pagar, Bold redirige a /pago/:ref y PaymentResult hace polling del status.
+    setBoldPayload(payload)
+    return Promise.resolve(true)
+  }
+
+  // Monta el script + data-attrs de Bold cuando el modal se abre.
+  // Orden crítico:
+  //   1) Insertar <script data-bold-button> PRIMERO con todos los data-attrs.
+  //   2) Cargar (o recargar) boldPaymentButton.js DESPUÉS para forzar escaneo del DOM.
+  // El SDK público de Bold no expone un método de re-scan, así que re-inyectamos
+  // la librería fresca cada vez que abrimos el modal. Esto garantiza que encuentre
+  // el <script data-bold-button> y renderice el botón del pago.
+  useEffect(() => {
+    if (!boldPayload) return
+    const container = document.getElementById('bold-btn-target')
+    if (!container) return
+    container.innerHTML = ''
+
+    // Paso 1: insertar tag data-bold-button.
     const script = document.createElement('script')
     script.setAttribute('data-bold-button', 'dark-L')
-    script.setAttribute('data-api-key', payload.identity_key)
-    script.setAttribute('data-order-id', payload.order_id)
-    script.setAttribute('data-amount', String(payload.amount_in_cents))
-    script.setAttribute('data-currency', payload.currency)
-    script.setAttribute('data-integrity-signature', payload.signature)
-    script.setAttribute('data-description', payload.description || 'Pedido Avisander')
+    script.setAttribute('data-api-key', boldPayload.identity_key)
+    script.setAttribute('data-order-id', boldPayload.order_id)
+    script.setAttribute('data-amount', String(boldPayload.amount_in_cents))
+    script.setAttribute('data-currency', boldPayload.currency)
+    script.setAttribute('data-integrity-signature', boldPayload.signature)
+    script.setAttribute('data-description', boldPayload.description || 'Pedido Avisander')
     script.setAttribute(
       'data-redirection-url',
-      `${window.location.origin}/pago/${payload.order_id}`
+      `${window.location.origin}/pago/${boldPayload.order_id}`
     )
+    container.appendChild(script)
 
-    // Precargamos la librería global si no está
-    const ensureLib = new Promise((res) => {
-      if (window.boldPaymentButton) return res()
-      const lib = document.createElement('script')
-      lib.src = payload.widget_url
-      lib.onload = () => res()
-      lib.onerror = () => res()
-      document.head.appendChild(lib)
-    })
+    // Paso 2: remover lib anterior (si había) y cargar una nueva.
+    document.querySelectorAll('script[data-avisander-bold-lib]').forEach((n) => n.remove())
+    const lib = document.createElement('script')
+    lib.src = boldPayload.widget_url
+    lib.async = true
+    lib.setAttribute('data-avisander-bold-lib', '1')
+    lib.onerror = () => {
+      toast.error('No se pudo cargar la pasarela de pago Bold. Intenta WhatsApp o recarga la página.')
+    }
+    document.body.appendChild(lib)
+  }, [boldPayload?.order_id])
 
-    ensureLib.then(() => {
-      container.appendChild(script)
-      // Esperar a que el botón se renderice, hacer click programático
-      const startedAt = Date.now()
-      const tick = setInterval(() => {
-        const btn = container.querySelector('button')
-        if (btn) {
-          clearInterval(tick)
-          btn.click()
-          resolve(true)
-        } else if (Date.now() - startedAt > 8000) {
-          clearInterval(tick)
-          resolve(false)
-        }
-      }, 150)
-    })
-  })
+  const closeBoldModal = () => setBoldPayload(null)
 
   const handleSubmitOrder = async () => {
     if (!canCheckout) {
@@ -129,8 +165,8 @@ function Cart() {
     }
     setSubmitting(true)
     const customer = {
-      name: user?.name,
-      phone: user?.phone,
+      name: contact.name.trim(),
+      phone: contact.phone.trim(),
       address: delivery.method === 'delivery' ? delivery.address : 'Recoge en tienda'
     }
     try {
@@ -312,6 +348,48 @@ function Cart() {
             </button>
           </div>
 
+          {/* Datos de contacto (obligatorios para crear el pedido) */}
+          <div className="bg-white rounded-lg shadow-sm p-5">
+            <h2 className="text-lg font-bold mb-4">Datos de contacto</h2>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="contact-name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre completo <span className="text-primary">*</span>
+                </label>
+                <input
+                  id="contact-name"
+                  type="text"
+                  value={contact.name}
+                  onChange={(e) => setContact({ ...contact, name: e.target.value })}
+                  placeholder="Tu nombre"
+                  className="input"
+                  autoComplete="name"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="contact-phone" className="block text-sm font-medium text-gray-700 mb-1">
+                  Teléfono / WhatsApp <span className="text-primary">*</span>
+                </label>
+                <input
+                  id="contact-phone"
+                  type="tel"
+                  value={contact.phone}
+                  onChange={(e) => setContact({ ...contact, phone: e.target.value })}
+                  placeholder="3001234567"
+                  className="input"
+                  autoComplete="tel"
+                  required
+                />
+              </div>
+            </div>
+            {!contactValid && (contact.name || contact.phone) && (
+              <p className="text-xs text-amber-700 mt-2">
+                Tu nombre debe tener al menos 2 letras y el teléfono 10 dígitos (o 7 para fijo).
+              </p>
+            )}
+          </div>
+
           {/* Entrega */}
           <div className="bg-white rounded-lg shadow-sm p-5">
             <h2 className="text-lg font-bold mb-4">Entrega</h2>
@@ -325,52 +403,60 @@ function Cart() {
           {/* Método de pago */}
           <div className="bg-white rounded-lg shadow-sm p-5">
             <h2 className="text-lg font-bold mb-4">Método de pago</h2>
-            <div className="grid sm:grid-cols-3 gap-2">
-              {boldConfig.enabled && (
+
+            {hasByWeight ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <div className="flex items-start gap-3">
+                  <MessageSquare size={20} className="text-amber-700 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-amber-900">
+                      Tu carrito tiene productos por peso. Lo coordinamos por WhatsApp.
+                    </p>
+                    <p className="text-sm text-amber-800 mt-1">
+                      El peso real al cortar puede variar respecto a lo solicitado. Para evitar cobros
+                      incorrectos, completamos este pedido por WhatsApp y confirmamos el total contigo
+                      antes de cobrar.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-2">
+                {boldConfig.enabled && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('bold')}
+                    className={`relative border-2 rounded-lg p-3 text-left transition ${
+                      paymentMethod === 'bold' ? 'border-primary bg-red-50' : 'border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    <span className="absolute -top-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                      Más económico
+                    </span>
+                    <div className="flex items-center gap-2 font-medium">
+                      <Banknote size={16} /> Pagar con PSE / Nequi
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Transferencia directa · tarjetas también</p>
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod('bold')}
-                  className={`relative border-2 rounded-lg p-3 text-left transition ${
-                    paymentMethod === 'bold' ? 'border-primary bg-red-50' : 'border-gray-200 hover:border-gray-400'
+                  onClick={() => setPaymentMethod('whatsapp')}
+                  className={`border-2 rounded-lg p-3 text-left transition ${
+                    paymentMethod === 'whatsapp' ? 'border-primary bg-red-50' : 'border-gray-200 hover:border-gray-400'
                   }`}
                 >
-                  <span className="absolute -top-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
-                    Más económico
-                  </span>
                   <div className="flex items-center gap-2 font-medium">
-                    <Banknote size={16} /> Pagar con PSE / Nequi
+                    <MessageSquare size={16} /> WhatsApp
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Transferencia directa · tarjetas también</p>
+                  <p className="text-xs text-gray-500 mt-1">Coordinamos contigo</p>
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('whatsapp')}
-                className={`border-2 rounded-lg p-3 text-left transition ${
-                  paymentMethod === 'whatsapp' ? 'border-primary bg-red-50' : 'border-gray-200 hover:border-gray-400'
-                }`}
-              >
-                <div className="flex items-center gap-2 font-medium">
-                  <MessageSquare size={16} /> WhatsApp
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Coordinamos contigo</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('cash')}
-                className={`border-2 rounded-lg p-3 text-left transition ${
-                  paymentMethod === 'cash' ? 'border-primary bg-red-50' : 'border-gray-200 hover:border-gray-400'
-                }`}
-              >
-                <div className="flex items-center gap-2 font-medium">
-                  <Wallet size={16} /> Contra entrega
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Pagas al recibir</p>
-              </button>
-            </div>
-            {!boldConfig.enabled && (
+              </div>
+            )}
+
+            {!boldConfig.enabled && !hasByWeight && (
               <p className="text-xs text-gray-400 mt-3">
-                💡 Próximamente: pago online con PSE, Nequi y tarjetas.
+                Próximamente: pago online con PSE, Nequi y tarjetas.
               </p>
             )}
           </div>
@@ -447,13 +533,6 @@ function Cart() {
                   </svg>
                   Pagar {fmt(total)} de forma segura
                 </>
-              ) : paymentMethod === 'cash' ? (
-                <>
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93V19h-2v.93A8.01 8.01 0 014.07 13H5v-2h-.93A8.01 8.01 0 0111 4.07V5h2v-.93A8.01 8.01 0 0119.93 11H19v2h.93A8.01 8.01 0 0113 19.93z"/>
-                  </svg>
-                  Confirmar pedido {fmt(total)}
-                </>
               ) : (
                 <>
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -467,13 +546,52 @@ function Cart() {
             {canCheckout && (
               <p className="mt-3 text-xs text-gray-500 text-center leading-relaxed">
                 {paymentMethod === 'bold' && '🔒 Tu pago es procesado por Bold (Bancolombia). Nunca guardamos tu tarjeta.'}
-                {paymentMethod === 'whatsapp' && '💬 Te redirigimos a WhatsApp para confirmar tu pedido.'}
-                {paymentMethod === 'cash' && '💵 Pagas en efectivo al recibir. Solo disponible en Bucaramanga.'}
+                {paymentMethod === 'whatsapp' && 'Te redirigimos a WhatsApp para confirmar tu pedido.'}
               </p>
             )}
           </div>
         </div>
       </div>
+
+      {/* Modal Bold: contiene el botón oficial de la pasarela. Visible para que
+          el cliente lo pulse explícitamente — el SDK exige contenedor visible. */}
+      {boldPayload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="bg-gradient-to-r from-primary to-primary-dark text-white p-5">
+              <h2 className="font-display text-xl font-bold">Pagar con Bold</h2>
+              <p className="text-white/85 text-sm mt-1">
+                Tarjetas · PSE · Nequi · Bancolombia
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-cream rounded-xl p-4 text-sm">
+                <div className="flex justify-between mb-1">
+                  <span className="text-gray-600">Pedido</span>
+                  <span className="font-mono text-xs">{boldPayload.order_id}</span>
+                </div>
+                <div className="flex justify-between items-baseline">
+                  <span className="text-gray-600">Total</span>
+                  <span className="font-display text-2xl font-bold text-primary">{fmt(total)}</span>
+                </div>
+              </div>
+              <p className="text-center text-xs text-gray-500">
+                Pulsa el botón naranja para continuar. Bold abrirá su ventana segura.
+              </p>
+              <div id="bold-btn-target" className="flex justify-center min-h-[56px] [&_button]:!w-full"></div>
+              <button
+                onClick={closeBoldModal}
+                className="w-full text-sm text-gray-500 hover:text-charcoal transition-colors"
+              >
+                Cancelar
+              </button>
+              <p className="text-center text-[11px] text-gray-400 border-t pt-3">
+                🔒 Tu pago es procesado por Bold (Bancolombia). Nunca guardamos los datos de tu tarjeta.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -10,11 +10,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/playfair-display": "^5.2.8",
+    "@lottiefiles/react-lottie-player": "^3.6.0",
+    "framer-motion": "^12.38.0",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.323.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-helmet-async": "^3.0.0",
-    "react-router-dom": "^6.22.0"
+    "react-leaflet": "^4.2.1",
+    "react-router-dom": "^6.22.0",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",

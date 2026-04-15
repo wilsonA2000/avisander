@@ -138,6 +138,78 @@ function initialize() {
       PRIMARY KEY (recipe_id, product_id)
     );
     CREATE INDEX IF NOT EXISTS idx_rp_product ON recipe_products(product_id);
+
+    -- Sprint 7A: PQRS tickets (Peticiones/Quejas/Reclamos/Sugerencias)
+    CREATE TABLE IF NOT EXISTS pqrs_tickets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'new',
+      admin_notes TEXT,
+      resolved_at DATETIME,
+      ip_address TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_pqrs_status ON pqrs_tickets(status);
+    CREATE INDEX IF NOT EXISTS idx_pqrs_created ON pqrs_tickets(created_at);
+
+    -- Sprint 6 Fase A: inventario numérico + proveedores + compras + kardex
+    CREATE TABLE IF NOT EXISTS suppliers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      nit TEXT,
+      contact_name TEXT,
+      phone TEXT,
+      email TEXT,
+      address TEXT,
+      notes TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_suppliers_active ON suppliers(is_active);
+
+    CREATE TABLE IF NOT EXISTS purchases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      supplier_id INTEGER REFERENCES suppliers(id),
+      reference TEXT,
+      status TEXT NOT NULL DEFAULT 'draft',
+      total REAL NOT NULL DEFAULT 0,
+      notes TEXT,
+      created_by INTEGER REFERENCES users(id),
+      received_at DATETIME,
+      paid_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_purchases_supplier ON purchases(supplier_id);
+    CREATE INDEX IF NOT EXISTS idx_purchases_status ON purchases(status);
+
+    CREATE TABLE IF NOT EXISTS purchase_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      purchase_id INTEGER NOT NULL REFERENCES purchases(id) ON DELETE CASCADE,
+      product_id INTEGER NOT NULL REFERENCES products(id),
+      quantity REAL NOT NULL,
+      unit_cost REAL NOT NULL,
+      subtotal REAL NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_pi_purchase ON purchase_items(purchase_id);
+
+    CREATE TABLE IF NOT EXISTS inventory_movements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL REFERENCES products(id),
+      type TEXT NOT NULL,
+      quantity REAL NOT NULL,
+      balance_after REAL NOT NULL,
+      reference_type TEXT,
+      reference_id INTEGER,
+      notes TEXT,
+      user_id INTEGER REFERENCES users(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_inv_product ON inventory_movements(product_id);
+    CREATE INDEX IF NOT EXISTS idx_inv_created ON inventory_movements(created_at);
   `)
 
   // Migraciones idempotentes para esquemas antiguos
@@ -153,6 +225,8 @@ function initialize() {
   }
 
   addColumnIfMissing('users', 'must_change_password', 'must_change_password INTEGER DEFAULT 0')
+  // Sprint 7A: avatar del usuario
+  addColumnIfMissing('users', 'avatar_url', 'avatar_url TEXT')
   addColumnIfMissing('products', 'sale_type', "sale_type TEXT NOT NULL DEFAULT 'fixed'")
   addColumnIfMissing('products', 'price_per_kg', 'price_per_kg REAL')
   addColumnIfMissing('products', 'brand', 'brand TEXT')
@@ -202,6 +276,25 @@ function initialize() {
   addColumnIfMissing('order_items', 'sale_type', "sale_type TEXT NOT NULL DEFAULT 'fixed'")
   addColumnIfMissing('order_items', 'weight_grams', 'weight_grams REAL')
   addColumnIfMissing('order_items', 'notes', 'notes TEXT')
+
+  // Sprint 6 Fase A: flag para evitar doble descuento de stock por pedido
+  addColumnIfMissing('orders', 'stock_deducted', 'stock_deducted INTEGER NOT NULL DEFAULT 0')
+
+  // Sprint 6 Fase A: stock numérico en productos
+  addColumnIfMissing('products', 'stock', 'stock REAL NOT NULL DEFAULT 0')
+  addColumnIfMissing('products', 'stock_min', 'stock_min REAL NOT NULL DEFAULT 0')
+  addColumnIfMissing('products', 'cost_price', 'cost_price REAL')
+  addColumnIfMissing('products', 'barcode', 'barcode TEXT')
+  // Sprint 7F: bondades nutricionales + usos culinarios (JSON array de slugs).
+  addColumnIfMissing('products', 'benefits', 'benefits TEXT')
+  addColumnIfMissing('products', 'culinary_uses', 'culinary_uses TEXT')
+  try {
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode) WHERE barcode IS NOT NULL'
+    )
+  } catch (_e) {
+    // noop
+  }
 
   // Seed admin SOLO en entornos no-producción. En prod hay que crearlo manualmente.
   if (process.env.NODE_ENV !== 'production') {

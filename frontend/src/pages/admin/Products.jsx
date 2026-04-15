@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Plus, Pencil, Trash2, X, Upload, Eye, Search, Download, CheckSquare, Square } from 'lucide-react'
 import Pagination from '../../components/Pagination'
+import { CULINARY_USES, CULINARY_USE_SLUGS } from '../../components/CulinaryIcon'
 
 const PER_PAGE = 25
 
@@ -61,7 +62,11 @@ function Products() {
     is_on_sale: false,
     image_url: '',
     gallery_urls: [],
-    video_url: ''
+    video_url: '',
+    barcode: '',
+    stock_min: '',
+    benefits: '',
+    culinary_uses: []
   }
   const [formData, setFormData] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
@@ -202,7 +207,11 @@ function Products() {
         is_on_sale: product.is_on_sale || false,
         image_url: product.image_url || '',
         gallery_urls: Array.isArray(product.gallery_urls) ? product.gallery_urls : [],
-        video_url: product.video_url || ''
+        video_url: product.video_url || '',
+        barcode: product.barcode || '',
+        stock_min: product.stock_min != null ? String(product.stock_min) : '',
+        benefits: product.benefits || '',
+        culinary_uses: Array.isArray(product.culinary_uses) ? product.culinary_uses : []
       })
     } else {
       setEditingProduct(null)
@@ -287,7 +296,11 @@ function Products() {
         reference: formData.reference?.trim() || null,
         packaging: formData.packaging?.trim() || null,
         cold_chain: formData.cold_chain || 'refrigerado',
-        ingredients: formData.ingredients?.trim() || null
+        ingredients: formData.ingredients?.trim() || null,
+        barcode: formData.barcode?.trim() || null,
+        stock_min: formData.stock_min !== '' ? parseFloat(formData.stock_min) : 0,
+        benefits: formData.benefits?.trim() || null,
+        culinary_uses: Array.isArray(formData.culinary_uses) ? formData.culinary_uses : []
       }
 
       const response = await fetch(url, {
@@ -440,6 +453,7 @@ function Products() {
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Producto</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Precio</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">Stock</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Estado</th>
                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">Acciones</th>
               </tr>
@@ -481,6 +495,27 @@ function Products() {
                         ${product.original_price.toLocaleString('es-CO')}
                       </p>
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {(() => {
+                      const stock = Number(product.stock) || 0
+                      const min = Number(product.stock_min) || 0
+                      const low = stock <= min
+                      return (
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            stock <= 0
+                              ? 'bg-rose-100 text-rose-700'
+                              : low
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-emerald-50 text-emerald-700'
+                          }`}
+                          title={`Mínimo: ${min}`}
+                        >
+                          {stock.toLocaleString('es-CO', { maximumFractionDigits: 2 })}
+                        </span>
+                      )
+                    })()}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
@@ -863,6 +898,107 @@ function Products() {
                     rows={3}
                     placeholder="Ej: 100% carne de res sin aditivos. Conservar entre 0–4 °C."
                   />
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 pt-3 border-t">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Código de barras <span className="text-gray-400 font-normal">(EAN/GTIN)</span>
+                    </label>
+                    <input
+                      value={formData.barcode}
+                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                      className="input font-mono"
+                      placeholder="7701234567890"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Stock mínimo <span className="text-gray-400 font-normal">(alerta)</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.stock_min}
+                      onChange={(e) => setFormData({ ...formData, stock_min: e.target.value })}
+                      className="input"
+                      placeholder="0"
+                    />
+                  </div>
+                  {editingProduct && (
+                    <div className="col-span-2 text-xs text-gray-500">
+                      Stock actual:{' '}
+                      <strong>
+                        {Number(editingProduct.stock || 0).toLocaleString('es-CO', {
+                          maximumFractionDigits: 2
+                        })}
+                      </strong>{' '}
+                      — para modificarlo usa{' '}
+                      <a href="/admin/inventario" target="_blank" className="text-primary underline">
+                        /admin/inventario
+                      </a>{' '}
+                      o registra una compra.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bondades y usos culinarios */}
+              <div className="border-t pt-4 mt-3 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Bondades nutricionales <span className="text-gray-400 font-normal">(se muestra en el detalle público)</span>
+                  </label>
+                  <textarea
+                    value={formData.benefits}
+                    onChange={(e) => setFormData({ ...formData, benefits: e.target.value })}
+                    className="input"
+                    rows={5}
+                    placeholder="Descripción breve de aportes nutricionales, vitaminas y recomendación de consumo..."
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Soporta Markdown básico: **negrita**, listas con "-", saltos de línea.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Usos culinarios sugeridos
+                    <span className="text-gray-400 font-normal"> (pulsa para activar/desactivar)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {CULINARY_USE_SLUGS.map((slug) => {
+                      const active = formData.culinary_uses.includes(slug)
+                      const use = CULINARY_USES[slug]
+                      return (
+                        <button
+                          key={slug}
+                          type="button"
+                          onClick={() => {
+                            setFormData((f) => ({
+                              ...f,
+                              culinary_uses: active
+                                ? f.culinary_uses.filter((s) => s !== slug)
+                                : [...f.culinary_uses, slug]
+                            }))
+                          }}
+                          className={`inline-flex items-center gap-2 px-3 py-2 rounded-full border-2 text-sm font-medium transition-all ${
+                            active
+                              ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                              : 'border-gray-200 bg-white text-gray-500 hover:border-gray-400'
+                          }`}
+                        >
+                          <span className="text-lg leading-none">{use.emoji}</span>
+                          {use.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {formData.culinary_uses.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      {formData.culinary_uses.length} uso{formData.culinary_uses.length !== 1 ? 's' : ''} seleccionado{formData.culinary_uses.length !== 1 ? 's' : ''}.
+                    </p>
+                  )}
                 </div>
               </div>
 

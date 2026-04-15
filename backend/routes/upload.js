@@ -32,45 +32,51 @@ const upload = multer({
   }
 })
 
-function safeFilename(ext) {
+function safeFilename(prefix, ext) {
   const rand = require('crypto').randomBytes(8).toString('hex')
-  return `product-${Date.now()}-${rand}${ext}`
+  return `${prefix}-${Date.now()}-${rand}${ext}`
 }
 
+// Lógica compartida: validar mime real, escribir a uploads/, devolver URL.
+async function handleUpload(req, res, next, prefix) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se proporcionó ninguna imagen' })
+    }
+    const detected = await fileType.fromBuffer(req.file.buffer)
+    if (!detected || !ALLOWED_MIMES.includes(detected.mime)) {
+      return res.status(400).json({ error: 'El contenido del archivo no corresponde a una imagen válida.' })
+    }
+    if (detected.mime !== req.file.mimetype) {
+      return res.status(400).json({ error: 'El tipo declarado no coincide con el contenido real del archivo.' })
+    }
+    const filename = safeFilename(prefix, EXT_BY_MIME[detected.mime])
+    const destPath = path.join(uploadsDir, filename)
+    if (!destPath.startsWith(uploadsDir + path.sep)) {
+      return res.status(400).json({ error: 'Ruta de archivo inválida.' })
+    }
+    await fs.promises.writeFile(destPath, req.file.buffer)
+    res.json({ url: `/uploads/${filename}` })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// Upload para productos: requiere admin.
 router.post(
   '/image',
   authenticateToken,
   requireAdmin,
   upload.single('image'),
-  async (req, res, next) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'No se proporcionó ninguna imagen' })
-      }
+  (req, res, next) => handleUpload(req, res, next, 'product')
+)
 
-      // Validación real por magic bytes (el MIME declarado es fácilmente falsificable).
-      const detected = await fileType.fromBuffer(req.file.buffer)
-      if (!detected || !ALLOWED_MIMES.includes(detected.mime)) {
-        return res.status(400).json({ error: 'El contenido del archivo no corresponde a una imagen válida.' })
-      }
-      if (detected.mime !== req.file.mimetype) {
-        return res.status(400).json({ error: 'El tipo declarado no coincide con el contenido real del archivo.' })
-      }
-
-      const filename = safeFilename(EXT_BY_MIME[detected.mime])
-      const destPath = path.join(uploadsDir, filename)
-
-      // Doble check: el path resuelto debe seguir dentro de uploadsDir (anti path-traversal)
-      if (!destPath.startsWith(uploadsDir + path.sep)) {
-        return res.status(400).json({ error: 'Ruta de archivo inválida.' })
-      }
-
-      await fs.promises.writeFile(destPath, req.file.buffer)
-      res.json({ url: `/uploads/${filename}` })
-    } catch (error) {
-      next(error)
-    }
-  }
+// Upload de avatar: cualquier usuario autenticado sube su propia foto.
+router.post(
+  '/avatar',
+  authenticateToken,
+  upload.single('image'),
+  (req, res, next) => handleUpload(req, res, next, 'avatar')
 )
 
 // Manejo específico de errores de multer

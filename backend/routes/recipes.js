@@ -37,7 +37,7 @@ function withProducts(recipe) {
 // Listado público (solo publicadas por defecto)
 router.get('/', optionalAuth, (req, res, next) => {
   try {
-    const { published, difficulty, limit, by_product } = req.query
+    const { published, difficulty, limit, by_product, random } = req.query
     const where = []
     const params = []
 
@@ -56,7 +56,8 @@ router.get('/', optionalAuth, (req, res, next) => {
       params.unshift(parseInt(by_product))
     }
     if (where.length) query += ` WHERE ${where.join(' AND ')}`
-    query += ' ORDER BY r.created_at DESC'
+    // El home pide ?random=1 para rotar recetas cada carga.
+    query += random === '1' ? ' ORDER BY RANDOM()' : ' ORDER BY r.created_at DESC'
     if (limit) query += ` LIMIT ${Math.min(50, Math.max(1, parseInt(limit) || 20))}`
 
     const rows = db.prepare(query).all(...params).map(withProducts)

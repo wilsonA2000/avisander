@@ -12,6 +12,7 @@ const {
   resetPasswordSchema,
   refreshSchema
 } = require('../schemas/auth')
+const { profileUpdateSchema } = require('../schemas/user')
 const {
   signAccessToken,
   generateRefreshToken,
@@ -60,7 +61,7 @@ router.post('/register', validate(registerSchema), (req, res, next) => {
       .run(email, passwordHash, name || null, phone || null)
 
     const user = db
-      .prepare('SELECT id, email, name, phone, role, must_change_password FROM users WHERE id = ?')
+      .prepare('SELECT id, email, name, phone, address, avatar_url, role, must_change_password FROM users WHERE id = ?')
       .get(result.lastInsertRowid)
 
     const tokens = issueTokens(user.id)
@@ -126,6 +127,34 @@ router.post('/logout', (req, res) => {
 // Current user
 router.get('/me', authenticateToken, (req, res) => {
   res.json({ user: req.user })
+})
+
+// Actualizar perfil propio. Solo campos permitidos por el schema.
+router.put('/me', authenticateToken, validate(profileUpdateSchema), (req, res, next) => {
+  try {
+    const current = db
+      .prepare('SELECT id, email, name, phone, address, avatar_url, role FROM users WHERE id = ?')
+      .get(req.user.id)
+    const merged = { ...current, ...req.body }
+
+    db.prepare(
+      `UPDATE users SET name = ?, phone = ?, address = ?, avatar_url = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).run(
+      merged.name ?? null,
+      merged.phone ?? null,
+      merged.address ?? null,
+      merged.avatar_url ?? null,
+      req.user.id
+    )
+
+    const user = db
+      .prepare('SELECT id, email, name, phone, address, avatar_url, role FROM users WHERE id = ?')
+      .get(req.user.id)
+    res.json({ user })
+  } catch (error) {
+    next(error)
+  }
 })
 
 // Solicitar recuperación de contraseña.

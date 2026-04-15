@@ -21,6 +21,12 @@ function hydrateProduct(p) {
     p.gallery_urls = []
   }
   p.tags = parseTags(p.tags)
+  // culinary_uses también es JSON string en BD → array para el cliente.
+  if (typeof p.culinary_uses === 'string') {
+    try { p.culinary_uses = JSON.parse(p.culinary_uses) } catch { p.culinary_uses = [] }
+  } else if (!p.culinary_uses) {
+    p.culinary_uses = []
+  }
   return p
 }
 
@@ -246,10 +252,11 @@ router.get('/facets', (req, res, next) => {
   }
 })
 
-// Featured
+// Featured con fallback: si hay menos de 8 featured, completa con los más recientes
+// (excluyendo los ya presentes) para que el Home no muestre columnas vacías.
 router.get('/featured', (_req, res, next) => {
   try {
-    const products = db
+    const featured = db
       .prepare(
         `SELECT p.*, c.name as category_name
          FROM products p LEFT JOIN categories c ON p.category_id = c.id
@@ -257,17 +264,32 @@ router.get('/featured', (_req, res, next) => {
          ORDER BY p.created_at DESC LIMIT 8`
       )
       .all()
-      .map(hydrateProduct)
-    res.json(products)
+    const need = 8 - featured.length
+    let combined = featured
+    if (need > 0) {
+      const ids = featured.map((p) => p.id)
+      const placeholders = ids.length ? ids.map(() => '?').join(',') : 'NULL'
+      const fill = db
+        .prepare(
+          `SELECT p.*, c.name as category_name
+           FROM products p LEFT JOIN categories c ON p.category_id = c.id
+           WHERE p.is_available = 1 AND p.id NOT IN (${placeholders})
+           ORDER BY p.created_at DESC LIMIT ?`
+        )
+        .all(...ids, need)
+      combined = [...featured, ...fill]
+    }
+    res.json(combined.map(hydrateProduct))
   } catch (error) {
     next(error)
   }
 })
 
-// On sale
+// On sale con fallback: incluye también productos con original_price > price
+// (descuento implícito) cuando is_on_sale no alcanza para 8.
 router.get('/on-sale', (_req, res, next) => {
   try {
-    const products = db
+    const onSale = db
       .prepare(
         `SELECT p.*, c.name as category_name
          FROM products p LEFT JOIN categories c ON p.category_id = c.id
@@ -275,8 +297,40 @@ router.get('/on-sale', (_req, res, next) => {
          ORDER BY p.created_at DESC LIMIT 8`
       )
       .all()
-      .map(hydrateProduct)
-    res.json(products)
+    const need = 8 - onSale.length
+    let combined = onSale
+    if (need > 0) {
+      const ids = onSale.map((p) => p.id)
+      const placeholders = ids.length ? ids.map(() => '?').join(',') : 'NULL'
+      const fill = db
+        .prepare(
+          `SELECT p.*, c.name as category_name
+           FROM products p LEFT JOIN categories c ON p.category_id = c.id
+           WHERE p.is_available = 1 AND p.original_price IS NOT NULL
+             AND p.original_price > p.price AND p.id NOT IN (${placeholders})
+           ORDER BY (p.original_price - p.price) DESC LIMIT ?`
+        )
+        .all(...ids, need)
+      combined = [...onSale, ...fill]
+    }
+    res.json(combined.map(hydrateProduct))
+  } catch (error) {
+    next(error)
+  }
+})
+
+// Búsqueda O(1) por código de barras (usado por POS en Fase B)
+router.get('/by-barcode/:code', (req, res, next) => {
+  try {
+    const product = db
+      .prepare(
+        `SELECT p.*, c.name as category_name
+         FROM products p LEFT JOIN categories c ON p.category_id = c.id
+         WHERE p.barcode = ? LIMIT 1`
+      )
+      .get(req.params.code)
+    if (!product) return res.status(404).json({ error: 'Producto no encontrado' })
+    res.json(hydrateProduct(product))
   } catch (error) {
     next(error)
   }
@@ -386,7 +440,11 @@ router.post(
         external_code,
         tags,
         video_url,
-        slug: providedSlug
+        slug: providedSlug,
+        stock_min,
+        barcode,
+        benefits,
+        culinary_uses
       } = req.body
 
       const effectivePrice = sale_type === 'by_weight' ? price_per_kg : price
@@ -401,8 +459,9 @@ router.post(
             (name, description, price, original_price, unit, sale_type, price_per_kg,
              brand, reference, packaging, cold_chain, ingredients, gallery_urls,
              category_id, is_available, is_featured, is_on_sale, image_url,
-             subcategory, external_code, tags, video_url, slug, search_text)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+             subcategory, external_code, tags, video_url, slug, search_text,
+             stock_min, barcode, benefits, culinary_uses)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           name,
@@ -428,7 +487,11 @@ router.post(
           tags ? JSON.stringify(tags) : null,
           video_url || null,
           slug,
-          searchText
+          searchText,
+          stock_min ?? 0,
+          barcode || null,
+          benefits?.trim() || null,
+          culinary_uses?.length ? JSON.stringify(culinary_uses) : null
         )
 
       const product = db
@@ -488,6 +551,7 @@ router.put(
           brand = ?, reference = ?, packaging = ?, cold_chain = ?, ingredients = ?, gallery_urls = ?,
           category_id = ?, is_available = ?, is_featured = ?, is_on_sale = ?, image_url = ?,
           subcategory = ?, external_code = ?, tags = ?, video_url = ?, slug = ?, search_text = ?,
+          stock_min = ?, barcode = ?, benefits = ?, culinary_uses = ?,
           updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`
       ).run(
@@ -515,6 +579,14 @@ router.put(
         merged.video_url ?? null,
         slug,
         searchText,
+        merged.stock_min ?? 0,
+        merged.barcode ?? null,
+        merged.benefits?.trim?.() || merged.benefits || null,
+        Array.isArray(merged.culinary_uses) && merged.culinary_uses.length
+          ? JSON.stringify(merged.culinary_uses)
+          : merged.culinary_uses && typeof merged.culinary_uses === 'string'
+          ? merged.culinary_uses
+          : null,
         req.params.id
       )
 

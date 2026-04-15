@@ -24,7 +24,15 @@ const baseProductShape = {
   external_code: z.string().trim().max(80).optional().nullable(),
   tags: z.array(z.string().trim().max(40)).max(20).optional().nullable(),
   video_url: z.string().trim().max(500).optional().nullable(),
-  slug: z.string().trim().max(100).optional().nullable()
+  slug: z.string().trim().max(100).optional().nullable(),
+  // Sprint 6 Fase A: inventario
+  stock_min: z.number().nonnegative().finite().optional().nullable(),
+  barcode: z.string().trim().max(50).optional().nullable(),
+  // Sprint 7F: bondades y usos culinarios
+  benefits: z.string().trim().max(2000).optional().nullable(),
+  culinary_uses: z.array(z.string().trim().max(30)).max(15).optional().nullable()
+  // stock NO es editable desde products: solo vía compras/ajustes (auditoría).
+  // cost_price tampoco: se calcula por promedio ponderado en /compras.
 }
 
 // Validador estricto (create): exige consistencia entre sale_type y precios

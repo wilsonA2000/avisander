@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import useScrollToTop from '../hooks/useScrollToTop'
 
 function ForgotPassword() {
+  useScrollToTop('#email')
   const { forgotPassword } = useAuth()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)

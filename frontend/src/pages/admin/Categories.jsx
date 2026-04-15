@@ -191,7 +191,7 @@ function Categories() {
                   value={formData.icon}
                   onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
                   className="input"
-                  placeholder="🥩"
+                  placeholder="Nombre o icono (opcional)"
                 />
               </div>
               <div>

@@ -10,7 +10,12 @@ import {
   X,
   ChefHat,
   Image as ImageIcon,
-  Users
+  Users,
+  Boxes,
+  Truck,
+  ShoppingBag as ShoppingBagIcon,
+  MessageSquare,
+  Wand2
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -19,8 +24,13 @@ const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/admin/productos', icon: Package, label: 'Productos' },
   { to: '/admin/categorias', icon: FolderOpen, label: 'Categorias' },
-  { to: '/admin/pedidos', icon: ShoppingBag, label: 'Pedidos' },
+  { to: '/admin/pedidos', icon: ShoppingBag, label: 'Ventas' },
   { to: '/admin/clientes', icon: Users, label: 'Clientes' },
+  { to: '/admin/inventario', icon: Boxes, label: 'Inventario' },
+  { to: '/admin/proveedores', icon: Truck, label: 'Proveedores' },
+  { to: '/admin/compras', icon: ShoppingBagIcon, label: 'Compras' },
+  { to: '/admin/pqrs', icon: MessageSquare, label: 'PQRS' },
+  { to: '/admin/estudio-ai', icon: Wand2, label: 'Estudio AI' },
   { to: '/admin/recetas', icon: ChefHat, label: 'Recetas' },
   { to: '/admin/biblioteca', icon: ImageIcon, label: 'Biblioteca' },
   { to: '/admin/configuracion', icon: Settings, label: 'Configuración' },
@@ -42,18 +52,19 @@ function AdminLayout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-64 bg-gray-900 text-white transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 h-full w-64 bg-gray-900 text-white transform transition-transform duration-200 ease-in-out lg:translate-x-0 flex flex-col ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-4 border-b border-gray-800">
+        <div className="p-4 border-b border-gray-800 flex-shrink-0">
           <Link to="/" className="flex items-center space-x-2">
             <span className="text-xl font-bold text-primary">Avisander</span>
             <span className="text-gray-400 text-sm">Admin</span>
           </Link>
         </div>
 
-        <nav className="p-4 space-y-2">
+        {/* Nav scrollable para que no tape el bloque de usuario de abajo */}
+        <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -74,16 +85,16 @@ function AdminLayout() {
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
+        <div className="p-4 border-t border-gray-800 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div className="text-sm">
-              <p className="text-white">{user?.name}</p>
-              <p className="text-gray-500">{user?.email}</p>
+            <div className="text-sm min-w-0 flex-1 pr-2">
+              <p className="text-white truncate">{user?.name}</p>
+              <p className="text-gray-500 text-xs truncate">{user?.email}</p>
             </div>
             <button
               onClick={logout}
-              className="p-2 text-gray-400 hover:text-white transition-colors"
-              title="Cerrar sesion"
+              className="p-2 text-gray-400 hover:text-white transition-colors flex-shrink-0"
+              title="Cerrar sesión"
             >
               <LogOut size={20} />
             </button>
