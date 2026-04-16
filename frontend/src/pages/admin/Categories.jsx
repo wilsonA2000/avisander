@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash2, X } from 'lucide-react'
+import CategoryIcon from '../../components/CategoryIcon'
 
 function Categories() {
   const [categories, setCategories] = useState([])
@@ -130,7 +131,9 @@ function Categories() {
                 <tr key={category.id} className="border-t">
                   <td className="px-4 py-3 text-gray-500">{category.display_order}</td>
                   <td className="px-4 py-3 font-medium">{category.name}</td>
-                  <td className="px-4 py-3 text-gray-500">{category.icon || '-'}</td>
+                  <td className="px-4 py-3">
+                        <CategoryIcon category={category.name} variant="inline" size="sm" />
+                      </td>
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => openModal(category)}
