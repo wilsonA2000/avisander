@@ -7,8 +7,8 @@ function SaleRibbon({ className = '' }) {
       <div className="relative">
         <div
           className="relative inline-flex items-center justify-center
-                     w-[72px] h-[26px] pl-2 pr-3
-                     text-white font-display font-bold text-[11px] tracking-wider uppercase
+                     w-[56px] h-[22px] pl-1.5 pr-2.5 sm:w-[72px] sm:h-[26px] sm:pl-2 sm:pr-3
+                     text-white font-display font-bold text-[9px] sm:text-[11px] tracking-wider uppercase
                      bg-gradient-to-r from-accent-dark via-accent to-[#E63946]
                      shadow-[0_6px_14px_-4px_rgba(160,32,32,0.65),inset_0_-2px_0_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.3)]
                      ribbon-tail"

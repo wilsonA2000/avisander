@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ShoppingBag, Plus, X, Package, CheckCircle2, DollarSign, Trash2, Eye } from 'lucide-react'
 import { api } from '../../lib/apiClient'
 import { useToast } from '../../context/ToastContext'
+import { fmtDate } from '../../lib/format'
 
 function fmtCOP(n) {
   return `$${Math.round(Number(n) || 0).toLocaleString('es-CO')}`
@@ -191,7 +192,7 @@ function Compras() {
                     <td className="px-4 py-3 text-right">{p.items_count}</td>
                     <td className="px-4 py-3 text-right font-medium">{fmtCOP(p.total)}</td>
                     <td className="px-4 py-3 text-xs text-gray-500">
-                      {new Date(p.created_at).toLocaleDateString('es-CO')}
+                      {fmtDate(p.created_at)}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <button onClick={() => open(p.id)} className="p-1.5 text-gray-500 hover:text-primary" title="Ver">

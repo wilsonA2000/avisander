@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Boxes, AlertTriangle, History, Edit3, X, Search, EyeOff, Power } from 'lucide-react'
 import { api } from '../../lib/apiClient'
 import { useToast } from '../../context/ToastContext'
+import { fmtDateTime } from '../../lib/format'
 
 function fmt(n, unit = '') {
   const v = Number(n) || 0
@@ -327,7 +328,7 @@ function Inventario() {
                   {kardex.movements.map((m) => (
                     <tr key={m.id}>
                       <td className="px-4 py-2 text-xs text-gray-500">
-                        {new Date(m.created_at).toLocaleString('es-CO')}
+                        {fmtDateTime(m.created_at)}
                       </td>
                       <td className="px-4 py-2">{TYPE_LABEL[m.type] || m.type}</td>
                       <td

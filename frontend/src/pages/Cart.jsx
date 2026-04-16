@@ -546,13 +546,23 @@ function Cart() {
               const ppk = item.product.price_per_kg ?? item.product.price
               return (
                 <div key={item.id} className={`p-4 ${index > 0 ? 'border-t' : ''}`}>
-                  <div className="flex items-start gap-4">
-                    <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
+                  {/* Fila superior: foto + nombre/precio + eliminar */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
                       <ProductImage product={item.product} size="xs" />
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-800 truncate">{item.product.name}</h3>
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-gray-800 text-sm sm:text-base line-clamp-2">{item.product.name}</h3>
+                        <button
+                          onClick={() => removeLine(item.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                          aria-label="Eliminar producto"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                       <p className="text-sm text-primary font-medium">
                         {isWeight
                           ? `${fmt(ppk)} / kg`
@@ -567,42 +577,36 @@ function Cart() {
                         <p className="text-sm text-amber-700 mt-1 italic">📝 {item.notes}</p>
                       )}
                     </div>
+                  </div>
 
-                    {!isWeight && (
+                  {/* Fila inferior: qty + total (apilados en su propia fila en móvil) */}
+                  <div className="flex items-center justify-between mt-3 ml-[76px] sm:ml-[92px]">
+                    {!isWeight ? (
                       <div className="flex items-center border rounded-lg">
                         <button
                           onClick={() => updateLine(item.id, { quantity: Math.max(1, item.quantity - 1) })}
-                          className="p-2 hover:bg-gray-100 transition-colors"
+                          className="p-1.5 sm:p-2 hover:bg-gray-100 transition-colors"
                           aria-label="Reducir cantidad"
                         >
-                          <Minus size={16} />
+                          <Minus size={14} />
                         </button>
-                        <span className="w-12 text-center font-medium">{item.quantity}</span>
+                        <span className="w-8 sm:w-12 text-center text-sm font-medium">{item.quantity}</span>
                         <button
                           onClick={() => updateLine(item.id, { quantity: item.quantity + 1 })}
-                          className="p-2 hover:bg-gray-100 transition-colors"
+                          className="p-1.5 sm:p-2 hover:bg-gray-100 transition-colors"
                           aria-label="Aumentar cantidad"
                         >
-                          <Plus size={16} />
+                          <Plus size={14} />
                         </button>
                       </div>
+                    ) : (
+                      <span />
                     )}
-
-                    <div className="text-right min-w-[100px]">
-                      <p className="font-semibold text-gray-800">{fmt(lt)}</p>
-                    </div>
-
-                    <button
-                      onClick={() => removeLine(item.id)}
-                      className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                      aria-label="Eliminar producto"
-                    >
-                      <Trash2 size={20} />
-                    </button>
+                    <p className="font-semibold text-gray-800">{fmt(lt)}</p>
                   </div>
 
                   {/* Notas */}
-                  <div className="mt-3 ml-24">
+                  <div className="mt-3 ml-[76px] sm:ml-[92px]">
                     {openNotesId === item.id ? (
                       <div>
                         <textarea

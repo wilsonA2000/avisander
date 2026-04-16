@@ -13,9 +13,11 @@ function Footer() {
       {/* La línea decorativa superior ahora la pinta el separador en Layout.jsx
           para evitar la doble línea (amarilla + naranja). */}
       <div className="container mx-auto px-4 pt-16 md:pt-20 pb-10">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          {/* Brand */}
-          <div className="col-span-2 md:col-span-1">
+        {/* Móvil: Brand full-width arriba, luego 2-col links, luego Contacto full-width.
+             Desktop: 4 columnas iguales. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* Brand — full-width en móvil */}
+          <div className="sm:col-span-2 lg:col-span-1">
             <h3 className="font-display text-2xl font-bold text-white mb-3">
               {settings.store_name || 'Avisander'}
             </h3>
@@ -50,8 +52,8 @@ function Footer() {
             </ul>
           </div>
 
-          {/* Contacto */}
-          <div>
+          {/* Contacto — full-width en móvil */}
+          <div className="sm:col-span-2 lg:col-span-1">
             <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-300 mb-4">Contacto</h4>
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-2.5 text-gray-400">

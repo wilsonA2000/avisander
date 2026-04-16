@@ -26,6 +26,8 @@ import RecipeImage from '../components/RecipeImage'
 import TrustIcon3D from '../components/TrustIcon3D'
 import SEO from '../components/SEO'
 import CulinaryIcon from '../components/CulinaryIcon'
+import SaleRibbon from '../components/SaleRibbon'
+import LowStockBadge from '../components/LowStockBadge'
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed'
 
 const PRESETS_GRAMS = [250, 500, 750, 1000, 1500, 2000]
@@ -226,12 +228,10 @@ function ProductDetail() {
             product={product}
             badges={
               <>
-                {!!product.is_on_sale && <span className="badge-sale">Oferta</span>}
+                {!!product.is_on_sale && <SaleRibbon className="!relative !top-auto !left-auto" />}
                 {isWeight && <span className="badge-by-weight">Por peso</span>}
                 {!isAvailable && <span className="badge-out-of-stock">Agotado</span>}
-                {isAvailable && lowStock && (
-                  <span className="badge bg-amber-500 text-white">Últimas unidades</span>
-                )}
+                {isAvailable && lowStock && <LowStockBadge />}
               </>
             }
           />
@@ -288,7 +288,12 @@ function ProductDetail() {
                   <span className="text-gray-400 line-through text-sm">
                     {formatCOP(product.original_price)}
                   </span>
-                  <span className="badge-sale">¡Oferta!</span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full
+                                   bg-gradient-to-r from-accent-dark to-[#E63946] text-white
+                                   text-[10px] font-display font-bold uppercase tracking-wider
+                                   shadow-[0_2px_6px_-1px_rgba(160,32,32,0.4)]">
+                    Oferta
+                  </span>
                 </>
               )}
             </div>
