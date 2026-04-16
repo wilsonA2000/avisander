@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="f-pan-top" x1="18" y1="64" x2="110" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#888"/>
+      <stop offset="40%" stop-color="#AAAAAA"/>
+      <stop offset="100%" stop-color="#666"/>
+    </linearGradient>
+    <linearGradient id="f-pan-side" x1="64" y1="68" x2="64" y2="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#555"/>
+      <stop offset="100%" stop-color="#222"/>
+    </linearGradient>
+    <linearGradient id="f-oil" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#FFB830"/>
+      <stop offset="60%" stop-color="#E8860A"/>
+      <stop offset="100%" stop-color="#C06000"/>
+    </linearGradient>
+    <radialGradient id="f-oil-r" cx="45%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#FFD060" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="#F59010" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#A04000" stop-opacity="0.8"/>
+    </radialGradient>
+    <radialGradient id="f-bubble" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#FFEE88" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#FFAA00" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="f-handle" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#333"/>
+      <stop offset="50%" stop-color="#555"/>
+      <stop offset="100%" stop-color="#222"/>
+    </linearGradient>
+    <radialGradient id="f-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="f-highlight" x1="0%" y1="0%" x2="70%" y2="100%">
+      <stop offset="0%" stop-color="#FFF" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#FFF" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Flame -->
+    <linearGradient id="f-flame" x1="50%" y1="100%" x2="50%" y2="0%" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#FFD700"/>
+      <stop offset="50%" stop-color="#FF5500"/>
+      <stop offset="100%" stop-color="#CC0000" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ground shadow -->
+  <ellipse cx="58" cy="114" rx="32" ry="5" fill="url(#f-shadow)"/>
+
+  <!-- Flames under pan -->
+  <path d="M35 90 C33 84 31 79 35 73 C37 70 36 66 39 64 C38 69 41 71 40 75 C43 70 42 65 46 62 C44 68 47 71 45 75 C47 70 50 67 53 65 C51 71 51 76 51 80 Z" fill="url(#f-flame)" opacity="0.8"/>
+  <path d="M65 90 C63 84 61 79 64 73 C66 70 65 65 68 62 C67 68 70 70 69 75 C72 70 71 65 75 62 C73 68 75 71 74 76 C76 71 79 67 82 65 C80 72 79 77 80 81 Z" fill="url(#f-flame)" opacity="0.75"/>
+
+  <!-- Pan side face -->
+  <path d="M20 72 L20 88 Q20 96 64 98 Q108 96 108 88 L108 72 Z" fill="url(#f-pan-side)"/>
+
+  <!-- Oil surface (inside pan, top face) -->
+  <ellipse cx="64" cy="72" rx="44" ry="15" fill="url(#f-pan-top)"/>
+  <ellipse cx="64" cy="72" rx="38" ry="12" fill="url(#f-oil-r)"/>
+
+  <!-- Oil bubbles -->
+  <circle cx="50" cy="70" r="4" fill="url(#f-bubble)" opacity="0.9"/>
+  <circle cx="70" cy="68" r="3" fill="url(#f-bubble)" opacity="0.85"/>
+  <circle cx="80" cy="73" r="2.5" fill="url(#f-bubble)" opacity="0.8"/>
+  <circle cx="42" cy="74" r="2" fill="url(#f-bubble)" opacity="0.75"/>
+  <circle cx="62" cy="76" r="3.5" fill="url(#f-bubble)" opacity="0.85"/>
+  <circle cx="88" cy="70" r="2" fill="url(#f-bubble)" opacity="0.7"/>
+  <circle cx="55" cy="65" r="1.5" fill="url(#f-bubble)" opacity="0.6"/>
+
+  <!-- Pan rim highlight -->
+  <path d="M22 70 Q40 62 64 61 Q88 62 106 70" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.35" fill="none" stroke-linecap="round"/>
+
+  <!-- Handle -->
+  <path d="M108 78 L124 68" stroke="url(#f-handle)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M108 82 L124 72" stroke="#1A1A1A" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Highlight on oil surface -->
+  <ellipse cx="50" cy="68" rx="14" ry="4" fill="url(#f-highlight)" opacity="0.4"/>
+
+  <!-- Heat shimmer lines -->
+  <path d="M48 60 Q50 55 48 50" stroke="#FF9900" stroke-width="1" stroke-opacity="0.4" fill="none" stroke-linecap="round"/>
+  <path d="M64 58 Q66 53 64 48" stroke="#FF9900" stroke-width="1" stroke-opacity="0.4" fill="none" stroke-linecap="round"/>
+  <path d="M80 60 Q82 55 80 50" stroke="#FF9900" stroke-width="1" stroke-opacity="0.4" fill="none" stroke-linecap="round"/>
+</svg>

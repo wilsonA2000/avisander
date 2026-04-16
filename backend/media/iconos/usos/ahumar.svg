@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="ah-body-top" x1="20" y1="48" x2="108" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5A4030"/>
+      <stop offset="50%" stop-color="#7A5840"/>
+      <stop offset="100%" stop-color="#3E2818"/>
+    </linearGradient>
+    <linearGradient id="ah-body-side" x1="64" y1="52" x2="64" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4A3020"/>
+      <stop offset="100%" stop-color="#1E100A"/>
+    </linearGradient>
+    <!-- Lid -->
+    <linearGradient id="ah-lid-top" x1="32" y1="38" x2="96" y2="38" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5C3820"/>
+      <stop offset="50%" stop-color="#8A5830"/>
+      <stop offset="100%" stop-color="#4A2810"/>
+    </linearGradient>
+    <!-- Smoke -->
+    <linearGradient id="ah-smoke1" x1="50%" y1="100%" x2="50%" y2="0%" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#B0A090" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#D0C8C0" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="ah-smoke2" x1="50%" y1="100%" x2="50%" y2="0%" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#9A8878" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#C8C0B8" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Interior glow (embers) -->
+    <radialGradient id="ah-ember" cx="50%" cy="80%" r="55%">
+      <stop offset="0%" stop-color="#FF6600" stop-opacity="0.5"/>
+      <stop offset="60%" stop-color="#882200" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#330800" stop-opacity="0.1"/>
+    </radialGradient>
+    <!-- Chimney -->
+    <linearGradient id="ah-chimney" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3A2810"/>
+      <stop offset="50%" stop-color="#5A4020"/>
+      <stop offset="100%" stop-color="#2A1808"/>
+    </linearGradient>
+    <radialGradient id="ah-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Legs -->
+    <linearGradient id="ah-leg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4A3018"/>
+      <stop offset="100%" stop-color="#1E1008"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ground shadow -->
+  <ellipse cx="64" cy="116" rx="35" ry="5.5" fill="url(#ah-shadow)"/>
+
+  <!-- Legs -->
+  <rect x="32" y="96" width="7" height="20" rx="3" fill="url(#ah-leg)"/>
+  <rect x="89" y="96" width="7" height="20" rx="3" fill="url(#ah-leg)"/>
+
+  <!-- Smoker body side face -->
+  <path d="M20 52 L20 98 Q20 108 64 110 Q108 108 108 98 L108 52 Z" fill="url(#ah-body-side)"/>
+
+  <!-- Body top rim -->
+  <ellipse cx="64" cy="52" rx="44" ry="14" fill="url(#ah-body-top)"/>
+
+  <!-- Interior ember glow visible at top -->
+  <ellipse cx="64" cy="52" rx="36" ry="10" fill="#220800"/>
+  <ellipse cx="64" cy="52" rx="30" ry="8" fill="url(#ah-ember)"/>
+
+  <!-- Lid side -->
+  <path d="M32 44 Q32 54 64 56 Q96 54 96 44 Z" fill="#3A2010"/>
+  <!-- Lid top -->
+  <ellipse cx="64" cy="42" rx="32" ry="10" fill="url(#ah-lid-top)"/>
+
+  <!-- Lid hinge / bolts -->
+  <circle cx="32" cy="44" r="3" fill="#6A4820"/>
+  <circle cx="96" cy="44" r="3" fill="#6A4820"/>
+
+  <!-- Lid knob -->
+  <path d="M64 36 L64 42" stroke="#8A5830" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="64" cy="34" r="5" fill="#7A5030"/>
+  <circle cx="63" cy="33" r="2.5" fill="#FFFFFF" fill-opacity="0.3"/>
+
+  <!-- Lid highlight -->
+  <path d="M34 40 Q50 35 64 34 Q78 35 90 39" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.3" fill="none" stroke-linecap="round"/>
+
+  <!-- Chimney stack -->
+  <rect x="80" y="16" width="14" height="30" rx="3" fill="url(#ah-chimney)"/>
+  <ellipse cx="87" cy="16" rx="7" ry="3.5" fill="#6A4820"/>
+  <ellipse cx="87" cy="14.5" rx="5" ry="2.5" fill="#7A5830"/>
+
+  <!-- Smoke from chimney -->
+  <path d="M87 14 C85 8 90 3 86 -2" stroke="url(#ah-smoke1)" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <path d="M87 14 C90 6 83 2 87 -4" stroke="url(#ah-smoke2)" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <!-- Smoke puff 1 -->
+  <ellipse cx="87" cy="8" rx="8" ry="5" fill="#C8B8A8" fill-opacity="0.45"/>
+  <ellipse cx="84" cy="3" rx="6" ry="4" fill="#D0C0B0" fill-opacity="0.35"/>
+  <ellipse cx="90" cy="1" rx="5" ry="3.5" fill="#C0B0A0" fill-opacity="0.3"/>
+  <!-- Thin wisps -->
+  <path d="M82 10 Q78 5 80 0" stroke="#B0A090" stroke-width="2" stroke-opacity="0.4" fill="none" stroke-linecap="round"/>
+  <path d="M92 9 Q96 4 93 -1" stroke="#A89888" stroke-width="2" stroke-opacity="0.35" fill="none" stroke-linecap="round"/>
+
+  <!-- Vent holes on side body -->
+  <rect x="22" y="72" width="10" height="3" rx="1.5" fill="#0A0502" opacity="0.6"/>
+  <rect x="22" y="80" width="10" height="3" rx="1.5" fill="#0A0502" opacity="0.5"/>
+  <rect x="22" y="88" width="10" height="3" rx="1.5" fill="#0A0502" opacity="0.4"/>
+
+  <!-- Temperature gauge hint -->
+  <circle cx="64" cy="76" r="12" fill="#2A1A0A" stroke="#6A4820" stroke-width="2"/>
+  <circle cx="64" cy="76" r="9" fill="#1A0E06"/>
+  <circle cx="64" cy="76" r="7" fill="none" stroke="#884420" stroke-width="1" stroke-opacity="0.5"/>
+  <!-- Gauge needle -->
+  <line x1="64" y1="76" x2="70" y2="70" stroke="#FF6600" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="64" cy="76" r="2" fill="#CC4400"/>
+
+  <!-- Body highlight -->
+  <path d="M22 54 Q22 80 24 96" stroke="#FFFFFF" stroke-width="1" stroke-opacity="0.15" fill="none" stroke-linecap="round"/>
+</svg>

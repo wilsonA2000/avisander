@@ -10,6 +10,9 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       port: 5173,
+      // Permitir acceso desde túnel ngrok (redirección de Bold tras pago).
+      // Vite 5 por defecto bloquea hosts no listados como medida de seguridad.
+      allowedHosts: ['.ngrok-free.app', '.ngrok.app', '.ngrok.io'],
       proxy: {
         '/api': {
           target: proxyTarget,

@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="g-pot-top" x1="18" y1="60" x2="110" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7A4010"/>
+      <stop offset="50%" stop-color="#A05A20"/>
+      <stop offset="100%" stop-color="#5A2C08"/>
+    </linearGradient>
+    <linearGradient id="g-pot-side" x1="64" y1="66" x2="64" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6A3010"/>
+      <stop offset="100%" stop-color="#2E0E04"/>
+    </linearGradient>
+    <radialGradient id="g-stew" cx="45%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#D96020"/>
+      <stop offset="55%" stop-color="#8B2E08"/>
+      <stop offset="100%" stop-color="#4A0E02"/>
+    </radialGradient>
+    <!-- Ladle -->
+    <linearGradient id="g-ladle-handle" x1="80" y1="30" x2="115" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#C0C0C0"/>
+      <stop offset="50%" stop-color="#E8E8E8"/>
+      <stop offset="100%" stop-color="#909090"/>
+    </linearGradient>
+    <radialGradient id="g-ladle-bowl" cx="40%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#E0E0E0"/>
+      <stop offset="100%" stop-color="#888"/>
+    </radialGradient>
+    <linearGradient id="g-handle-pot" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5A2A08"/>
+      <stop offset="50%" stop-color="#8A4A18"/>
+      <stop offset="100%" stop-color="#4A1E06"/>
+    </linearGradient>
+    <radialGradient id="g-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Ground shadow -->
+  <ellipse cx="64" cy="116" rx="33" ry="5" fill="url(#g-shadow)"/>
+
+  <!-- Pot side -->
+  <path d="M20 66 L20 100 Q20 110 64 112 Q108 110 108 100 L108 66 Z" fill="url(#g-pot-side)"/>
+
+  <!-- Stew surface -->
+  <ellipse cx="64" cy="66" rx="44" ry="14" fill="#3C0E04"/>
+  <ellipse cx="64" cy="66" rx="38" ry="11" fill="url(#g-stew)"/>
+
+  <!-- Stew bubbles -->
+  <circle cx="50" cy="64" r="3.5" fill="#FF8840" fill-opacity="0.5"/>
+  <circle cx="68" cy="62" r="2.5" fill="#FF9950" fill-opacity="0.45"/>
+  <circle cx="80" cy="66" r="2" fill="#FFA060" fill-opacity="0.4"/>
+
+  <!-- Pot rim -->
+  <ellipse cx="64" cy="64" rx="44" ry="14" fill="url(#g-pot-top)"/>
+  <ellipse cx="64" cy="64" rx="38" ry="11" fill="#3C0E04"/>
+
+  <!-- Pot handles -->
+  <path d="M20 78 Q12 74 12 80 Q12 88 20 84" fill="none" stroke="url(#g-handle-pot)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M108 78 Q116 74 116 80 Q116 88 108 84" fill="none" stroke="url(#g-handle-pot)" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- Rim highlight -->
+  <path d="M22 62 Q44 55 64 54 Q84 55 106 62" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.3" fill="none" stroke-linecap="round"/>
+
+  <!-- Ladle handle -->
+  <path d="M80 64 L112 32" stroke="url(#g-ladle-handle)" stroke-width="5" stroke-linecap="round"/>
+  <!-- Ladle bowl -->
+  <ellipse cx="76" cy="67" rx="10" ry="6" fill="url(#g-ladle-bowl)" transform="rotate(-20 76 67)"/>
+  <ellipse cx="75" cy="66" rx="7" ry="4" fill="#BB7730" fill-opacity="0.6" transform="rotate(-20 75 66)"/>
+  <!-- Ladle highlight -->
+  <ellipse cx="73" cy="64" rx="3.5" ry="2" fill="#FFFFFF" fill-opacity="0.4" transform="rotate(-20 73 64)"/>
+
+  <!-- Steam wisps -->
+  <path d="M42 58 Q40 50 42 43 Q44 37 42 31" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.3" fill="none" stroke-linecap="round"/>
+  <path d="M60 56 Q58 49 60 42 Q62 36 60 30" stroke="#FFFFFF" stroke-width="2.5" stroke-opacity="0.35" fill="none" stroke-linecap="round"/>
+  <path d="M70 57 Q72 50 70 43 Q68 37 70 31" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.25" fill="none" stroke-linecap="round"/>
+
+  <!-- Pot side highlight -->
+  <path d="M22 68 Q22 90 24 98" stroke="#FFFFFF" stroke-width="1" stroke-opacity="0.2" fill="none" stroke-linecap="round"/>
+</svg>

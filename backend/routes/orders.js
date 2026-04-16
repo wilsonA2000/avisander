@@ -6,6 +6,9 @@ const { orderCreateSchema, orderStatusSchema } = require('../schemas/order')
 const { quoteDelivery } = require('../lib/delivery')
 const bold = require('../lib/bold')
 const inventory = require('../lib/inventory')
+const stockReservation = require('../lib/stockReservation')
+const { computeFirstPurchaseDiscount } = require('../lib/discount')
+const loyalty = require('../lib/loyalty')
 // Nota: el body del webhook /api/payments/bold/webhook se recibe como RAW Buffer
 // (ver exclusión del express.json global en app.js) para poder verificar HMAC-SHA256.
 const { sendMail, orderAdminEmail, orderCustomerEmail } = require('../lib/mailer')
@@ -26,6 +29,49 @@ router.get('/', authenticateToken, (req, res, next) => {
     }
     const getItems = db.prepare('SELECT * FROM order_items WHERE order_id = ?')
     res.json(orders.map((o) => ({ ...o, items: getItems.all(o.id) })))
+  } catch (error) {
+    next(error)
+  }
+})
+
+// Preview de descuento aplicable al cliente autenticado sobre un subtotal dado.
+// El frontend lo usa en el carrito para mostrar el desglose antes de hacer checkout.
+router.get('/discount-preview', optionalAuth, (req, res, next) => {
+  try {
+    const subtotal = Number(req.query.subtotal) || 0
+    const discount = computeFirstPurchaseDiscount(req.user?.id || null, subtotal)
+    res.json({
+      authenticated: Boolean(req.user?.id),
+      amount: discount.amount || 0,
+      percent: discount.percent || 0,
+      reason: discount.reason || null
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+// Endpoint público para que el cliente pueda trackear su pedido sin login
+// usando la payment_reference generada al crear la orden. Devuelve sólo
+// campos no sensibles: estado, items, total, modo de entrega.
+router.get('/public/:reference', (req, res, next) => {
+  try {
+    const order = db
+      .prepare(
+        `SELECT id, total, delivery_cost, delivery_method, status, payment_method,
+                payment_status, payment_reference, payment_transaction_id,
+                customer_name, discount_amount, discount_reason, created_at
+         FROM orders WHERE payment_reference = ?`
+      )
+      .get(req.params.reference)
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' })
+    order.items = db
+      .prepare(
+        `SELECT product_name, sale_type, quantity, weight_grams, unit_price, subtotal, notes
+         FROM order_items WHERE order_id = ?`
+      )
+      .all(order.id)
+    res.json(order)
   } catch (error) {
     next(error)
   }
@@ -78,7 +124,7 @@ router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => 
       if (!it.product_id) continue
       if ((it.sale_type || 'fixed') === 'by_weight') continue
       const prod = db
-        .prepare('SELECT id, name, stock, is_available FROM products WHERE id = ?')
+        .prepare('SELECT id, name, stock, reserved_stock, is_available FROM products WHERE id = ?')
         .get(it.product_id)
       if (!prod) {
         stockErrors.push(`Producto ${it.product_id} no existe`)
@@ -88,11 +134,12 @@ router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => 
         stockErrors.push(`"${prod.name}" no está disponible`)
         continue
       }
-      const stock = Number(prod.stock) || 0
-      if (stock <= 0) {
+      // Stock disponible = stock físico - reservado por otros pedidos pendientes.
+      const available = (Number(prod.stock) || 0) - (Number(prod.reserved_stock) || 0)
+      if (available <= 0) {
         stockErrors.push(`"${prod.name}" sin stock`)
-      } else if (it.quantity > stock) {
-        stockErrors.push(`"${prod.name}" solo tiene ${stock} en stock (pediste ${it.quantity})`)
+      } else if (it.quantity > available) {
+        stockErrors.push(`"${prod.name}" solo tiene ${available} disponibles (pediste ${it.quantity})`)
       }
     }
     if (stockErrors.length > 0) {
@@ -174,14 +221,29 @@ router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => 
       resolved_city = quote.city
     }
 
-    const total = subtotal + delivery_cost
+    // Descuento aplicable (solo clientes registrados en su primera compra).
+    const discount = computeFirstPurchaseDiscount(req.user?.id || null, subtotal)
+    const discountAmount = discount.amount || 0
+    const discountReason = discount.reason || null
+
+    // Canje de puntos de fidelización (opcional).
+    const redeemPoints = req.body.redeem_points || 0
+    let loyaltyDiscount = 0
+    if (redeemPoints > 0 && req.user?.id && loyalty.isEnabled()) {
+      const balance = loyalty.getBalance(req.user.id)
+      const actual = Math.min(redeemPoints, balance)
+      loyaltyDiscount = actual * loyalty.pointValue()
+    }
+
+    const total = Math.max(0, subtotal - discountAmount - loyaltyDiscount) + delivery_cost
 
     const result = db
       .prepare(
         `INSERT INTO orders
           (user_id, total, delivery_cost, customer_name, customer_phone, customer_address, notes,
-           delivery_method, delivery_lat, delivery_lng, delivery_city, delivery_distance_km)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           delivery_method, delivery_lat, delivery_lng, delivery_city, delivery_distance_km,
+           discount_amount, discount_reason)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         req.user?.id || null,
@@ -195,7 +257,9 @@ router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => 
         delivery_method === 'delivery' ? delivery_lat : null,
         delivery_method === 'delivery' ? delivery_lng : null,
         resolved_city,
-        distance_km
+        distance_km,
+        discountAmount,
+        discountReason
       )
 
     const orderId = result.lastInsertRowid
@@ -223,19 +287,37 @@ router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => 
       'UPDATE orders SET payment_method = ?, payment_reference = ? WHERE id = ?'
     ).run(payment_method, paymentReference, orderId)
 
+    // Canjear puntos reales si aplica.
+    if (loyaltyDiscount > 0 && req.user?.id) {
+      const actualRedeemed = loyalty.redeemPoints(req.user.id, orderId, redeemPoints)
+      if (actualRedeemed > 0) {
+        const currentReason = discountReason ? `${discountReason} + Puntos (${actualRedeemed}pts)` : `Canje ${actualRedeemed} puntos`
+        db.prepare('UPDATE orders SET discount_amount = ?, discount_reason = ? WHERE id = ?')
+          .run(discountAmount + loyaltyDiscount, currentReason, orderId)
+      }
+    }
+
+    // Reservar stock temporalmente.
+    try {
+      stockReservation.reserveForOrder(orderId)
+    } catch (err) {
+      logger.error({ err, orderId }, 'Fallo reservando stock; orden queda sin reserva')
+    }
+
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId)
     order.items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId)
 
-    // Payload Bold si aplica. Bold requiere total en centavos.
-    // La firma y la llave de identidad se pasan al botón del frontend.
+    // Payload Bold si aplica. Bold en COP usa el monto en PESOS enteros (no centavos),
+    // tanto en data-amount como en la firma de integridad. Ver docs:
+    // https://developers.bold.co/pagos-en-linea/boton-de-pagos/integracion-manual/integracion-manual
     let boldPayload = null
     if (payment_method === 'bold' && bold.isEnabled()) {
-      const amountInCents = Math.round(total * 100)
+      const amount = Math.round(total)
       boldPayload = {
         order_id: paymentReference,
-        amount_in_cents: amountInCents,
+        amount,
         currency: 'COP',
-        signature: bold.signIntegrity({ orderId: paymentReference, amountInCents, currency: 'COP' }),
+        signature: bold.signIntegrity({ orderId: paymentReference, amount, currency: 'COP' }),
         identity_key: bold.config().identityKey,
         widget_url: bold.config().widgetUrl,
         description: `Pedido Avisander #${orderId}`
@@ -270,6 +352,53 @@ router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => 
   }
 })
 
+router.get('/export/excel', authenticateToken, requireAdmin, (req, res, next) => {
+  try {
+    const XLSX = require('xlsx')
+    const orders = db.prepare('SELECT * FROM orders ORDER BY created_at DESC').all()
+    const getItems = db.prepare('SELECT * FROM order_items WHERE order_id = ?')
+    const rows = orders.map((o) => {
+      const items = getItems.all(o.id)
+      return {
+        '#': o.id,
+        Fecha: o.created_at,
+        Cliente: o.customer_name || '',
+        Teléfono: o.customer_phone || '',
+        Dirección: o.customer_address || '',
+        Productos: items.map((it) =>
+          it.sale_type === 'by_weight'
+            ? `${it.product_name} ${it.weight_grams}g`
+            : `${it.product_name} x${it.quantity}`
+        ).join(', '),
+        Subtotal: (o.total || 0) - (o.delivery_cost || 0) + (o.discount_amount || 0),
+        Descuento: o.discount_amount || 0,
+        Domicilio: o.delivery_cost || 0,
+        Total: o.total || 0,
+        'Método pago': o.payment_method || '',
+        'Estado pago': o.payment_status || '',
+        'Estado pedido': o.status,
+        Referencia: o.payment_reference || '',
+        Ciudad: o.delivery_city || ''
+      }
+    })
+    const ws = XLSX.utils.json_to_sheet(rows)
+    ws['!cols'] = [
+      { wch: 6 }, { wch: 18 }, { wch: 20 }, { wch: 14 }, { wch: 30 },
+      { wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 15 }
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Ventas')
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+    const fname = `avisander-ventas-${new Date().toISOString().slice(0, 10)}.xlsx`
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`)
+    res.send(buf)
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.put(
   '/:id/status',
   authenticateToken,
@@ -278,12 +407,12 @@ router.put(
   (req, res, next) => {
     try {
       const existing = db
-        .prepare('SELECT id, status, payment_method, payment_status, stock_deducted FROM orders WHERE id = ?')
+        .prepare('SELECT id, user_id, status, payment_method, payment_status, stock_deducted FROM orders WHERE id = ?')
         .get(req.params.id)
       if (!existing) return res.status(404).json({ error: 'Pedido no encontrado' })
 
       const newStatus = req.body.status
-      const confirmStatuses = ['processing', 'completed']
+      const confirmStatuses = ['processing', 'shipped', 'completed']
 
       // Al confirmar pedido (whatsapp/efectivo) se descuenta stock.
       // Para pedidos Bold, el descuento ya ocurrió al aprobar el pago.
@@ -293,6 +422,9 @@ router.put(
         existing.payment_method !== 'bold'
       ) {
         try {
+          // Liberamos reserva antes de descontar: así el descuento real
+          // no choca con la reserva propia de esta misma orden.
+          stockReservation.releaseReservation(existing.id)
           inventory.recordSaleFromOrder({ orderId: existing.id, userId: req.user.id })
           db.prepare('UPDATE orders SET stock_deducted = 1 WHERE id = ?').run(existing.id)
         } catch (err) {
@@ -310,7 +442,21 @@ router.put(
         }
       }
 
+      // Al cancelar: liberar reserva sin descontar stock.
+      if (newStatus === 'cancelled' && !existing.stock_deducted) {
+        try { stockReservation.releaseReservation(existing.id) } catch (_e) { /* noop */ }
+      }
+
       db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(newStatus, req.params.id)
+
+      // Acumular puntos de fidelización al completar un pedido.
+      if (newStatus === 'completed' && existing.user_id) {
+        const order = db.prepare('SELECT total, loyalty_points_earned FROM orders WHERE id = ?').get(req.params.id)
+        if (!order.loyalty_points_earned) {
+          loyalty.earnPoints(existing.user_id, Number(req.params.id), order.total)
+        }
+      }
+
       res.json(db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id))
     } catch (error) {
       next(error)

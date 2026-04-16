@@ -30,8 +30,10 @@ export default {
         error: '#D32F2F'
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['"Playfair Display"', 'Georgia', 'serif']
+        // Manrope: texto base, UI, botones. Sans moderna y orgánica.
+        sans: ['Manrope', 'Inter', 'system-ui', 'sans-serif'],
+        // Fraunces: títulos y headings. Serif premium con carácter.
+        display: ['Fraunces', '"Playfair Display"', 'Georgia', 'serif']
       },
       boxShadow: {
         soft: '0 40px 80px -20px rgba(0, 0, 0, 0.08), 0 8px 16px -4px rgba(0, 0, 0, 0.05)'

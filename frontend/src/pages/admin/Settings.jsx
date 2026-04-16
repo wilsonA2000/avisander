@@ -20,16 +20,39 @@ function Settings() {
     tax_rate: '',
     // Pop-up promocional
     promo_modal_enabled: '',
+    promo_modal_mode: '',
     promo_modal_title: '',
     promo_modal_subtitle: '',
     promo_modal_image: '',
     promo_modal_cta_label: '',
-    promo_modal_cta_link: ''
+    promo_modal_cta_link: '',
+    promo_modal_product_id: '',
+    // Descuento primera compra
+    first_purchase_discount_enabled: '',
+    first_purchase_discount_percent: '',
+    // Programa de fidelización
+    loyalty_enabled: '',
+    loyalty_points_per_1000: '',
+    loyalty_point_value: ''
   })
   const [originalSettings, setOriginalSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
+  // Productos para el selector del popup promo modo 'product'.
+  const [products, setProducts] = useState([])
+
+  useEffect(() => {
+    // Lista ligera para dropdown; traemos todos (incluso los no disponibles) para que
+    // el admin pueda preparar promos con stock futuro.
+    fetch('/api/products')
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data.items || [])
+        setProducts(list.map((p) => ({ id: p.id, name: p.name, category: p.category_name })))
+      })
+      .catch(() => { /* noop */ })
+  }, [])
 
   const hasChanges = originalSettings && JSON.stringify(settings) !== JSON.stringify(originalSettings)
 
@@ -75,11 +98,18 @@ function Settings() {
           free_shipping_threshold: data.free_shipping_threshold || '200000',
           tax_rate: data.tax_rate || '0',
           promo_modal_enabled: data.promo_modal_enabled || '0',
+          promo_modal_mode: data.promo_modal_mode || 'generic',
           promo_modal_title: data.promo_modal_title || '',
           promo_modal_subtitle: data.promo_modal_subtitle || '',
           promo_modal_image: data.promo_modal_image || '',
           promo_modal_cta_label: data.promo_modal_cta_label || 'Ver catálogo',
-          promo_modal_cta_link: data.promo_modal_cta_link || '/productos'
+          promo_modal_cta_link: data.promo_modal_cta_link || '/productos',
+          promo_modal_product_id: data.promo_modal_product_id || '',
+          first_purchase_discount_enabled: data.first_purchase_discount_enabled || '0',
+          first_purchase_discount_percent: data.first_purchase_discount_percent || '10',
+          loyalty_enabled: data.loyalty_enabled || '0',
+          loyalty_points_per_1000: data.loyalty_points_per_1000 || '1',
+          loyalty_point_value: data.loyalty_point_value || '1'
         }
         setSettings(loadedSettings)
         setOriginalSettings(loadedSettings)
@@ -323,6 +353,118 @@ function Settings() {
           </div>
         </div>
 
+        {/* Descuento primera compra */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mt-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold mb-1">Descuento primera compra</h2>
+              <p className="text-sm text-gray-500">
+                Se aplica automáticamente a clientes registrados en su primer pedido.
+                El descuento se calcula en el backend: no se puede manipular desde el
+                frontend. Solo afecta el subtotal (no al costo de domicilio).
+              </p>
+            </div>
+            <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={settings.first_purchase_discount_enabled === '1'}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    first_purchase_discount_enabled: e.target.checked ? '1' : '0'
+                  })
+                }
+                className="rounded text-primary"
+              />
+              <span className="font-medium">
+                {settings.first_purchase_discount_enabled === '1' ? 'Activo' : 'Inactivo'}
+              </span>
+            </label>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Porcentaje (%)
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="50"
+              value={settings.first_purchase_discount_percent}
+              onChange={(e) =>
+                setSettings({ ...settings, first_purchase_discount_percent: e.target.value })
+              }
+              className="input max-w-[140px]"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Por defecto 10%. Máximo recomendado 25%.
+            </p>
+          </div>
+        </div>
+
+        {/* Programa de fidelización */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mt-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold mb-1">Programa de fidelización</h2>
+              <p className="text-sm text-gray-500">
+                Los clientes acumulan puntos al completar pedidos. Cada punto vale $1 de descuento en compras futuras.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer ml-4">
+              <input
+                type="checkbox"
+                checked={settings.loyalty_enabled === '1'}
+                onChange={(e) =>
+                  setSettings({ ...settings, loyalty_enabled: e.target.checked ? '1' : '0' })
+                }
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-checked:bg-emerald-500 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" />
+              <span className="ml-2 text-sm text-gray-600">
+                {settings.loyalty_enabled === '1' ? 'Activo' : 'Inactivo'}
+              </span>
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Puntos por cada $1.000
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={settings.loyalty_points_per_1000}
+                onChange={(e) =>
+                  setSettings({ ...settings, loyalty_points_per_1000: e.target.value })
+                }
+                className="input max-w-[140px]"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Ej: 1 punto por cada $1.000 gastados.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Valor del punto ($)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="1000"
+                value={settings.loyalty_point_value}
+                onChange={(e) =>
+                  setSettings({ ...settings, loyalty_point_value: e.target.value })
+                }
+                className="input max-w-[140px]"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Cada punto equivale a este monto en descuento.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Pop-up promocional de bienvenida */}
         <div className="bg-white rounded-xl shadow-sm p-6 mt-6">
           <div className="flex items-start justify-between mb-4">
@@ -348,27 +490,57 @@ function Settings() {
             </label>
           </div>
 
+          {/* Modo del popup */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de pop-up</label>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <label
+                className={`border-2 rounded-lg p-3 cursor-pointer transition ${
+                  settings.promo_modal_mode !== 'product'
+                    ? 'border-primary bg-red-50'
+                    : 'border-gray-200 hover:border-gray-400'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="promo_mode"
+                  checked={settings.promo_modal_mode !== 'product'}
+                  onChange={() => setSettings({ ...settings, promo_modal_mode: 'generic' })}
+                  className="sr-only"
+                />
+                <div className="font-semibold">Genérico (con título y botón)</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Título + subtítulo + imagen + botón con link personalizado.
+                </div>
+              </label>
+              <label
+                className={`border-2 rounded-lg p-3 cursor-pointer transition ${
+                  settings.promo_modal_mode === 'product'
+                    ? 'border-primary bg-red-50'
+                    : 'border-gray-200 hover:border-gray-400'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="promo_mode"
+                  checked={settings.promo_modal_mode === 'product'}
+                  onChange={() => setSettings({ ...settings, promo_modal_mode: 'product' })}
+                  className="sr-only"
+                />
+                <div className="font-semibold">Promo de producto (solo imagen)</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Solo imagen clickeable; al click lleva a la ficha del producto elegido.
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* Campos comunes: imagen siempre requerida */}
           <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
-              <input
-                value={settings.promo_modal_title}
-                onChange={(e) => setSettings({ ...settings, promo_modal_title: e.target.value })}
-                className="input"
-                placeholder="¡Bienvenido a Avisander!"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Subtítulo</label>
-              <input
-                value={settings.promo_modal_subtitle}
-                onChange={(e) => setSettings({ ...settings, promo_modal_subtitle: e.target.value })}
-                className="input"
-                placeholder="Carnes premium con domicilio en Bucaramanga"
-              />
-            </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">URL de la imagen</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                URL de la imagen <span className="text-primary">*</span>
+              </label>
               <input
                 value={settings.promo_modal_image}
                 onChange={(e) => setSettings({ ...settings, promo_modal_image: e.target.value })}
@@ -384,24 +556,72 @@ function Settings() {
                 />
               )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Texto del botón</label>
-              <input
-                value={settings.promo_modal_cta_label}
-                onChange={(e) => setSettings({ ...settings, promo_modal_cta_label: e.target.value })}
-                className="input"
-                placeholder="Ver catálogo"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Link del botón</label>
-              <input
-                value={settings.promo_modal_cta_link}
-                onChange={(e) => setSettings({ ...settings, promo_modal_cta_link: e.target.value })}
-                className="input"
-                placeholder="/productos · /productos?on_sale=1 · https://wa.me/..."
-              />
-            </div>
+
+            {/* Selector de producto (solo modo product) */}
+            {settings.promo_modal_mode === 'product' && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Producto asociado <span className="text-primary">*</span>
+                </label>
+                <select
+                  value={settings.promo_modal_product_id}
+                  onChange={(e) => setSettings({ ...settings, promo_modal_product_id: e.target.value })}
+                  className="input"
+                >
+                  <option value="">— Selecciona un producto —</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.category ? `[${p.category}] ` : ''}{p.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  El cliente irá directo a <code>/producto/{settings.promo_modal_product_id || ':id'}</code> al hacer click en la imagen.
+                </p>
+              </div>
+            )}
+
+            {/* Campos solo modo genérico */}
+            {settings.promo_modal_mode !== 'product' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+                  <input
+                    value={settings.promo_modal_title}
+                    onChange={(e) => setSettings({ ...settings, promo_modal_title: e.target.value })}
+                    className="input"
+                    placeholder="¡Bienvenido a Avisander!"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subtítulo</label>
+                  <input
+                    value={settings.promo_modal_subtitle}
+                    onChange={(e) => setSettings({ ...settings, promo_modal_subtitle: e.target.value })}
+                    className="input"
+                    placeholder="Carnes premium con domicilio en Bucaramanga"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Texto del botón</label>
+                  <input
+                    value={settings.promo_modal_cta_label}
+                    onChange={(e) => setSettings({ ...settings, promo_modal_cta_label: e.target.value })}
+                    className="input"
+                    placeholder="Ver catálogo"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Link del botón</label>
+                  <input
+                    value={settings.promo_modal_cta_link}
+                    onChange={(e) => setSettings({ ...settings, promo_modal_cta_link: e.target.value })}
+                    className="input"
+                    placeholder="/productos · /productos?on_sale=1 · https://wa.me/..."
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
 

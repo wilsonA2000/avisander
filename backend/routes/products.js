@@ -11,6 +11,13 @@ const router = express.Router()
 // Convierte gallery_urls y tags de TEXT (JSON) a array antes de devolver al cliente.
 function hydrateProduct(p) {
   if (!p) return p
+  // Exponemos el stock "disponible al público" = stock físico - reservado.
+  // El campo `stock` queda con el disponible para no romper consumidores existentes
+  // (Cart/AddToCart limitan por `product.stock`).
+  const physical = Number(p.stock) || 0
+  const reserved = Number(p.reserved_stock) || 0
+  p.stock_physical = physical
+  p.stock = Math.max(0, physical - reserved)
   if (typeof p.gallery_urls === 'string') {
     try {
       p.gallery_urls = JSON.parse(p.gallery_urls)

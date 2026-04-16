@@ -26,15 +26,19 @@ function isEnabled() {
 
 /**
  * Firma de integridad del botón de pagos.
- * Fórmula: SHA256(orderId + amountInCents + currency + secretKey)
+ * Fórmula: SHA256(orderId + amount + currency + secretKey)
+ *
+ * IMPORTANTE: para COP, `amount` va en PESOS ENTEROS (no centavos). Bold interpreta
+ * el data-amount tal cual, y la firma debe usar el mismo valor — si no coincide,
+ * la pasarela responde BTN-001 o BTN-002.
  *
  * @example
- *   signIntegrity({orderId:'AVI-1', amountInCents:39400, currency:'COP'})
+ *   signIntegrity({orderId:'AVI-1', amount:39400, currency:'COP'})
  */
-function signIntegrity({ orderId, amountInCents, currency = 'COP' }) {
+function signIntegrity({ orderId, amount, currency = 'COP' }) {
   const { secretKey } = config()
   if (!secretKey) throw new Error('BOLD_SECRET_KEY no configurado')
-  const concat = `${orderId}${amountInCents}${currency}${secretKey}`
+  const concat = `${orderId}${amount}${currency}${secretKey}`
   return crypto.createHash('sha256').update(concat).digest('hex')
 }
 

@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="sf-pan-top" x1="18" y1="68" x2="108" y2="68" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#777"/>
+      <stop offset="50%" stop-color="#AAAAAA"/>
+      <stop offset="100%" stop-color="#555"/>
+    </linearGradient>
+    <linearGradient id="sf-pan-side" x1="64" y1="72" x2="64" y2="94" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4A4A4A"/>
+      <stop offset="100%" stop-color="#1E1E1E"/>
+    </linearGradient>
+    <radialGradient id="sf-pan-inner" cx="45%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#D4640A" stop-opacity="0.9"/>
+      <stop offset="70%" stop-color="#8B3A00" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#5A1E00"/>
+    </radialGradient>
+    <!-- Vegetables -->
+    <linearGradient id="sf-onion" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE08A"/>
+      <stop offset="100%" stop-color="#E8B030"/>
+    </linearGradient>
+    <linearGradient id="sf-pepper-r" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF4444"/>
+      <stop offset="100%" stop-color="#CC1111"/>
+    </linearGradient>
+    <linearGradient id="sf-pepper-g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#55CC44"/>
+      <stop offset="100%" stop-color="#228811"/>
+    </linearGradient>
+    <linearGradient id="sf-flame" x1="50%" y1="100%" x2="50%" y2="0%" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#FFD700"/>
+      <stop offset="45%" stop-color="#FF5500"/>
+      <stop offset="100%" stop-color="#BB0000" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="sf-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sf-handle" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#333"/>
+      <stop offset="50%" stop-color="#555"/>
+      <stop offset="100%" stop-color="#222"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ground shadow -->
+  <ellipse cx="58" cy="114" rx="30" ry="5" fill="url(#sf-shadow)"/>
+
+  <!-- Small flames under pan (softer, lower) -->
+  <path d="M40 90 C38 86 36 82 39 77 C41 74 40 71 43 69 C42 73 44 75 43 78 C45 74 45 70 48 68 C47 73 49 75 48 79 C50 75 52 72 54 71 C53 76 52 80 53 84 Z" fill="url(#sf-flame)" opacity="0.7"/>
+  <path d="M68 90 C66 86 64 82 67 77 C69 74 68 70 71 68 C70 73 72 75 71 79 C73 74 73 70 76 68 C75 73 77 75 76 79 C78 75 80 72 82 71 C81 76 80 81 81 85 Z" fill="url(#sf-flame)" opacity="0.65"/>
+
+  <!-- Pan side -->
+  <path d="M20 76 L20 90 Q20 98 62 100 Q104 98 104 90 L104 76 Z" fill="url(#sf-pan-side)"/>
+
+  <!-- Pan top face -->
+  <ellipse cx="62" cy="76" rx="42" ry="14" fill="url(#sf-pan-top)"/>
+  <!-- Pan inner cooking surface -->
+  <ellipse cx="62" cy="76" rx="36" ry="11" fill="url(#sf-pan-inner)"/>
+
+  <!-- Onion pieces (translucent softened) -->
+  <ellipse cx="50" cy="74" rx="8" ry="4.5" fill="url(#sf-onion)" opacity="0.9" transform="rotate(-15 50 74)"/>
+  <ellipse cx="50" cy="74" rx="5" ry="2.5" fill="#FFFBE0" opacity="0.5" transform="rotate(-15 50 74)"/>
+
+  <!-- Red pepper strip -->
+  <path d="M62 70 Q68 68 74 70 Q75 73 70 75 Q64 77 60 74 Z" fill="url(#sf-pepper-r)" opacity="0.95"/>
+
+  <!-- Green pepper strip -->
+  <path d="M55 76 Q58 74 63 75 Q64 78 60 80 Q56 80 54 78 Z" fill="url(#sf-pepper-g)" opacity="0.9"/>
+
+  <!-- Onion ring (motion tossed) -->
+  <ellipse cx="75" cy="72" rx="6" ry="3.5" fill="url(#sf-onion)" opacity="0.85" transform="rotate(10 75 72)"/>
+
+  <!-- Pan rim highlight -->
+  <path d="M22 74 Q40 66 62 65 Q84 66 102 74" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.3" fill="none" stroke-linecap="round"/>
+
+  <!-- Handle -->
+  <path d="M104 82 L120 72" stroke="url(#sf-handle)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M104 86 L120 76" stroke="#1A1A1A" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
+
+  <!-- Steam wisps (light since low fat) -->
+  <path d="M52 66 Q50 60 52 55 Q54 50 52 45" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.3" fill="none" stroke-linecap="round"/>
+  <path d="M68 64 Q66 59 68 54 Q70 49 68 44" stroke="#FFFFFF" stroke-width="1.2" stroke-opacity="0.25" fill="none" stroke-linecap="round"/>
+</svg>

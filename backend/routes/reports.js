@@ -167,4 +167,65 @@ router.get('/top-products', (req, res, next) => {
   }
 })
 
+router.get('/by-hour', (req, res, next) => {
+  try {
+    const range = parseRange(req.query)
+    const rows = db
+      .prepare(
+        `SELECT CAST(strftime('%H', created_at) AS INTEGER) AS hour,
+                COUNT(*) AS orders, COALESCE(SUM(total),0) AS revenue
+         FROM orders WHERE created_at >= ? AND created_at <= ?
+         GROUP BY hour ORDER BY hour`
+      )
+      .all(range.from, range.to)
+    const full = Array.from({ length: 24 }, (_, h) => {
+      const row = rows.find((r) => r.hour === h)
+      return { hour: h, label: `${String(h).padStart(2,'0')}:00`, orders: row?.orders || 0, revenue: row?.revenue || 0 }
+    })
+    res.json(full)
+  } catch (error) { next(error) }
+})
+
+router.get('/by-weekday', (req, res, next) => {
+  try {
+    const range = parseRange(req.query)
+    const labels = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+    const rows = db
+      .prepare(
+        `SELECT CAST(strftime('%w', created_at) AS INTEGER) AS dow,
+                COUNT(*) AS orders, COALESCE(SUM(total),0) AS revenue
+         FROM orders WHERE created_at >= ? AND created_at <= ?
+         GROUP BY dow ORDER BY dow`
+      )
+      .all(range.from, range.to)
+    const full = labels.map((name, i) => {
+      const row = rows.find((r) => r.dow === i)
+      return { dow: i, name, orders: row?.orders || 0, revenue: row?.revenue || 0 }
+    })
+    res.json(full)
+  } catch (error) { next(error) }
+})
+
+router.get('/loyalty-summary', (req, res, next) => {
+  try {
+    const range = parseRange(req.query)
+    const earned = db.prepare(
+      `SELECT COALESCE(SUM(points),0) AS total FROM loyalty_transactions
+       WHERE type='earn' AND created_at >= ? AND created_at <= ?`
+    ).get(range.from, range.to)
+    const redeemed = db.prepare(
+      `SELECT COALESCE(SUM(ABS(points)),0) AS total FROM loyalty_transactions
+       WHERE type='redeem' AND created_at >= ? AND created_at <= ?`
+    ).get(range.from, range.to)
+    const activeUsers = db.prepare(
+      'SELECT COUNT(*) AS n FROM users WHERE loyalty_balance > 0'
+    ).get()
+    res.json({
+      points_earned: earned.total,
+      points_redeemed: redeemed.total,
+      active_loyalty_users: activeUsers.n
+    })
+  } catch (error) { next(error) }
+})
+
 module.exports = router

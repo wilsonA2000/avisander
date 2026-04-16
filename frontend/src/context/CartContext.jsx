@@ -152,6 +152,9 @@ export function CartProvider({ children }) {
     msg += `🥩 *PEDIDO AVISANDER* 🥩\n`
     msg += `_Carnicería Premium · Bucaramanga_\n`
     msg += `${sep}\n`
+    if (customer.orderNumber) {
+      msg += `🧾 *Pedido N°:* #${customer.orderNumber}\n`
+    }
     msg += `📅 ${fecha}  ⏰ ${hora}\n\n`
 
     msg += `🛒 *Detalle del pedido*\n${dash}\n`
@@ -178,8 +181,14 @@ export function CartProvider({ children }) {
     msg += `\n${sep}\n`
     msg += `💰 *RESUMEN*\n`
     msg += `Subtotal:  ${fmt(subtotal)}\n`
+    if (customer.discountAmount && customer.discountAmount > 0) {
+      msg += `Descuento: −${fmt(customer.discountAmount)}`
+      if (customer.discountReason) msg += ` _(${customer.discountReason})_`
+      msg += `\n`
+    }
     msg += `Domicilio: ${fmt(deliveryCost)}\n`
-    msg += `*TOTAL:* *${fmt(total)}*\n`
+    const finalTotal = customer.finalTotal ?? total
+    msg += `*TOTAL:* *${fmt(finalTotal)}*\n`
     msg += `${sep}\n\n`
 
     const di = customer.deliveryInfo

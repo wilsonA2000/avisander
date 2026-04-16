@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="sw-pot-top" x1="20" y1="58" x2="108" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E6080"/>
+      <stop offset="50%" stop-color="#2E88AA"/>
+      <stop offset="100%" stop-color="#164858"/>
+    </linearGradient>
+    <linearGradient id="sw-pot-side" x1="64" y1="62" x2="64" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#185070"/>
+      <stop offset="100%" stop-color="#082030"/>
+    </linearGradient>
+    <!-- Lid -->
+    <linearGradient id="sw-lid-top" x1="28" y1="50" x2="100" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2080AA"/>
+      <stop offset="50%" stop-color="#30A0CC"/>
+      <stop offset="100%" stop-color="#1860880"/>
+    </linearGradient>
+    <linearGradient id="sw-lid-side" x1="64" y1="54" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#165870"/>
+      <stop offset="100%" stop-color="#0A3040"/>
+    </linearGradient>
+    <!-- Interior liquid -->
+    <radialGradient id="sw-liquid" cx="45%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#40C0E0" stop-opacity="0.8"/>
+      <stop offset="60%" stop-color="#1878A0" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#0A3040"/>
+    </radialGradient>
+    <radialGradient id="sw-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sw-handle" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1A6080"/>
+      <stop offset="50%" stop-color="#2A90B0"/>
+      <stop offset="100%" stop-color="#124858"/>
+    </linearGradient>
+    <!-- Condensation drop -->
+    <radialGradient id="sw-drop" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#AADDFF" stop-opacity="0.95"/>
+      <stop offset="70%" stop-color="#5599CC" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#2266AA" stop-opacity="0.5"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Ground shadow -->
+  <ellipse cx="64" cy="114" rx="33" ry="5" fill="url(#sw-shadow)"/>
+
+  <!-- Pot side -->
+  <path d="M20 64 L20 98 Q20 108 64 110 Q108 108 108 98 L108 64 Z" fill="url(#sw-pot-side)"/>
+
+  <!-- Liquid inside (barely visible through glass-like lid) -->
+  <ellipse cx="64" cy="64" rx="44" ry="14" fill="#0A2030"/>
+  <ellipse cx="64" cy="64" rx="38" ry="11" fill="url(#sw-liquid)"/>
+
+  <!-- Pot rim -->
+  <ellipse cx="64" cy="62" rx="44" ry="14" fill="url(#sw-pot-top)"/>
+  <ellipse cx="64" cy="62" rx="38" ry="11" fill="#0E2A3A"/>
+
+  <!-- Lid side face -->
+  <path d="M28 56 Q28 64 64 66 Q100 64 100 56 Z" fill="url(#sw-lid-side)"/>
+  <!-- Lid top -->
+  <ellipse cx="64" cy="54" rx="36" ry="11" fill="url(#sw-lid-top)"/>
+
+  <!-- Lid knob -->
+  <ellipse cx="64" cy="49" rx="7" ry="4" fill="#30A0C0"/>
+  <ellipse cx="64" cy="47.5" rx="5" ry="3" fill="#40B8D8"/>
+  <ellipse cx="62" cy="46.5" rx="2.5" ry="1.5" fill="#FFFFFF" fill-opacity="0.45"/>
+
+  <!-- Lid highlight -->
+  <path d="M32 52 Q48 47 64 46 Q80 47 94 51" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.3" fill="none" stroke-linecap="round"/>
+
+  <!-- Condensation drops on lid exterior -->
+  <path d="M44 57 Q43 61 44 65" stroke="url(#sw-drop)" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+  <path d="M56 58 Q55 63 56 67" stroke="url(#sw-drop)" stroke-width="2.5" stroke-linecap="round" opacity="0.75"/>
+  <path d="M72 57 Q71 62 72 66" stroke="url(#sw-drop)" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+  <path d="M84 56 Q83 61 84 65" stroke="url(#sw-drop)" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Drop beads at bottom of lid -->
+  <circle cx="44" cy="65" r="2.5" fill="url(#sw-drop)" opacity="0.85"/>
+  <circle cx="56" cy="67" r="2" fill="url(#sw-drop)" opacity="0.8"/>
+  <circle cx="72" cy="66" r="2.5" fill="url(#sw-drop)" opacity="0.85"/>
+  <circle cx="84" cy="65" r="2" fill="url(#sw-drop)" opacity="0.75"/>
+
+  <!-- Pot handles -->
+  <path d="M20 76 Q12 72 12 78 Q12 86 20 82" fill="none" stroke="url(#sw-handle)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M108 76 Q116 72 116 78 Q116 86 108 82" fill="none" stroke="url(#sw-handle)" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- Pot body highlight -->
+  <path d="M22 66 Q22 88 24 96" stroke="#FFFFFF" stroke-width="1" stroke-opacity="0.2" fill="none" stroke-linecap="round"/>
+
+  <!-- Subtle steam wisps (gentle, diffuse) -->
+  <path d="M50 46 Q48 40 50 35 Q52 30 50 25" stroke="#AADDFF" stroke-width="2" stroke-opacity="0.25" fill="none" stroke-linecap="round"/>
+  <path d="M64 44 Q62 38 64 32 Q66 27 64 22" stroke="#AADDFF" stroke-width="2.5" stroke-opacity="0.3" fill="none" stroke-linecap="round"/>
+  <path d="M78 46 Q80 40 78 34 Q76 29 78 24" stroke="#AADDFF" stroke-width="2" stroke-opacity="0.22" fill="none" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="e-pot-top" x1="18" y1="55" x2="110" y2="55" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A04020"/>
+      <stop offset="50%" stop-color="#C85530"/>
+      <stop offset="100%" stop-color="#7A2E10"/>
+    </linearGradient>
+    <linearGradient id="e-pot-side" x1="64" y1="60" x2="64" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8A3018"/>
+      <stop offset="100%" stop-color="#3E1006"/>
+    </linearGradient>
+    <!-- Lid -->
+    <linearGradient id="e-lid-top" x1="28" y1="52" x2="100" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#B84A25"/>
+      <stop offset="50%" stop-color="#D86535"/>
+      <stop offset="100%" stop-color="#8A3015"/>
+    </linearGradient>
+    <linearGradient id="e-lid-side" x1="64" y1="56" x2="64" y2="66" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7A2E10"/>
+      <stop offset="100%" stop-color="#4A1A06"/>
+    </linearGradient>
+    <!-- Liquid inside -->
+    <radialGradient id="e-stew" cx="45%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#CC5520" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#882210" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#550800"/>
+    </radialGradient>
+    <!-- Steam -->
+    <linearGradient id="e-steam" x1="50%" y1="100%" x2="50%" y2="0%" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="e-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Handle -->
+    <linearGradient id="e-handle" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6A2010"/>
+      <stop offset="50%" stop-color="#9A4020"/>
+      <stop offset="100%" stop-color="#5A1808"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ground shadow -->
+  <ellipse cx="64" cy="114" rx="34" ry="5.5" fill="url(#e-shadow)"/>
+
+  <!-- Pot body side face -->
+  <path d="M18 62 L18 96 Q18 106 64 108 Q110 106 110 96 L110 62 Z" fill="url(#e-pot-side)"/>
+
+  <!-- Stew visible (slightly open lid) -->
+  <ellipse cx="64" cy="62" rx="46" ry="15" fill="#3C0E04"/>
+  <ellipse cx="64" cy="62" rx="40" ry="12" fill="url(#e-stew)"/>
+
+  <!-- Pot rim -->
+  <ellipse cx="64" cy="60" rx="46" ry="15" fill="url(#e-pot-top)"/>
+  <ellipse cx="64" cy="60" rx="40" ry="12" fill="#5A1808"/>
+
+  <!-- Lid (slightly ajar / tilted) -->
+  <!-- Lid side -->
+  <path d="M28 55 Q28 62 64 64 Q100 62 100 55 Z" fill="url(#e-lid-side)"/>
+  <!-- Lid top -->
+  <ellipse cx="64" cy="53" rx="36" ry="11" fill="url(#e-lid-top)"/>
+
+  <!-- Lid knob -->
+  <ellipse cx="64" cy="49" rx="7" ry="4" fill="#D87040"/>
+  <ellipse cx="64" cy="47" rx="5" ry="3" fill="#E88050"/>
+  <ellipse cx="62" cy="46" rx="2.5" ry="1.5" fill="#FFFFFF" fill-opacity="0.4"/>
+
+  <!-- Lid highlight -->
+  <path d="M32 51 Q48 46 64 45 Q80 46 94 50" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.3" fill="none" stroke-linecap="round"/>
+
+  <!-- Pot handles (both sides) -->
+  <path d="M18 72 Q10 68 10 72 Q10 80 18 78" fill="none" stroke="url(#e-handle)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M110 72 Q118 68 118 72 Q118 80 110 78" fill="none" stroke="url(#e-handle)" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Pot body highlight -->
+  <path d="M20 64 Q20 85 24 92" stroke="#FFFFFF" stroke-width="1.2" stroke-opacity="0.2" fill="none" stroke-linecap="round"/>
+
+  <!-- Steam from lid gap (right side) -->
+  <path d="M86 50 Q88 43 85 37 Q83 32 86 26" stroke="#FFFFFF" stroke-width="2.5" stroke-opacity="0.45" fill="none" stroke-linecap="round"/>
+  <path d="M94 52 Q97 45 94 38 Q92 32 95 26" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.35" fill="none" stroke-linecap="round"/>
+  <path d="M78 49 Q80 43 78 37 Q76 32 78 27" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.3" fill="none" stroke-linecap="round"/>
+
+  <!-- Bubble from stew -->
+  <circle cx="56" cy="61" r="3" fill="#FFFFFF" fill-opacity="0.2"/>
+  <circle cx="72" cy="59" r="2" fill="#FFFFFF" fill-opacity="0.2"/>
+</svg>

@@ -17,6 +17,7 @@ import MyAccount from './pages/MyAccount'
 import Recipes from './pages/Recipes'
 import RecipeDetail from './pages/RecipeDetail'
 import PaymentResult from './pages/PaymentResult'
+import OrderTracking from './pages/OrderTracking'
 import NotFound from './pages/NotFound'
 
 // Admin pages
@@ -58,6 +59,7 @@ function App() {
         <Route path="recetas" element={<Recipes />} />
         <Route path="recetas/:slug" element={<RecipeDetail />} />
         <Route path="pago/:reference" element={<PaymentResult />} />
+        <Route path="pedido/:reference" element={<OrderTracking />} />
         <Route path="nosotros" element={<Nosotros />} />
         <Route path="equipo" element={<Equipo />} />
         <Route path="ubicacion" element={<Ubicacion />} />

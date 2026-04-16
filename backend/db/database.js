@@ -280,6 +280,22 @@ function initialize() {
   // Sprint 6 Fase A: flag para evitar doble descuento de stock por pedido
   addColumnIfMissing('orders', 'stock_deducted', 'stock_deducted INTEGER NOT NULL DEFAULT 0')
 
+  // Reserva temporal de stock: mientras la orden está pending, el stock queda
+  // reservado pero no descontado. Se libera al expirar o cancelar; se descuenta
+  // realmente al aprobar pago (Bold) o cuando admin marca completed (WhatsApp).
+  addColumnIfMissing('orders', 'stock_reserved', 'stock_reserved INTEGER NOT NULL DEFAULT 0')
+  addColumnIfMissing('orders', 'expires_at', 'expires_at DATETIME')
+  addColumnIfMissing('products', 'reserved_stock', 'reserved_stock REAL NOT NULL DEFAULT 0')
+
+  // Descuento aplicado a la orden (monto en COP). Al final del cálculo:
+  //   total = subtotal - discount_amount + delivery_cost
+  // discount_reason guarda la razón legible (ej "Descuento primera compra 10%").
+  addColumnIfMissing('orders', 'discount_amount', 'discount_amount REAL NOT NULL DEFAULT 0')
+  addColumnIfMissing('orders', 'discount_reason', 'discount_reason TEXT')
+  try {
+    db.exec('CREATE INDEX IF NOT EXISTS idx_orders_expires ON orders(expires_at) WHERE expires_at IS NOT NULL')
+  } catch (_e) { /* noop */ }
+
   // Sprint 6 Fase A: stock numérico en productos
   addColumnIfMissing('products', 'stock', 'stock REAL NOT NULL DEFAULT 0')
   addColumnIfMissing('products', 'stock_min', 'stock_min REAL NOT NULL DEFAULT 0')
@@ -295,6 +311,25 @@ function initialize() {
   } catch (_e) {
     // noop
   }
+
+  // Sprint 8C: programa de fidelización
+  addColumnIfMissing('users', 'loyalty_balance', 'loyalty_balance INTEGER NOT NULL DEFAULT 0')
+  addColumnIfMissing('orders', 'loyalty_points_earned', 'loyalty_points_earned INTEGER NOT NULL DEFAULT 0')
+  addColumnIfMissing('orders', 'loyalty_points_redeemed', 'loyalty_points_redeemed INTEGER NOT NULL DEFAULT 0')
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS loyalty_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      order_id INTEGER REFERENCES orders(id),
+      type TEXT NOT NULL,
+      points INTEGER NOT NULL,
+      balance_after INTEGER NOT NULL,
+      reason TEXT,
+      admin_id INTEGER REFERENCES users(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_loyalty_user ON loyalty_transactions(user_id);
+  `)
 
   // Seed admin SOLO en entornos no-producción. En prod hay que crearlo manualmente.
   if (process.env.NODE_ENV !== 'production') {
@@ -338,7 +373,9 @@ function initialize() {
       { key: 'business_hours_weekday', value: '7:00 AM - 7:00 PM' },
       { key: 'business_hours_weekend', value: '7:00 AM - 1:00 PM' },
       { key: 'delivery_hours', value: '8:00 AM - 6:00 PM' },
-      { key: 'whatsapp_number', value: '3123005253' }
+      { key: 'whatsapp_number', value: '3123005253' },
+      { key: 'first_purchase_discount_enabled', value: '1' },
+      { key: 'first_purchase_discount_percent', value: '10' }
     ]
 
     const insert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)')

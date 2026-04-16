@@ -21,10 +21,10 @@ import { useToast } from '../context/ToastContext'
 import ProductCarousel from '../components/ProductCarousel'
 import VideoPlayer from '../components/VideoPlayer'
 import ProductImage from '../components/ProductImage'
+import ProductGallery from '../components/ProductGallery'
 import RecipeImage from '../components/RecipeImage'
 import SEO from '../components/SEO'
 import CulinaryIcon from '../components/CulinaryIcon'
-import ImageZoom3D from '../components/ImageZoom3D'
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed'
 
 const PRESETS_GRAMS = [250, 500, 750, 1000, 1500, 2000]
@@ -63,7 +63,9 @@ function ProductDetail() {
   const [notes, setNotes] = useState('')
 
   // Galería
-  const [galleryIdx, setGalleryIdx] = useState(0)
+  // galleryIdx queda fijo en 0 porque ProductGallery maneja la selección
+  // internamente. Sólo lo mantenemos para construir el currentImage usado en SEO.
+  const galleryIdx = 0
 
   useEffect(() => {
     let active = true
@@ -216,68 +218,22 @@ function ProductDetail() {
         )}
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-[440px_1fr] gap-8 lg:gap-10">
-        {/* GALERÍA */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_380px] gap-8 lg:gap-10">
+        {/* GALERÍA — ocupa la mayor parte del ancho, sticky en desktop. */}
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <div className="relative aspect-[4/3] max-h-[420px]">
-            {currentImage ? (
-              <ImageZoom3D
-                src={currentImage}
-                alt={product.name}
-                className="w-full h-full"
-              />
-            ) : (
-              <div className="bg-gray-100 rounded-2xl overflow-hidden w-full h-full">
-                <ProductImage product={product} />
-              </div>
-            )}
-
-            {/* Badges (sobre el zoom, no se pierden) */}
-            <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
-              {product.is_on_sale && <span className="badge-sale">Oferta</span>}
-              {isWeight && <span className="badge-by-weight">Por peso</span>}
-              {!isAvailable && <span className="badge-out-of-stock">Agotado</span>}
-              {isAvailable && lowStock && (
-                <span className="badge bg-amber-500 text-white">Últimas unidades</span>
-              )}
-            </div>
-
-            {allImages.length > 1 && (
+          <ProductGallery
+            product={product}
+            badges={
               <>
-                <button
-                  onClick={() => setGalleryIdx((i) => (i - 1 + allImages.length) % allImages.length)}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow"
-                  aria-label="Imagen anterior"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <button
-                  onClick={() => setGalleryIdx((i) => (i + 1) % allImages.length)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow"
-                  aria-label="Imagen siguiente"
-                >
-                  <ChevronRight size={18} />
-                </button>
+                {product.is_on_sale && <span className="badge-sale">Oferta</span>}
+                {isWeight && <span className="badge-by-weight">Por peso</span>}
+                {!isAvailable && <span className="badge-out-of-stock">Agotado</span>}
+                {isAvailable && lowStock && (
+                  <span className="badge bg-amber-500 text-white">Últimas unidades</span>
+                )}
               </>
-            )}
-          </div>
-
-          {/* Thumbnails */}
-          {allImages.length > 1 && (
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
-              {allImages.map((src, i) => (
-                <button
-                  key={i}
-                  onClick={() => setGalleryIdx(i)}
-                  className={`w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border-2 transition ${
-                    i === galleryIdx ? 'border-primary' : 'border-transparent opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <img src={src} alt={`Vista ${i + 1}`} className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
+            }
+          />
         </div>
 
         {/* INFO + CTA */}
@@ -554,13 +510,7 @@ function ProductDetail() {
         </div>
       </div>
 
-      {/* Video */}
-      {product.video_url && (
-        <section className="mt-10">
-          <h2 className="text-xl font-bold text-gray-900 mb-3">Video del producto</h2>
-          <VideoPlayer src={product.video_url} title={product.name} poster={product.image_url} />
-        </section>
-      )}
+      {/* Video ya integrado como slide dentro de ProductGallery. */}
 
       {/* Recetas que usan este producto */}
       {productRecipes.length > 0 && (

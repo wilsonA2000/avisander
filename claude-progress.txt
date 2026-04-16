@@ -210,3 +210,287 @@ NOTE FOR FUTURE SESSIONS:
 - Default admin: admin@avisander.com / admin123
 
 ================================================================================
+
+
+================================================================================
+SESSION 2026-04-15 — Sprint: hardening de pagos + UX + descuentos
+================================================================================
+
+CONTEXTO INICIAL
+Wilson abrió la sesión con 4 observaciones operativas:
+1. Stock no se actualizaba en tiempo real entre pedidos → había riesgo de sobreventa.
+2. No existía reserva temporal de stock mientras el cliente completa checkout.
+3. Flujo WhatsApp abría el chat aunque fallara la creación del pedido (bug).
+4. Falta pantalla "Pedido recibido #XXXX" post-checkout.
+
+Más adelante en la sesión pidió:
+5. Popup de bienvenida se cortaba arriba; pidió descuento real (no solo publicidad).
+6. Fotos de productos no tenían zoom/lightbox; galería "tacaña"; pidió foto grande,
+   panel compacto y auto-play de videos.
+7. Tipografía rígida; iconos de cocción básicos → iconos 3D isométricos.
+8. Reset de datos de test (productos, órdenes, clientes, proveedores, compras).
+9. Descuento 10% primera compra para usuarios REGISTRADOS (opción 2 del plan).
+10. Popup promo con imagen → click lleva a un producto asociado.
+11. Canal WhatsApp Business del dueño: sólo uso manual en esta fase.
+
+================================================================================
+ENTREGABLES COMPLETADOS (orden cronológico)
+================================================================================
+
+## A. SISTEMA DE PAGOS BOLD END-TO-END
+
+### Fixes críticos
+- **Bug de monto ×100 (CRÍTICO)**: el código enviaba a Bold `amount_in_cents`
+  multiplicando por 100 el total. Pero Bold en COP espera el monto EN PESOS
+  enteros, no en centavos. Un pedido de $41.000 se cobraba como $4.100.000.
+  Fixed en `backend/routes/orders.js` + `backend/lib/bold.js` + `frontend/src/pages/Cart.jsx`.
+  Variable renombrada `amount_in_cents` → `amount`.
+
+- **BTN-001 persistente**: causa real = `data-redirection-url` usaba
+  `http://localhost:5173/...`. Bold rechaza URLs non-HTTPS y `localhost`.
+  Solución: nueva env `VITE_PUBLIC_URL` que apunta al túnel ngrok en dev;
+  en producción será el dominio real.
+
+- **Llaves Bold**: reemplazadas por las de pruebas (sandbox) correctas:
+  - BOLD_IDENTITY_KEY=ZcDP9nqfA7Vj9leL2Ea8XDiasZfkmz5fS3kTE8Z0Els
+  - BOLD_SECRET_KEY=ycOIcrCIfHGHR1Z9Vw15rg
+  - BOLD_WEBHOOK_SECRET= (vacío, sandbox usa secret vacío para HMAC)
+
+### Webhook configurado
+- Webhook de Bold apunta al túnel ngrok:
+  https://bd24-191-110-210-194.ngrok-free.app/api/payments/bold/webhook
+- Eventos suscritos: SALE_APPROVED, SALE_REJECTED, VOID_APPROVED, VOID_REJECTED.
+- Firma HMAC verificada correctamente.
+- Sandbox: el webhook se dispara solo al pulsar "Probar webhook" desde el panel
+  Bold en la transacción (no es automático en modo pruebas).
+
+### Embedded mode + in-page UX
+- `data-render-mode="embedded"`: el widget Bold se abre en un modal iframe
+  SOBRE la página del carrito (no redirecciona a checkout.bold.co).
+- Polling cada 3s en `/api/orders/public/:reference` mientras el modal está
+  abierto: al detectar `payment_status=approved` cierra modal y muestra
+  vista verde "¡Pago aprobado!" con botón "Enviar comprobante por WhatsApp".
+- Detección de `?bold-order-id=...&bold-tx-status=approved` en query al
+  volver a `/carrito` → muestra vista verde directamente.
+- Mensaje WhatsApp post-pago en `Cart.jsx:buildPaidWhatsAppMessage()` con
+  sello "PAGADO CON BOLD", ref, tx_id, items, total. Sin emojis problemáticos
+  (los que se renderizaban como �).
+
+### Archivos tocados Bold
+- backend/lib/bold.js — fix firma (amount en pesos)
+- backend/routes/orders.js — payload Bold sin ×100
+- backend/routes/payments.js — webhook libera reserva y descuenta stock
+- frontend/src/pages/Cart.jsx — embedded, polling, vista paidOrder
+- frontend/.env — VITE_PUBLIC_URL del túnel ngrok
+- frontend/vite.config.js — allowedHosts para ngrok
+
+================================================================================
+
+## B. RESERVA TEMPORAL DE STOCK CON TTL
+
+Problema: stock se descontaba solo al aprobar pago o admin completar orden.
+Entre medio, otros clientes podían pedir el mismo stock (race condition).
+
+Solución implementada:
+- Nuevas columnas BD:
+  - `products.reserved_stock REAL DEFAULT 0`
+  - `orders.stock_reserved INTEGER DEFAULT 0`
+  - `orders.expires_at DATETIME`
+- Nuevo módulo `backend/lib/stockReservation.js`:
+  - `reserveForOrder(orderId)`: suma qty a `reserved_stock`, pone expires_at +15min
+  - `releaseReservation(orderId)`: libera reserva (idempotente)
+  - `expireStalePending()`: cancela pedidos pending vencidos
+  - `startScheduler(60_000)`: corre cada 60s
+- Stock disponible al público = `products.stock - products.reserved_stock`
+  (se expone en `GET /api/products`).
+- TTL configurable: `STOCK_RESERVATION_TTL_MIN` (default 15).
+- Liberación en webhook Bold approved, admin completed, admin cancelled, expiración.
+
+================================================================================
+
+## C. FLUJO WHATSAPP ARREGLADO + TRACKING
+
+### Cart.jsx:handleSubmitOrder
+Antes: si `POST /api/orders` fallaba (stock insuficiente), abría WhatsApp igual.
+Ahora: si falla → toast error, NO abre WhatsApp, NO limpia carrito.
+Si OK → abre WhatsApp con `#orderNumber` en el mensaje, limpia carrito,
+redirige a `/pedido/:reference`.
+
+### Nuevo endpoint público
+`GET /api/orders/public/:reference` — devuelve estado mínimo de una orden
+sin auth (usado por la vista de tracking).
+
+### Nueva página: OrderTracking
+Ruta `/pedido/:reference`:
+- Muestra "¡Pedido realizado con éxito! #XXX"
+- Estado (pending → processing → completed → cancelled) con badges de color
+- Items, total, domicilio
+- Polling cada 10s hasta estado final
+- Archivo: `frontend/src/pages/OrderTracking.jsx`
+- Registrada en `frontend/src/App.jsx`
+
+================================================================================
+
+## D. RESET DE DATOS DE TEST
+
+Script: `backend/scripts/reset-test-data.js`
+Backup previo: `backend/backups/database.pre-reset-20260415-190419.sqlite`
+
+Borrado:
+- 49 productos "Test ..."
+- 108 pedidos (todos)
+- 44 clientes test
+- 24 proveedores test
+- 24 compras test
+- Inventory movements relacionados
+
+Conservado: admin, categorías, settings, 167 productos reales.
+
+================================================================================
+
+## E. TIPOGRAFÍA + ICONOS 3D ISOMÉTRICOS
+
+### Fuentes
+Instaladas: @fontsource/fraunces, @fontsource/manrope
+- Títulos: Fraunces (serif moderna premium)
+- Texto/UI: Manrope (sans orgánica)
+- Playfair/Inter quedan como fallback para prints
+
+Archivos:
+- frontend/src/main.jsx (imports)
+- frontend/tailwind.config.js (fontFamily.sans, fontFamily.display)
+
+### Iconos de métodos de cocción
+Creados por `frontendVisualDesingAgent`: 11 SVG isométricos en
+`backend/media/iconos/usos/`:
+asar, parrilla, freir, sofreir, hornear, estofar, guisar, sudar, ahumar,
+cocinar, microondas.
+
+Paletas:
+- Fuego: amarillo→naranja→rojo
+- Agua/vapor: terracota u oscura (estofar/guisar), cian (sudar)
+- Tierra/humo: café-marrón + grises cálidos
+- Metal: grises plateados + acentos cálidos
+
+Componente actualizado: `frontend/src/components/CulinaryIcon.jsx` —
+intenta `<img src="/media/iconos/usos/<slug>.svg" />` primero; fallback a
+ícono lucide si falla.
+
+================================================================================
+
+## F. GALERÍA DE PRODUCTO MEJORADA
+
+Componente nuevo: `frontend/src/components/ProductGallery.jsx`
+Reemplaza la galería inline en ProductDetail.jsx.
+
+Features:
+- Thumbnails verticales desktop / horizontales mobile
+- Slide principal con efecto 3D (ImageZoom3D)
+- Botones prev/next + contador 1/N
+- Lightbox fullscreen (click en la imagen principal):
+  - Zoom con click (toggle scale 1 ↔ 2)
+  - Nav por teclado ← →, Esc para cerrar
+  - Swipe touch para mobile
+  - Bloquea scroll del body
+- Video integrado como slide más (auto-play al seleccionar)
+- Badges (Oferta, Por peso, etc.) como prop
+
+Layout ProductDetail:
+- Grid `minmax(0,1fr)_380px` — foto ocupa el grueso, panel derecho 380px
+- Foto sticky en desktop
+- Sección "Video del producto" duplicada al final fue eliminada
+  (el video ya es slide de la galería)
+
+================================================================================
+
+## G. DESCUENTO 10% PRIMERA COMPRA (SOLO REGISTRADOS)
+
+### Backend
+- Nuevas columnas BD:
+  - `orders.discount_amount REAL DEFAULT 0`
+  - `orders.discount_reason TEXT`
+- Nuevo módulo: `backend/lib/discount.js`
+  - `computeFirstPurchaseDiscount(userId, subtotal)` — regla:
+    usuario autenticado + sin órdenes con status processing|completed
+    ni con discount_amount>0 + flag settings activo + percent>0.
+  - Autoritativo: nunca confía en cuerpo del request.
+- `POST /api/orders` aplica descuento antes de calcular total.
+  Total = (subtotal - discount) + delivery_cost.
+- Nuevo endpoint: `GET /api/orders/discount-preview?subtotal=N`
+  Devuelve {authenticated, amount, percent, reason} para el frontend.
+- Nuevas settings:
+  - `first_purchase_discount_enabled` (default '1')
+  - `first_purchase_discount_percent` (default '10')
+  Registradas en `backend/schemas/settings.js` WRITABLE_KEYS y PUBLIC_KEYS.
+
+### Frontend
+- Cart.jsx: llama a `/api/orders/discount-preview` al cambiar subtotal/user.
+- Resumen del carrito muestra línea verde "Descuento X% − $XXX".
+- Banner "Regístrate y obtén 10% en tu primera compra" para usuarios
+  invitados con enlaces a /registro y /login.
+- Mensaje WhatsApp incluye desglose del descuento.
+- `buildPaidWhatsAppMessage` (Bold paid state) también lo muestra.
+- Endpoint `/api/orders/public/:reference` ahora devuelve discount_amount y discount_reason.
+
+### Admin
+- `/admin/clientes` nueva columna "1ª compra" (Disponible/Usada).
+- `/admin/configuracion` nueva sección "Descuento primera compra":
+  toggle activo/inactivo + input porcentaje.
+
+================================================================================
+
+## H. POPUP PROMO CON IMAGEN + PRODUCTO ASOCIADO
+
+Nuevas settings:
+- `promo_modal_mode` ('generic' | 'product')
+- `promo_modal_product_id`
+
+En modo "product": el popup es sólo imagen clickeable que lleva a
+`/producto/:id`. Sin título, sin botón, sin subtítulo.
+
+Componentes tocados:
+- frontend/src/components/WelcomeModal.jsx — bifurca render por modo
+- frontend/src/pages/admin/Settings.jsx — selector visual + dropdown de producto
+- Fix del corte superior: `max-h-[90vh] overflow-y-auto my-auto`
+
+================================================================================
+INFRAESTRUCTURA DE DESARROLLO DURANTE LA SESIÓN
+================================================================================
+
+### ngrok (para webhook Bold + redirection en dev)
+Solo puede haber UN túnel activo a la vez en plan free.
+Configurado para apuntar al frontend (:5173) porque:
+- Bold redirection-url requiere HTTPS (no http://localhost)
+- En sandbox el webhook se dispara manualmente desde panel; no se pierde
+  nada por no tener backend expuesto.
+
+URL actual: https://bd24-191-110-210-194.ngrok-free.app
+
+NOTA: ngrok free genera URL nueva cada reinicio → al reiniciar hay que:
+  1. Actualizar VITE_PUBLIC_URL en frontend/.env
+  2. Actualizar URL del webhook en panel Bold
+  3. Reiniciar Vite para recoger la env
+
+### Proyecto paralelo "NUEVOS PROYECTOS"
+Ocupa :5174 y :8000, NO tocar.
+
+### Procesos zombie limpiados al final de la sesión
+8 instancias de `node --watch server.js` quedaron vivas esperando cambios
+tras EADDRINUSE. Todas liquidadas.
+
+================================================================================
+ESTADO AL CIERRE DE SESIÓN
+================================================================================
+
+TODOS LOS CAMBIOS FUNCIONALES ENTREGADOS. Falta solo probar en pantalla
+con Playwright o manualmente. El usuario pidió cerrar aquí y continuar
+en la próxima sesión.
+
+CHECKPOINT: SESSION-2026-04-15-SPRINT-BOLD-DESCUENTOS
+
+BD: /home/wilsonadmin/avisander/avisander/backend/database.sqlite
+Backup: /home/wilsonadmin/avisander/avisander/backend/backups/database.pre-reset-20260415-190419.sqlite
+
+Admin: admin@avisander.com / admin123
+
+================================================================================

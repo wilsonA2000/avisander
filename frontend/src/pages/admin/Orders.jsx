@@ -10,7 +10,9 @@ import {
   Store,
   CheckCircle2,
   XCircle,
-  Clock
+  Clock,
+  MessageCircle,
+  PackageCheck
 } from 'lucide-react'
 import { api } from '../../lib/apiClient'
 import { fmtCOP, fmtDateTime } from '../../lib/format'
@@ -18,14 +20,71 @@ import { fmtCOP, fmtDateTime } from '../../lib/format'
 const STATUS_COLORS = {
   pending: 'bg-yellow-100 text-yellow-800',
   processing: 'bg-blue-100 text-blue-800',
+  shipped: 'bg-violet-100 text-violet-800',
   completed: 'bg-green-100 text-green-800',
   cancelled: 'bg-red-100 text-red-800'
 }
 const STATUS_LABEL = {
   pending: 'Pendiente',
   processing: 'En proceso',
+  shipped: 'En camino',
   completed: 'Completado',
   cancelled: 'Cancelado'
+}
+
+const WA_TEMPLATES = {
+  processing: (o) => {
+    const items = (o.items || []).map(it =>
+      it.sale_type === 'by_weight'
+        ? `  • ${it.product_name}: ${it.weight_grams}g`
+        : `  • ${it.product_name} x${it.quantity}`
+    ).join('\n')
+    return [
+      `Hola ${o.customer_name || ''} 👋`,
+      `Tu pedido *#${o.id}* está *confirmado* y lo estamos preparando.`,
+      '',
+      items,
+      '',
+      `Total: *$${Number(o.total||0).toLocaleString('es-CO')}*`,
+      o.delivery_method === 'pickup'
+        ? 'Te avisamos cuando esté listo para recoger en tienda.'
+        : 'Te avisamos cuando salga para entrega.',
+      '',
+      '¡Gracias por tu compra! — Avisander'
+    ].join('\n')
+  },
+  shipped: (o) => [
+    `Hola ${o.customer_name || ''} 🚚`,
+    `Tu pedido *#${o.id}* ya *va en camino*.`,
+    o.customer_address ? `Dirección: ${o.customer_address}` : '',
+    '',
+    'Si tienes alguna indicación especial, escríbenos aquí.',
+    '',
+    '¡Gracias! — Avisander'
+  ].filter(Boolean).join('\n'),
+  completed: (o) => [
+    `Hola ${o.customer_name || ''} ✅`,
+    `Tu pedido *#${o.id}* fue *entregado exitosamente*.`,
+    '',
+    `Total pagado: *$${Number(o.total||0).toLocaleString('es-CO')}*`,
+    '',
+    '¿Todo bien con tu pedido? Tu opinión nos ayuda a mejorar.',
+    '¡Gracias por elegirnos! — Avisander'
+  ].join('\n'),
+  cancelled: (o) => [
+    `Hola ${o.customer_name || ''} 📋`,
+    `Te informamos que tu pedido *#${o.id}* fue *cancelado*.`,
+    '',
+    'Si tienes alguna duda, no dudes en escribirnos.',
+    '— Avisander'
+  ].join('\n')
+}
+
+function buildWhatsAppUrl(phone, message) {
+  if (!phone) return null
+  const clean = String(phone).replace(/\D/g, '')
+  const intl = clean.startsWith('57') ? clean : `57${clean}`
+  return `https://wa.me/${intl}?text=${encodeURIComponent(message)}`
 }
 const PAYMENT_LABEL = { bold: 'Bold', whatsapp: 'WhatsApp', cash: 'Efectivo' }
 const PAYMENT_STATUS = {
@@ -267,6 +326,27 @@ function Orders() {
     downloadCSV([header, ...rows], `avisander-ventas-${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
+  const exportExcel = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch('/api/orders/export/excel', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!res.ok) throw new Error('Error al exportar')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `avisander-ventas-${new Date().toISOString().slice(0, 10)}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(err.message || 'Error al exportar Excel')
+    }
+  }
+
   const PaymentChip = ({ method, status }) => {
     const ps = PAYMENT_STATUS[status]
     return (
@@ -323,7 +403,11 @@ function Orders() {
           </button>
           <button onClick={exportCSV} className="btn-secondary inline-flex items-center gap-2">
             <Download size={14} />
-            Exportar CSV
+            CSV
+          </button>
+          <button onClick={exportExcel} className="btn-secondary inline-flex items-center gap-2">
+            <Download size={14} />
+            Excel
           </button>
           <span className="text-sm text-gray-500">
             {filtered.length} de {orders.length}
@@ -361,6 +445,7 @@ function Orders() {
               <option value="">Todos</option>
               <option value="pending">Pendiente</option>
               <option value="processing">En proceso</option>
+              <option value="shipped">En camino</option>
               <option value="completed">Completado</option>
               <option value="cancelled">Cancelado</option>
             </select>
@@ -466,12 +551,24 @@ function Orders() {
                       >
                         <option value="pending">Pendiente</option>
                         <option value="processing">En proceso</option>
+                        <option value="shipped">En camino</option>
                         <option value="completed">Completado</option>
                         <option value="cancelled">Cancelado</option>
                       </select>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">{fmtDateTime(order.created_at)}</td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
+                      {order.customer_phone && WA_TEMPLATES[order.status] && (
+                        <a
+                          href={buildWhatsAppUrl(order.customer_phone, WA_TEMPLATES[order.status](order))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex p-2 text-emerald-500 hover:text-emerald-700"
+                          title={`WhatsApp: ${STATUS_LABEL[order.status]}`}
+                        >
+                          <MessageCircle size={16} />
+                        </a>
+                      )}
                       <button
                         onClick={() => printOrder(order)}
                         className="p-2 text-gray-500 hover:text-green-600"
@@ -605,10 +702,23 @@ function Orders() {
                 >
                   <option value="pending">Pendiente</option>
                   <option value="processing">En proceso</option>
+                  <option value="shipped">En camino</option>
                   <option value="completed">Completado</option>
                   <option value="cancelled">Cancelado</option>
                 </select>
               </div>
+
+              {selectedOrder.customer_phone && WA_TEMPLATES[selectedOrder.status] && (
+                <a
+                  href={buildWhatsAppUrl(selectedOrder.customer_phone, WA_TEMPLATES[selectedOrder.status](selectedOrder))}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition text-sm font-medium"
+                >
+                  <MessageCircle size={16} />
+                  Notificar al cliente por WhatsApp
+                </a>
+              )}
             </div>
           </div>
         </div>

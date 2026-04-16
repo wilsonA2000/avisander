@@ -146,17 +146,35 @@ function CulinaryIcon({ slug, variant = 'card', size = 'md', className = '' }) {
     )
   }
 
-  // card (default): circular 3D glassmorphic
+  // card (default): SVG 3D isométrico dentro de un contenedor glassmórfico.
+  // Los SVG están en /media/iconos/usos/<slug>.svg. Si no existen, fallback
+  // al ícono lucide dentro del mismo contenedor.
+  const svgSrc = `/media/iconos/usos/${slug}.svg`
   return (
     <div className={`flex flex-col items-center gap-1.5 ${className}`}>
       <div
         className={`${s.wrap} rounded-2xl bg-gradient-to-br ${gradient}
                     border border-white/50 shadow-lg backdrop-blur-sm
-                    flex items-center justify-center`}
+                    flex items-center justify-center p-2`}
         style={{ boxShadow: '0 6px 20px -4px rgba(245,130,32,0.25), inset 0 1px 0 rgba(255,255,255,0.6)' }}
         aria-label={label}
       >
-        <Icon size={s.icon} className={iconColor} strokeWidth={2.3} />
+        <img
+          src={svgSrc}
+          alt={label}
+          className="w-full h-full object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.15)]"
+          onError={(e) => {
+            // Si el SVG aún no existe, reemplazar por ícono lucide.
+            e.currentTarget.style.display = 'none'
+            e.currentTarget.parentElement?.querySelector('[data-fallback]')?.classList.remove('hidden')
+          }}
+        />
+        <Icon
+          size={s.icon}
+          className={`${iconColor} hidden`}
+          strokeWidth={2.3}
+          data-fallback="1"
+        />
       </div>
       <span className="text-xs font-medium text-charcoal">{label}</span>
     </div>

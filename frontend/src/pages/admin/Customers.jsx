@@ -76,6 +76,8 @@ function Customers() {
                 <th className="px-4 py-3 text-left">Contacto</th>
                 <th className="px-4 py-3 text-right">Pedidos</th>
                 <th className="px-4 py-3 text-right">Gastado</th>
+                <th className="px-4 py-3 text-center">1ª compra</th>
+                <th className="px-4 py-3 text-right">Puntos</th>
                 <th className="px-4 py-3 text-left">Último pedido</th>
                 <th className="px-4 py-3 text-right">Acciones</th>
               </tr>
@@ -100,6 +102,22 @@ function Customers() {
                   </td>
                   <td className="px-4 py-3 text-right font-semibold">{c.orders_count}</td>
                   <td className="px-4 py-3 text-right font-semibold text-primary">{fmtCOP(c.total_spent)}</td>
+                  <td className="px-4 py-3 text-center">
+                    {c.discounts_used > 0 ? (
+                      <span className="inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-200 text-gray-600">
+                        Usada
+                      </span>
+                    ) : (
+                      <span className="inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-700">
+                        Disponible
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`font-semibold ${(c.loyalty_balance || 0) > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
+                      {c.loyalty_balance || 0}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-gray-600">{fmtDate(c.last_order_at)}</td>
                   <td className="px-4 py-3 text-right">
                     {c.phone && (

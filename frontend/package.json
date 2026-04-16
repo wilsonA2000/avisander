@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/fraunces": "^5.2.9",
     "@fontsource/inter": "^5.2.8",
+    "@fontsource/manrope": "^5.2.8",
     "@fontsource/playfair-display": "^5.2.8",
     "@lottiefiles/react-lottie-player": "^3.6.0",
     "framer-motion": "^12.38.0",

@@ -10,7 +10,12 @@ import {
   Receipt,
   AlertTriangle,
   TrendingUp,
-  CreditCard
+  CreditCard,
+  Star,
+  Award,
+  Clock,
+  Calendar,
+  CheckCircle2
 } from 'lucide-react'
 import {
   LineChart,
@@ -41,6 +46,7 @@ const PAYMENT_COLORS = { bold: '#6366f1', whatsapp: '#10b981', cash: '#f59e0b', 
 const STATUS_COLORS = {
   pending: '#f59e0b',
   processing: '#3b82f6',
+  shipped: '#8b5cf6',
   completed: '#10b981',
   cancelled: '#ef4444'
 }
@@ -48,6 +54,7 @@ const PAYMENT_LABEL = { bold: 'Bold', whatsapp: 'WhatsApp', cash: 'Efectivo', un
 const STATUS_LABEL = {
   pending: 'Pendiente',
   processing: 'En proceso',
+  shipped: 'En camino',
   completed: 'Completado',
   cancelled: 'Cancelado',
   unknown: 'N/A'
@@ -97,6 +104,9 @@ function Dashboard() {
   const [summary, setSummary] = useState(null)
   const [topProducts, setTopProducts] = useState([])
   const [lowStock, setLowStock] = useState([])
+  const [byHour, setByHour] = useState([])
+  const [byWeekday, setByWeekday] = useState([])
+  const [loyaltySummary, setLoyaltySummary] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const effectiveRange = useMemo(() => customRange || rangeFor(rangeKey), [rangeKey, customRange])
@@ -107,12 +117,18 @@ function Dashboard() {
     Promise.all([
       api.get(`/api/reports/summary?${qs}`).catch(() => null),
       api.get(`/api/reports/top-products?${qs}&limit=10`).catch(() => []),
-      api.get('/api/inventory?low_stock=1').catch(() => [])
+      api.get('/api/inventory?low_stock=1').catch(() => []),
+      api.get(`/api/reports/by-hour?${qs}`).catch(() => []),
+      api.get(`/api/reports/by-weekday?${qs}`).catch(() => []),
+      api.get(`/api/reports/loyalty-summary?${qs}`).catch(() => null)
     ])
-      .then(([s, tp, ls]) => {
+      .then(([s, tp, ls, bh, bw, ly]) => {
         setSummary(s)
         setTopProducts(Array.isArray(tp) ? tp : [])
         setLowStock(Array.isArray(ls) ? ls : [])
+        setByHour(Array.isArray(bh) ? bh : [])
+        setByWeekday(Array.isArray(bw) ? bw : [])
+        setLoyaltySummary(ly)
       })
       .finally(() => setLoading(false))
   }, [effectiveRange.from, effectiveRange.to])
@@ -230,6 +246,35 @@ function Dashboard() {
           icon={CreditCard}
           accent="bg-rose-100 text-rose-600"
           hint="2.69%+$300 sobre aprobados"
+        />
+      </div>
+
+      {/* Fila 3: fidelización + conversión */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatCard
+          label="Tasa completados"
+          value={loading ? '—' : `${totals.orders_count ? Math.round(((summary?.by_status?.completed?.count || 0) / totals.orders_count) * 100) : 0}%`}
+          icon={CheckCircle2}
+          accent="bg-green-100 text-green-600"
+          hint="Pedidos completados / total"
+        />
+        <StatCard
+          label="Puntos emitidos"
+          value={loading ? '—' : (loyaltySummary?.points_earned || 0).toLocaleString('es-CO')}
+          icon={Star}
+          accent="bg-amber-100 text-amber-600"
+        />
+        <StatCard
+          label="Puntos canjeados"
+          value={loading ? '—' : (loyaltySummary?.points_redeemed || 0).toLocaleString('es-CO')}
+          icon={Award}
+          accent="bg-orange-100 text-orange-600"
+        />
+        <StatCard
+          label="Clientes con puntos"
+          value={loading ? '—' : loyaltySummary?.active_loyalty_users || 0}
+          icon={Users}
+          accent="bg-indigo-100 text-indigo-600"
         />
       </div>
 
@@ -372,6 +417,54 @@ function Dashboard() {
               ))}
             </ol>
           )}
+        </div>
+      </div>
+      {/* Fila 4: ventas por hora + por día de la semana */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <Clock size={18} className="text-primary" /> Ventas por hora
+          </h3>
+          <div style={{ width: '100%', height: 220 }}>
+            {byHour.some((h) => h.orders > 0) ? (
+              <ResponsiveContainer>
+                <BarChart data={byHour} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={2} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <ReTooltip formatter={(v, name) => name === 'revenue' ? fmtCOP(v) : v} />
+                  <Bar dataKey="orders" fill="#8B1F28" radius={[4, 4, 0, 0]} name="Pedidos" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                Sin datos
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <Calendar size={18} className="text-primary" /> Ventas por día de la semana
+          </h3>
+          <div style={{ width: '100%', height: 220 }}>
+            {byWeekday.some((d) => d.orders > 0) ? (
+              <ResponsiveContainer>
+                <BarChart data={byWeekday} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                  <ReTooltip formatter={(v) => fmtCOP(v)} />
+                  <Bar dataKey="revenue" fill="#C79B5B" radius={[4, 4, 0, 0]} name="Ingresos" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                Sin datos
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

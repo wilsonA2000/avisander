@@ -25,6 +25,7 @@ const inventoryRoutes = require('./routes/inventory')
 const reportsRoutes = require('./routes/reports')
 const pqrsRoutes = require('./routes/pqrs')
 const aiRoutes = require('./routes/ai')
+const loyaltyRoutes = require('./routes/loyalty')
 
 function createApp({ enableRateLimit = true } = {}) {
   const app = express()
@@ -149,6 +150,7 @@ function createApp({ enableRateLimit = true } = {}) {
   app.use('/api/reports', reportsRoutes)
   app.use('/api/pqrs', pqrsRoutes)
   app.use('/api/ai', aiRoutes)
+  app.use('/api/loyalty', loyaltyRoutes)
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() })

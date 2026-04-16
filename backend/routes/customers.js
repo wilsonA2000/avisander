@@ -26,10 +26,11 @@ router.get('/', authenticateToken, requireAdmin, (req, res, next) => {
 
     const items = db
       .prepare(
-        `SELECT u.id, u.name, u.email, u.phone, u.address, u.created_at,
+        `SELECT u.id, u.name, u.email, u.phone, u.address, u.created_at, u.loyalty_balance,
           (SELECT COUNT(*) FROM orders WHERE user_id = u.id) AS orders_count,
           (SELECT COALESCE(SUM(total), 0) FROM orders WHERE user_id = u.id) AS total_spent,
-          (SELECT MAX(created_at) FROM orders WHERE user_id = u.id) AS last_order_at
+          (SELECT MAX(created_at) FROM orders WHERE user_id = u.id) AS last_order_at,
+          (SELECT COUNT(*) FROM orders WHERE user_id = u.id AND discount_amount > 0) AS discounts_used
          FROM users u
          ${whereClause}
          ORDER BY u.created_at DESC

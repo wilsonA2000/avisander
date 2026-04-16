@@ -1,15 +1,65 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Trash2, Plus, Minus, ShoppingBag, MessageSquare, Banknote } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Trash2, Plus, Minus, ShoppingBag, MessageSquare, Banknote, CheckCircle2, Loader2 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import { useSettings, whatsappLink } from '../context/SettingsContext'
 import { api } from '../lib/apiClient'
 import DeliveryPicker from '../components/DeliveryPicker'
 import ProductImage from '../components/ProductImage'
 
 function fmt(n) {
   return `$${Number(n || 0).toLocaleString('es-CO')}`
+}
+
+// Arma el mensaje WhatsApp que el cliente envía al comercio tras un pago Bold
+// aprobado. Usamos sólo emojis simples (✅ y separadores) para máxima
+// compatibilidad; el texto en MAYÚSCULAS y *negrita* hace el trabajo visual.
+function buildPaidWhatsAppMessage(order) {
+  const sep = '---------------------------'
+  const now = new Date()
+  const fecha = now.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+  const hora = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+  let msg = ''
+  msg += `✅ *PEDIDO PAGADO - AVISANDER*\n`
+  msg += `${sep}\n`
+  msg += `*Pedido N°:* #${order.id}\n`
+  msg += `*Estado:* PAGADO CON BOLD\n`
+  if (order.payment_reference) msg += `*Ref:* ${order.payment_reference}\n`
+  if (order.payment_transaction_id) msg += `*Tx Bold:* ${order.payment_transaction_id}\n`
+  msg += `*Fecha:* ${fecha}  ${hora}\n`
+  msg += `${sep}\n\n`
+  msg += `*PRODUCTOS*\n`
+  order.items.forEach((it, i) => {
+    const num = String(i + 1).padStart(2, '0')
+    msg += `*${num}. ${it.product_name}*\n`
+    if (it.sale_type === 'by_weight') {
+      msg += `   Peso: ${it.weight_grams} g\n`
+    } else {
+      msg += `   Cantidad: ${it.quantity} und\n`
+    }
+    msg += `   Subtotal: ${fmt(it.subtotal)}\n`
+    if (it.notes) msg += `   Nota: _${it.notes}_\n`
+  })
+  msg += `\n${sep}\n`
+  if (order.discount_amount > 0) {
+    msg += `Descuento: −${fmt(order.discount_amount)}`
+    if (order.discount_reason) msg += ` (${order.discount_reason})`
+    msg += `\n`
+  }
+  if (order.delivery_cost > 0) msg += `Domicilio: ${fmt(order.delivery_cost)}\n`
+  msg += `*TOTAL PAGADO:* *${fmt(order.total)}*\n`
+  msg += `${sep}\n\n`
+  if (order.customer_name) msg += `*Cliente:* ${order.customer_name}\n`
+  if (order.delivery_method === 'pickup') {
+    msg += `*Entrega:* Recoge en tienda\n`
+  } else {
+    msg += `*Entrega:* Domicilio\n`
+  }
+  msg += `\n¡Gracias por tu compra!\n`
+  msg += `_El producto ya fue descontado del inventario. Coordinamos el despacho._`
+  return msg
 }
 
 function Cart() {
@@ -25,10 +75,12 @@ function Cart() {
   } = useCart()
   const { user } = useAuth()
   const toast = useToast()
+  const { settings } = useSettings()
   const [submitting, setSubmitting] = useState(false)
   const [openNotesId, setOpenNotesId] = useState(null)
 
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   // Estado de entrega manejado por DeliveryPicker
   const [delivery, setDelivery] = useState({
@@ -41,6 +93,13 @@ function Cart() {
   // Pago contra entrega ('cash') eliminado: Wilson NO despacha sin pago previo.
   const [paymentMethod, setPaymentMethod] = useState('whatsapp')
   const [boldConfig, setBoldConfig] = useState({ enabled: false, identity_key: null, widget_url: null })
+  // Preview del descuento que calculará el backend para este cliente + subtotal.
+  // Autoritativo: el backend recalcula al crear la orden, aquí sólo mostramos.
+  const [discountPreview, setDiscountPreview] = useState({
+    authenticated: false, amount: 0, percent: 0, reason: null
+  })
+  const [loyaltyInfo, setLoyaltyInfo] = useState({ balance: 0, enabled: false, point_value: 1 })
+  const [redeemPoints, setRedeemPoints] = useState(0)
 
   // Datos de contacto del cliente. Si está autenticado, pre-llenamos con su perfil.
   const [contact, setContact] = useState({
@@ -81,7 +140,29 @@ function Cart() {
   }, [])
 
   const deliveryCost = delivery.method === 'pickup' ? 0 : Number(delivery.cost) || 0
-  const total = subtotal + (items.length > 0 ? deliveryCost : 0)
+  // Refrescar preview de descuento cuando cambia el subtotal o el user.
+  useEffect(() => {
+    if (items.length === 0 || subtotal <= 0) {
+      setDiscountPreview({ authenticated: Boolean(user?.id), amount: 0, percent: 0, reason: null })
+      return
+    }
+    let cancelled = false
+    api.get(`/api/orders/discount-preview?subtotal=${subtotal}`)
+      .then((r) => { if (!cancelled) setDiscountPreview(r) })
+      .catch(() => { /* noop */ })
+    return () => { cancelled = true }
+  }, [subtotal, items.length, user?.id])
+
+  useEffect(() => {
+    if (!user?.id) { setLoyaltyInfo({ balance: 0, enabled: false, point_value: 1 }); return }
+    api.get('/api/loyalty/balance')
+      .then((r) => setLoyaltyInfo(r))
+      .catch(() => {})
+  }, [user?.id])
+
+  const discountAmount = discountPreview.amount || 0
+  const loyaltyDiscount = redeemPoints * (loyaltyInfo.point_value || 1)
+  const total = Math.max(0, subtotal - discountAmount - loyaltyDiscount) + (items.length > 0 ? deliveryCost : 0)
 
   // Teléfono colombiano simple: 10 dígitos (celular) o 7 dígitos (fijo).
   const phoneDigits = (contact.phone || '').replace(/\D/g, '')
@@ -108,13 +189,90 @@ function Cart() {
   // no renderiza botón en divs fuera de viewport (por eso el "click programático"
   // fallaba con timeout a 8s).
   const [boldPayload, setBoldPayload] = useState(null)
+  // Estado "pagado": cuando el webhook confirme approved, renderizamos en el
+  // carrito una vista de éxito con botón para enviar el comprobante por WhatsApp.
+  const [paidOrder, setPaidOrder] = useState(null)
 
   const launchBoldCheckout = (payload) => {
     // Devolvemos true de una: el click lo da el cliente desde el modal.
-    // Al pagar, Bold redirige a /pago/:ref y PaymentResult hace polling del status.
+    // En modo embedded, Bold abre su iframe sobre la página actual; al cerrar o
+    // aprobar el pago, nuestro polling detecta el nuevo payment_status.
     setBoldPayload(payload)
     return Promise.resolve(true)
   }
+
+  // Al volver desde Bold (botón "Volver a la tienda"), Bold añade
+  // ?bold-order-id=... y ?bold-tx-status=approved|rejected|pending
+  // Usamos esos parámetros como atajo para mostrar la vista de éxito/error
+  // sin esperar el polling.
+  useEffect(() => {
+    const boldOrderId = searchParams.get('bold-order-id')
+    const boldStatus = searchParams.get('bold-tx-status')
+    if (!boldOrderId) return
+    // Limpiamos los query params para no repetir el efecto.
+    const next = new URLSearchParams(searchParams)
+    next.delete('bold-order-id')
+    next.delete('bold-tx-status')
+    setSearchParams(next, { replace: true })
+
+    if (boldStatus === 'rejected') {
+      toast.error('El pago fue rechazado. Intenta de nuevo o usa WhatsApp.')
+      return
+    }
+    // Si aprobado o pending, consultamos al backend la verdad oficial y
+    // mostramos la vista verde si ya quedó approved.
+    ;(async () => {
+      try {
+        const order = await api.get(`/api/orders/public/${boldOrderId}`, { skipAuth: true })
+        if (order.payment_status === 'approved') {
+          setPaidOrder(order)
+          clearCart()
+        } else if (order.payment_status === 'pending') {
+          toast.success('Pago en proceso. Te avisamos cuando se confirme.')
+        }
+      } catch (_e) { /* noop: si falla, el usuario ve el carrito normal */ }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Polling del estado del pedido Bold mientras el modal está activo.
+  // Cada 3s consultamos /api/orders/public/:reference; si vemos approved,
+  // cerramos el modal y mostramos la vista "Pago aprobado".
+  useEffect(() => {
+    if (!boldPayload?.order_id) return
+    let cancelled = false
+    let timeoutId
+
+    const poll = async () => {
+      if (cancelled) return
+      try {
+        const order = await api.get(
+          `/api/orders/public/${boldPayload.order_id}`,
+          { skipAuth: true }
+        )
+        if (cancelled) return
+        if (order.payment_status === 'approved') {
+          setPaidOrder(order)
+          setBoldPayload(null) // cerrar modal Bold
+          clearCart()
+          return
+        }
+        if (['declined', 'voided', 'error'].includes(order.payment_status)) {
+          toast.error('El pago no se completó. Puedes intentar de nuevo o usar WhatsApp.')
+          setBoldPayload(null)
+          return
+        }
+      } catch (_e) { /* ignoramos, reintentamos */ }
+      timeoutId = setTimeout(poll, 3000)
+    }
+
+    timeoutId = setTimeout(poll, 3000)
+    return () => {
+      cancelled = true
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boldPayload?.order_id])
 
   // Monta el script + data-attrs de Bold cuando el modal se abre.
   // Orden crítico:
@@ -134,13 +292,23 @@ function Cart() {
     script.setAttribute('data-bold-button', 'dark-L')
     script.setAttribute('data-api-key', boldPayload.identity_key)
     script.setAttribute('data-order-id', boldPayload.order_id)
-    script.setAttribute('data-amount', String(boldPayload.amount_in_cents))
+    script.setAttribute('data-amount', String(boldPayload.amount))
     script.setAttribute('data-currency', boldPayload.currency)
     script.setAttribute('data-integrity-signature', boldPayload.signature)
     script.setAttribute('data-description', boldPayload.description || 'Pedido Avisander')
+    // Modo embedded: abre un iframe modal SOBRE la página actual (no redirige
+    // a checkout.bold.co). Así el cliente nunca sale del carrito de Avisander.
+    script.setAttribute('data-render-mode', 'embedded')
+    // Redirección sólo se usa si el cliente pulsa "Volver a la tienda" dentro
+    // del modal Bold. Apuntamos al propio carrito para que aterrice en nuestro
+    // dominio y el polling detecte el pago aprobado.
+    const publicOrigin = import.meta.env.VITE_PUBLIC_URL || window.location.origin
+    // ngrok-skip-browser-warning hace que ngrok no muestre su pantalla intersticial
+    // al volver al dominio (sólo relevante en dev con ngrok free; en producción
+    // con dominio propio este param es inofensivo).
     script.setAttribute(
       'data-redirection-url',
-      `${window.location.origin}/pago/${boldPayload.order_id}`
+      `${publicOrigin}/carrito?ngrok-skip-browser-warning=1`
     )
     container.appendChild(script)
 
@@ -169,8 +337,9 @@ function Cart() {
       phone: contact.phone.trim(),
       address: delivery.method === 'delivery' ? delivery.address : 'Recoge en tienda'
     }
+    let res
     try {
-      const res = await api.post('/api/orders', {
+      res = await api.post('/api/orders', {
         items: toOrderItems(),
         customer_name: customer.name,
         customer_phone: customer.phone,
@@ -179,9 +348,18 @@ function Cart() {
         delivery_lat: delivery.lat,
         delivery_lng: delivery.lng,
         delivery_city: delivery.city,
-        payment_method: paymentMethod
+        payment_method: paymentMethod,
+        redeem_points: redeemPoints || 0
       })
+    } catch (err) {
+      // No abrimos WhatsApp ni limpiamos el carrito si la orden no se creó:
+      // el cliente debe corregir (stock insuficiente, dirección fuera de cobertura, etc.).
+      toast.error(err.message || 'No pudimos guardar tu pedido. Revisa stock o vuelve a intentar.')
+      setSubmitting(false)
+      return
+    }
 
+    try {
       if (paymentMethod === 'bold' && res.bold) {
         const ok = await launchBoldCheckout(res.bold)
         if (!ok) {
@@ -191,19 +369,97 @@ function Cart() {
         // Bold abre su UI. Al terminar redirige a /pago/:reference.
         // No limpiamos carrito aún: lo hace PaymentResult cuando el pago está aprobado.
       } else {
-        // WhatsApp / Cash: abrimos WhatsApp y limpiamos carrito
-        window.open(getWhatsAppUrl({ ...customer, deliveryInfo: delivery }), '_blank')
+        // WhatsApp: orden ya creada en BD; abrimos WhatsApp con el N° de pedido,
+        // limpiamos carrito y llevamos al cliente a la vista de tracking.
+        const waUrl = getWhatsAppUrl({
+          ...customer,
+          deliveryInfo: delivery,
+          orderNumber: res.id,
+          discountAmount: res.discount_amount || 0,
+          discountReason: res.discount_reason || null,
+          finalTotal: res.total
+        })
+        window.open(waUrl, '_blank')
         clearCart()
-        toast.success('¡Pedido enviado! Te contactamos por WhatsApp.')
-      }
-    } catch (err) {
-      toast.error(err.message || 'No pudimos guardar el pedido. Abriendo WhatsApp igual.')
-      if (paymentMethod !== 'bold') {
-        window.open(getWhatsAppUrl({ ...customer, deliveryInfo: delivery }), '_blank')
+        toast.success(`¡Pedido #${res.id} recibido! Te contactamos por WhatsApp.`)
+        if (res.payment_reference) {
+          navigate(`/pedido/${res.payment_reference}`)
+        }
       }
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // Vista de pago aprobado (tras confirmación del webhook Bold). Tiene prioridad
+  // sobre el carrito vacío: queremos que el cliente vea el éxito incluso cuando
+  // ya limpiamos el carrito.
+  if (paidOrder) {
+    const waMsg = buildPaidWhatsAppMessage(paidOrder)
+    const waUrl = whatsappLink(settings.whatsapp_number, waMsg)
+    return (
+      <div className="container mx-auto px-4 py-10 max-w-2xl">
+        <div className="bg-white rounded-2xl shadow-md border-t-4 border-green-500 overflow-hidden">
+          <div className="p-8 text-center bg-green-50">
+            <CheckCircle2 className="mx-auto text-green-500 mb-3" size={68} />
+            <h1 className="text-3xl font-bold text-gray-800">¡Pago aprobado!</h1>
+            <p className="text-lg font-mono text-green-700 font-bold mt-2">Pedido #{paidOrder.id}</p>
+            <p className="text-gray-600 mt-2">Tu pago fue confirmado por Bold. Ya descontamos tu producto del inventario.</p>
+          </div>
+
+          <div className="p-6 border-t border-gray-100 bg-white">
+            <h2 className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">Detalle</h2>
+            <div className="space-y-2 text-sm">
+              {paidOrder.items.map((it, i) => (
+                <div key={i} className="flex justify-between">
+                  <span className="text-gray-700">
+                    {it.product_name}
+                    {it.sale_type === 'by_weight'
+                      ? ` · ${it.weight_grams} g`
+                      : ` · ${it.quantity} und`}
+                  </span>
+                  <span className="font-medium text-gray-800">{fmt(it.subtotal)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t mt-4 pt-3 space-y-1 text-sm">
+              {paidOrder.delivery_cost > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>Domicilio</span>
+                  <span>{fmt(paidOrder.delivery_cost)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-gray-800 text-lg pt-1">
+                <span>Total pagado</span>
+                <span className="text-green-600">{fmt(paidOrder.total)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 bg-gray-50 border-t">
+            <p className="text-sm text-gray-600 mb-3 text-center">
+              Envía el comprobante por WhatsApp para que coordinemos la entrega.
+            </p>
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-colors"
+            >
+              <MessageSquare size={20} />
+              Enviar comprobante por WhatsApp
+            </a>
+            <Link
+              to="/productos"
+              onClick={() => setPaidOrder(null)}
+              className="w-full block text-center mt-3 text-sm text-gray-500 hover:text-primary"
+            >
+              Seguir comprando
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (items.length === 0) {
@@ -472,6 +728,37 @@ function Cart() {
                 <span>Subtotal <span className="text-xs text-gray-400">({items.length} {items.length === 1 ? 'producto' : 'productos'})</span></span>
                 <span className="font-medium text-gray-800">{fmt(subtotal)}</span>
               </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>
+                    {discountPreview.reason || `Descuento ${discountPreview.percent}%`}
+                  </span>
+                  <span className="font-semibold">− {fmt(discountAmount)}</span>
+                </div>
+              )}
+              {loyaltyInfo.enabled && user?.id && loyaltyInfo.balance > 0 && (
+                <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-amber-800 font-medium">Tus puntos</span>
+                    <span className="font-bold text-amber-600">{loyaltyInfo.balance} pts</span>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-amber-700">
+                    <input
+                      type="checkbox"
+                      checked={redeemPoints > 0}
+                      onChange={(e) => setRedeemPoints(e.target.checked ? loyaltyInfo.balance : 0)}
+                      className="accent-amber-500"
+                    />
+                    Usar puntos (−{fmt(loyaltyInfo.balance * (loyaltyInfo.point_value || 1))})
+                  </label>
+                  {redeemPoints > 0 && (
+                    <div className="flex justify-between text-amber-700 text-sm">
+                      <span>Canje {redeemPoints} puntos</span>
+                      <span className="font-semibold">− {fmt(loyaltyDiscount)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex justify-between items-start">
                 <span>
                   {delivery.method === 'pickup' ? 'Recoge en tienda' : 'Domicilio'}
@@ -496,6 +783,27 @@ function Cart() {
                 <span className="text-2xl font-extrabold text-primary">{fmt(total)}</span>
               </div>
             </div>
+
+            {/* Invitación a registrarse para obtener el descuento (solo si user invitado). */}
+            {!user?.id && discountPreview.percent === 0 && items.length > 0 && (
+              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm">
+                <p className="font-semibold text-green-800">
+                  Regístrate y obtén 10% en tu primera compra
+                </p>
+                <p className="text-xs text-green-700 mt-1">
+                  El descuento se aplica automáticamente al checkout si es tu primer pedido.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Link to="/registro" className="text-xs font-semibold text-primary hover:underline">
+                    Crear cuenta
+                  </Link>
+                  <span className="text-gray-300">·</span>
+                  <Link to="/login" className="text-xs font-semibold text-primary hover:underline">
+                    Iniciar sesión
+                  </Link>
+                </div>
+              </div>
+            )}
 
             {items.some((it) => it.sale_type === 'by_weight') && (
               <p className="mt-3 text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded p-2">
@@ -576,9 +884,13 @@ function Cart() {
                 </div>
               </div>
               <p className="text-center text-xs text-gray-500">
-                Pulsa el botón naranja para continuar. Bold abrirá su ventana segura.
+                Pulsa el botón naranja para pagar. Bold abrirá su ventana segura dentro de esta página.
               </p>
               <div id="bold-btn-target" className="flex justify-center min-h-[56px] [&_button]:!w-full"></div>
+              <div className="flex items-center justify-center gap-2 text-xs text-gray-500 pt-1">
+                <Loader2 size={14} className="animate-spin" />
+                <span>Esperando confirmación del pago…</span>
+              </div>
               <button
                 onClick={closeBoldModal}
                 className="w-full text-sm text-gray-500 hover:text-charcoal transition-colors"

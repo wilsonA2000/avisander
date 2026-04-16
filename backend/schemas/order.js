@@ -54,11 +54,12 @@ const orderCreateSchema = z.object({
   delivery_city: z.string().trim().max(80).optional().nullable(),
   // 'cash' (contra entrega) eliminado: política — Wilson no despacha sin pago previo.
   // 'pickup' nunca fue un método de pago real, era un alias confuso.
-  payment_method: z.enum(['whatsapp', 'bold']).optional().default('whatsapp')
+  payment_method: z.enum(['whatsapp', 'bold']).optional().default('whatsapp'),
+  redeem_points: z.number().int().min(0).optional().default(0)
 })
 
 const orderStatusSchema = z.object({
-  status: z.enum(['pending', 'processing', 'completed', 'cancelled'])
+  status: z.enum(['pending', 'processing', 'shipped', 'completed', 'cancelled'])
 })
 
 module.exports = { orderCreateSchema, orderStatusSchema }

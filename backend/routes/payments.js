@@ -6,6 +6,7 @@ const { db } = require('../db/database')
 const bold = require('../lib/bold')
 const logger = require('../lib/logger')
 const inventory = require('../lib/inventory')
+const stockReservation = require('../lib/stockReservation')
 
 const router = express.Router()
 
@@ -91,13 +92,26 @@ router.post(
             .get(reference)
           if (order && !order.stock_deducted) {
             try {
+              // Liberar reserva antes de descontar: evita doble bloqueo
+              // (reserva + stock descontado) del mismo pedido.
+              stockReservation.releaseReservation(order.id)
               inventory.recordSaleFromOrder({ orderId: order.id, userId: null })
               db.prepare('UPDATE orders SET stock_deducted = 1 WHERE id = ?').run(order.id)
               logger.info({ orderId: order.id }, 'Stock descontado por pago aprobado')
             } catch (err) {
-              // No bloqueamos la respuesta del webhook, pero log + alerta al admin.
               logger.error({ err, orderId: order.id }, 'Fallo al descontar stock; revisar manualmente')
             }
+          }
+        }
+
+        // Pago rechazado / anulado / error: liberar la reserva para que el
+        // stock vuelva al pool disponible.
+        if (['declined', 'voided', 'error'].includes(newStatus)) {
+          const order = db
+            .prepare('SELECT id, stock_deducted FROM orders WHERE payment_reference = ?')
+            .get(reference)
+          if (order && !order.stock_deducted) {
+            try { stockReservation.releaseReservation(order.id) } catch (_e) { /* noop */ }
           }
         }
       }
