@@ -1,4 +1,4 @@
-import { ShoppingCart, Eye, Truck, Plus, Minus } from 'lucide-react'
+import { Eye, Truck, Plus, Minus } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -6,6 +6,9 @@ import { useCart } from '../context/CartContext'
 import { useToast } from '../context/ToastContext'
 import AddToCartModal from './AddToCartModal'
 import ProductImage from './ProductImage'
+import Icon3D from './Icon3D'
+import SaleRibbon from './SaleRibbon'
+import LowStockBadge from './LowStockBadge'
 
 const FREE_SHIP_THRESHOLD = 200000
 
@@ -80,20 +83,25 @@ function ProductCard({ product, variant = 'grid' }) {
               <span className="text-lg font-bold text-primary">${Number(displayPrice).toLocaleString('es-CO')}</span>
               <span className="text-xs text-gray-500">/{isWeight ? 'kg' : product.unit || 'und'}</span>
             </div>
-            <div className="flex flex-wrap gap-1 mt-2">
-              {!!product.is_on_sale && <span className="badge-sale">Oferta</span>}
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              {!!product.is_on_sale && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md
+                                 bg-gradient-to-r from-accent-dark to-accent text-white
+                                 text-[10px] font-display font-bold uppercase tracking-wider
+                                 shadow-[0_2px_6px_-1px_rgba(160,32,32,0.4)]">
+                  Oferta
+                </span>
+              )}
               {isWeight && <span className="badge-by-weight">Por peso</span>}
               {showFreeShip && <span className="badge bg-green-100 text-green-800"><Truck size={10} className="inline mr-0.5" /> Envío gratis</span>}
               {!isAvailable && <span className="badge-out-of-stock">Agotado</span>}
-              {isAvailable && lowStock && (
-                <span className="badge bg-amber-500 text-white">Últimas unidades</span>
-              )}
+              {isAvailable && lowStock && <LowStockBadge />}
             </div>
           </div>
           <div className="flex flex-col items-end gap-2 flex-shrink-0">
             {isAvailable ? (
               <button onClick={() => setOpen(true)} className="btn-primary flex items-center gap-2 text-sm">
-                <ShoppingCart size={16} /> Agregar
+                <Icon3D name="shopping-cart" size="xs" /> Agregar
               </button>
             ) : (
               <button disabled className="btn bg-gray-300 text-gray-500 cursor-not-allowed text-sm">No disponible</button>
@@ -124,13 +132,12 @@ function ProductCard({ product, variant = 'grid' }) {
               <Eye size={14} /> Ver detalle
             </span>
           </div>
-          <div className="absolute top-2 left-2 flex flex-col gap-1">
-            {!!product.is_on_sale && <span className="badge-sale">Oferta</span>}
+          {!!product.is_on_sale && <SaleRibbon />}
+
+          <div className="absolute top-2 right-2 flex flex-col items-end gap-1.5">
             {isWeight && <span className="badge-by-weight">Por peso</span>}
             {!isAvailable && <span className="badge-out-of-stock">Agotado</span>}
-              {isAvailable && lowStock && (
-                <span className="badge bg-amber-500 text-white">Últimas unidades</span>
-              )}
+            {isAvailable && lowStock && <LowStockBadge />}
           </div>
           {showFreeShip && (
             <div className="absolute bottom-2 left-2">
@@ -165,7 +172,7 @@ function ProductCard({ product, variant = 'grid' }) {
             {isAvailable ? (
               isWeight ? (
                 <button onClick={() => setOpen(true)} className="w-full btn-primary flex items-center justify-center gap-2 text-sm">
-                  <ShoppingCart size={16} /> Pedir por peso
+                  <Icon3D name="shopping-cart" size="xs" /> Pedir por peso
                 </button>
               ) : (
                 <div className="flex gap-1">
@@ -193,7 +200,7 @@ function ProductCard({ product, variant = 'grid' }) {
                     className="flex-1 btn-primary flex items-center justify-center gap-1 text-sm px-2"
                     title="Agregar al carrito"
                   >
-                    <ShoppingCart size={14} />
+                    <Icon3D name="shopping-cart" size="xs" />
                     <span className="hidden sm:inline">Agregar</span>
                   </button>
                 </div>

@@ -71,10 +71,17 @@ function createApp({ enableRateLimit = true } = {}) {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
+  // En desarrollo, aceptamos cualquier subdominio de los túneles de ngrok/cloudflare
+  // para no tener que re-editar FRONTEND_URL cada vez que el túnel cambia de URL.
+  // En producción esta regex nunca matchea — el dominio real va en FRONTEND_URL.
+  const tunnelRegex = /^https:\/\/[a-z0-9-]+\.(ngrok-free\.app|ngrok\.app|ngrok\.io|trycloudflare\.com)$/
+  const isDev = process.env.NODE_ENV !== 'production'
   app.use(
     cors({
       origin: (origin, cb) => {
-        if (!origin || allowedOrigins.includes(origin)) return cb(null, true)
+        if (!origin) return cb(null, true)
+        if (allowedOrigins.includes(origin)) return cb(null, true)
+        if (isDev && tunnelRegex.test(origin)) return cb(null, true)
         return cb(new Error('Origen no permitido por CORS'))
       },
       credentials: true

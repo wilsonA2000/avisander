@@ -36,6 +36,57 @@ router.get('/transaction/:reference', (req, res) => {
   })
 })
 
+// Reconciliación manual: consulta a Bold el estado real y actualiza nuestra BD.
+// El frontend puede llamar este endpoint tras volver del checkout si el webhook
+// aún no ha llegado (común en sandbox). Es idempotente.
+router.post('/reconcile/:reference', async (req, res) => {
+  try {
+    const reference = req.params.reference
+    const order = db
+      .prepare('SELECT id, payment_status, stock_deducted FROM orders WHERE payment_reference = ?')
+      .get(reference)
+    if (!order) return res.status(404).json({ error: 'Referencia no encontrada' })
+    // Si ya está aprobada, no hace falta volver a consultar Bold.
+    if (order.payment_status === 'approved') {
+      return res.json({ ok: true, status: 'approved', order_id: order.id, source: 'cache' })
+    }
+
+    const boldStatus = await bold.fetchTransactionStatus(reference)
+    if (!boldStatus) {
+      return res.json({ ok: false, status: order.payment_status, message: 'Bold aún no tiene registro de esta transacción.' })
+    }
+
+    // Aplicar el mismo cambio que haría el webhook.
+    const paidAt = boldStatus.status === 'approved' ? (boldStatus.paidAt || new Date().toISOString()) : null
+    db.prepare(
+      `UPDATE orders SET
+         payment_status = ?,
+         payment_transaction_id = COALESCE(?, payment_transaction_id),
+         payment_paid_at = COALESCE(?, payment_paid_at)
+       WHERE payment_reference = ?`
+    ).run(boldStatus.status, boldStatus.transactionId, paidAt, reference)
+
+    if (boldStatus.status === 'approved' && !order.stock_deducted) {
+      try {
+        stockReservation.releaseReservation(order.id)
+        inventory.recordSaleFromOrder({ orderId: order.id, userId: null })
+        db.prepare('UPDATE orders SET stock_deducted = 1 WHERE id = ?').run(order.id)
+        logger.info({ orderId: order.id, via: 'reconcile' }, 'Stock descontado por reconciliación manual')
+      } catch (err) {
+        logger.error({ err, orderId: order.id }, 'Fallo al descontar stock en reconciliación')
+      }
+    }
+    if (['declined', 'voided', 'error'].includes(boldStatus.status) && !order.stock_deducted) {
+      try { stockReservation.releaseReservation(order.id) } catch (_e) {}
+    }
+
+    res.json({ ok: true, status: boldStatus.status, order_id: order.id, source: 'bold-api' })
+  } catch (error) {
+    logger.error({ err: error }, 'Reconcile Bold error')
+    res.status(500).json({ error: 'Error en reconciliación' })
+  }
+})
+
 // Webhook de Bold.
 // IMPORTANTE: para verificar la firma HMAC necesitamos el body RAW, no parseado.
 // Por eso esta ruta usa express.raw en vez del express.json global.

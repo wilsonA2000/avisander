@@ -20,7 +20,7 @@ router.get('/', (req, res, next) => {
     const rows = db
       .prepare(
         `SELECT p.id, p.name, p.image_url, p.unit, p.sale_type, p.stock, p.stock_min,
-                p.cost_price, p.barcode, c.name as category_name,
+                p.cost_price, p.barcode, p.is_available, c.name as category_name,
                 (SELECT m.created_at FROM inventory_movements m
                   WHERE m.product_id = p.id ORDER BY m.id DESC LIMIT 1) AS last_movement_at,
                 (SELECT m.type FROM inventory_movements m
@@ -60,6 +60,19 @@ router.post('/adjust', validate(inventoryAdjustSchema), (req, res, next) => {
       userId: req.user.id
     })
     res.status(201).json(result)
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.patch('/availability/:productId', (req, res, next) => {
+  try {
+    const value = req.body?.is_available ? 1 : 0
+    const product = db.prepare('SELECT id, name FROM products WHERE id = ?').get(req.params.productId)
+    if (!product) return res.status(404).json({ error: 'Producto no encontrado' })
+    db.prepare('UPDATE products SET is_available = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(value, req.params.productId)
+    res.json({ id: product.id, is_available: value })
   } catch (error) {
     next(error)
   }

@@ -1,6 +1,7 @@
 // Ícono 3D de categoría sobre superficie glassmórfica.
-// Los PNG los servimos desde /media/iconos/categorias/ (ver backend/media/).
-// Son Microsoft Fluent Emoji en su versión 3D (MIT license).
+// Intenta primero el PNG premium de /media/iconos/3d/ (clay style Iconscout);
+// si no está disponible, cae a /media/iconos/categorias/ (Fluent Emoji 3D actuales).
+// El fallback es automático vía onError.
 
 const CATEGORY_MAP = {
   // categoría del Excel → slug de archivo + gradiente de fondo
@@ -32,9 +33,19 @@ function pick(categoryName) {
  *  - 'circle'  → redondo, para la fila de categorías del home
  *  - 'inline'  → pequeño sin marco, para uso junto a texto
  */
+// Helper: intenta primero /3d/, y al fallar hace swap a /categorias/
+function onPngError(e, fallbackSrc) {
+  const img = e.currentTarget
+  if (img.src !== fallbackSrc && !img.dataset.fallbackApplied) {
+    img.dataset.fallbackApplied = '1'
+    img.src = fallbackSrc
+  }
+}
+
 function CategoryIcon({ category, variant = 'card', size = 'md', className = '' }) {
   const { icon, bg } = pick(category)
-  const src = `/media/iconos/categorias/${icon}.png`
+  const src = `/media/iconos/3d/${icon}.png`
+  const fallbackSrc = `/media/iconos/categorias/${icon}.png`
 
   const iconSize = {
     xs: 'w-6 h-6',
@@ -45,7 +56,7 @@ function CategoryIcon({ category, variant = 'card', size = 'md', className = '' 
   }[size] || 'w-16 h-16'
 
   if (variant === 'inline') {
-    return <img src={src} alt={category || ''} className={`${iconSize} ${className}`} />
+    return <img src={src} alt={category || ''} className={`${iconSize} ${className}`} onError={(e) => onPngError(e, fallbackSrc)} />
   }
 
   if (variant === 'circle') {
@@ -58,6 +69,7 @@ function CategoryIcon({ category, variant = 'card', size = 'md', className = '' 
             alt={category || ''}
             loading="lazy"
             className="w-3/4 h-3/4 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.15)]"
+            onError={(e) => onPngError(e, fallbackSrc)}
           />
         </div>
       </div>
@@ -77,6 +89,7 @@ function CategoryIcon({ category, variant = 'card', size = 'md', className = '' 
           alt={category || ''}
           loading="lazy"
           className={`${iconSize} object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.2)]`}
+          onError={(e) => onPngError(e, fallbackSrc)}
         />
       </div>
     </div>

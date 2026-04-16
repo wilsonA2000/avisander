@@ -145,8 +145,10 @@ function CulinaryIcon({ slug, variant = 'card', size = 'md', className = '' }) {
     )
   }
 
-  // card (default): PNG 3D premium (Fluent Emoji) sobre fondo con glow suave.
-  const pngSrc = `/media/iconos/usos/${slug}.png`
+  // card (default): PNG 3D premium. Primero intenta /3d/ (clay Iconscout),
+  // luego cae a /usos/ (Fluent Emoji actual), y finalmente a lucide.
+  const pngSrc = `/media/iconos/3d/${slug}.png`
+  const pngFallback = `/media/iconos/usos/${slug}.png`
   return (
     <div className={`flex flex-col items-center gap-2 group ${className}`}>
       <div
@@ -168,6 +170,13 @@ function CulinaryIcon({ slug, variant = 'card', size = 'md', className = '' }) {
           loading="lazy"
           className={`${s.img} relative z-10 object-contain transition-transform duration-300 group-hover:scale-110 group-hover:rotate-[-4deg] drop-shadow-[0_4px_12px_rgba(0,0,0,0.18)]`}
           onError={(e) => {
+            // Primer error: intenta el PNG de /usos/ (Fluent Emoji actual)
+            if (e.currentTarget.src.includes('/3d/') && !e.currentTarget.dataset.tried2) {
+              e.currentTarget.dataset.tried2 = '1'
+              e.currentTarget.src = pngFallback
+              return
+            }
+            // Segundo error: cae a lucide fallback
             e.currentTarget.style.display = 'none'
             e.currentTarget.parentElement?.querySelector('[data-fallback]')?.classList.remove('hidden')
           }}

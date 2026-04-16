@@ -37,6 +37,9 @@ export default {
       },
       boxShadow: {
         soft: '0 40px 80px -20px rgba(0, 0, 0, 0.08), 0 8px 16px -4px rgba(0, 0, 0, 0.05)'
+      },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(circle, var(--tw-gradient-stops))'
       }
     },
   },

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import useScrollToTop from '../hooks/useScrollToTop'
 import {
-  ShoppingCart,
   ArrowLeft,
   Package,
   Snowflake,
@@ -15,6 +14,7 @@ import {
   Plus,
   Minus
 } from 'lucide-react'
+import Icon3D from '../components/Icon3D'
 import { api } from '../lib/apiClient'
 import { useCart } from '../context/CartContext'
 import { useToast } from '../context/ToastContext'
@@ -399,7 +399,7 @@ function ProductDetail() {
                 : 'bg-gray-200 text-gray-500 cursor-not-allowed'
             }`}
           >
-            <ShoppingCart size={18} />
+            <Icon3D name="shopping-cart" size="xs" />
             {isAvailable ? 'Agregar al carrito' : 'Agotado · sin stock'}
           </button>
 

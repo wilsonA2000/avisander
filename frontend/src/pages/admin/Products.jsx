@@ -88,6 +88,7 @@ function Products() {
       if (sort) params.set('sort', sort)
       params.set('page', page)
       params.set('per_page', PER_PAGE)
+      params.set('include_unavailable', '1')
 
       const res = await fetch(`/api/products?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }

@@ -118,6 +118,14 @@ router.get('/', optionalAuth, (req, res, next) => {
       where.push('p.sale_type = ?')
       params.push(sale_type)
     }
+    // Por defecto el catálogo público sólo lista productos disponibles. El admin
+    // puede pedir ?include_unavailable=1 para ver también los inactivos.
+    const isAdmin = req.user?.role === 'admin'
+    const includeUnavailable =
+      isAdmin && (req.query.include_unavailable === '1' || req.query.include_unavailable === 'true')
+    if (!includeUnavailable) {
+      where.push('p.is_available = 1')
+    }
     if (in_stock === '1' || in_stock === 'true') {
       where.push('p.is_available = 1')
     }
@@ -344,7 +352,7 @@ router.get('/by-barcode/:code', (req, res, next) => {
 })
 
 // Producto por slug amigable
-router.get('/by-slug/:slug', (req, res, next) => {
+router.get('/by-slug/:slug', optionalAuth, (req, res, next) => {
   try {
     const product = db
       .prepare(
@@ -354,6 +362,12 @@ router.get('/by-slug/:slug', (req, res, next) => {
       )
       .get(req.params.slug)
     if (!product) return res.status(404).json({ error: 'Producto no encontrado' })
+    const isAdmin = req.user?.role === 'admin'
+    const includeUnavailable =
+      isAdmin && (req.query.include_unavailable === '1' || req.query.include_unavailable === 'true')
+    if (!product.is_available && !includeUnavailable) {
+      return res.status(404).json({ error: 'Producto no encontrado' })
+    }
     res.json(hydrateProduct(product))
   } catch (error) {
     next(error)
@@ -419,7 +433,7 @@ router.get('/:id/related', (req, res, next) => {
 })
 
 // Single por id
-router.get('/:id', (req, res, next) => {
+router.get('/:id', optionalAuth, (req, res, next) => {
   try {
     const product = db
       .prepare(
@@ -430,6 +444,12 @@ router.get('/:id', (req, res, next) => {
       .get(req.params.id)
 
     if (!product) {
+      return res.status(404).json({ error: 'Producto no encontrado' })
+    }
+    const isAdmin = req.user?.role === 'admin'
+    const includeUnavailable =
+      isAdmin && (req.query.include_unavailable === '1' || req.query.include_unavailable === 'true')
+    if (!product.is_available && !includeUnavailable) {
       return res.status(404).json({ error: 'Producto no encontrado' })
     }
     res.json(hydrateProduct(product))

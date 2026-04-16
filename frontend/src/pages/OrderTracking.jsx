@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { CheckCircle2, Clock, Package, XCircle, MessageSquare, Truck, Store } from 'lucide-react'
 import { api } from '../lib/apiClient'
+import LottieIcon from '../components/LottieIcon'
 
 const POLL_INTERVAL = 10000
 
@@ -117,13 +118,26 @@ function OrderTracking() {
   const { Icon } = meta
   const isDelivery = order.delivery_method === 'delivery'
 
+  // Para estados clave, usamos Lottie animado en vez del lucide estático.
+  const lottieByStatus = {
+    shipped:   { name: 'delivery-truck', loop: true,  fallback: 'delivery' },
+    completed: { name: 'success',        loop: false, fallback: 'check' }
+  }
+  const lottie = lottieByStatus[order.status]
+
   return (
     <div className="container mx-auto px-4 py-10 max-w-2xl">
       <div className={`bg-white rounded-2xl shadow-sm border-t-4 ${meta.border} overflow-hidden`}>
         <div className="p-8 text-center">
-          <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${meta.bg} mb-4`}>
-            <Icon className={meta.text} size={44} />
-          </div>
+          {lottie ? (
+            <div className="mx-auto mb-4 flex justify-center">
+              <LottieIcon name={lottie.name} size="xl" loop={lottie.loop} autoplay fallbackIcon={lottie.fallback} />
+            </div>
+          ) : (
+            <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${meta.bg} mb-4`}>
+              <Icon className={meta.text} size={44} />
+            </div>
+          )}
           <h1 className="text-3xl font-bold text-gray-800 mb-1">
             {order.status === 'pending' ? '¡Pedido realizado con éxito!' : meta.label}
           </h1>

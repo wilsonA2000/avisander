@@ -8,6 +8,8 @@ import { useSettings, whatsappLink } from '../context/SettingsContext'
 import { api } from '../lib/apiClient'
 import DeliveryPicker from '../components/DeliveryPicker'
 import ProductImage from '../components/ProductImage'
+import LottieIcon from '../components/LottieIcon'
+import Icon3D from '../components/Icon3D'
 
 function fmt(n) {
   return `$${Number(n || 0).toLocaleString('es-CO')}`
@@ -194,44 +196,94 @@ function Cart() {
   const [paidOrder, setPaidOrder] = useState(null)
 
   const launchBoldCheckout = (payload) => {
-    // Devolvemos true de una: el click lo da el cliente desde el modal.
-    // En modo embedded, Bold abre su iframe sobre la página actual; al cerrar o
-    // aprobar el pago, nuestro polling detecta el nuevo payment_status.
+    // Persistimos la referencia de la orden Bold lanzada para que, si el cliente
+    // vuelve al carrito sin los query params que Bold debería añadir, aún podamos
+    // consultar el estado de esa orden y mostrar la vista de éxito.
+    try {
+      localStorage.setItem('avisander:pending_bold_order', JSON.stringify({
+        reference: payload.order_id,
+        launched_at: Date.now()
+      }))
+    } catch (_e) { /* noop */ }
     setBoldPayload(payload)
     return Promise.resolve(true)
   }
 
-  // Al volver desde Bold (botón "Volver a la tienda"), Bold añade
-  // ?bold-order-id=... y ?bold-tx-status=approved|rejected|pending
-  // Usamos esos parámetros como atajo para mostrar la vista de éxito/error
-  // sin esperar el polling.
+  // Al volver desde Bold: detectamos la referencia por 3 vías en orden de fiabilidad:
+  //   1) Query params ?bold-order-id=X&bold-tx-status=Y (Bold los añade a veces)
+  //   2) localStorage 'avisander:pending_bold_order' (persistido al lanzar)
+  // Consultamos el backend con polling hasta 20s para dar tiempo al webhook.
   useEffect(() => {
-    const boldOrderId = searchParams.get('bold-order-id')
-    const boldStatus = searchParams.get('bold-tx-status')
-    if (!boldOrderId) return
-    // Limpiamos los query params para no repetir el efecto.
-    const next = new URLSearchParams(searchParams)
-    next.delete('bold-order-id')
-    next.delete('bold-tx-status')
-    setSearchParams(next, { replace: true })
+    const queryOrderId = searchParams.get('bold-order-id')
+    const queryStatus = searchParams.get('bold-tx-status')
 
-    if (boldStatus === 'rejected') {
+    let pendingRef = queryOrderId
+    let launchedAt = null
+    if (!pendingRef) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('avisander:pending_bold_order') || 'null')
+        if (stored && stored.reference && (Date.now() - stored.launched_at) < 30 * 60 * 1000) {
+          pendingRef = stored.reference
+          launchedAt = stored.launched_at
+        }
+      } catch (_e) { /* noop */ }
+    }
+    if (!pendingRef) return
+
+    // Limpiar query params de Bold si vinieron.
+    if (queryOrderId) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('bold-order-id')
+      next.delete('bold-tx-status')
+      setSearchParams(next, { replace: true })
+    }
+
+    if (queryStatus === 'rejected') {
       toast.error('El pago fue rechazado. Intenta de nuevo o usa WhatsApp.')
+      try { localStorage.removeItem('avisander:pending_bold_order') } catch (_e) {}
       return
     }
-    // Si aprobado o pending, consultamos al backend la verdad oficial y
-    // mostramos la vista verde si ya quedó approved.
-    ;(async () => {
+
+    // Polling progresivo con reconciliación activa contra la API de Bold.
+    // Si el webhook no llega (común en sandbox), /reconcile consulta a Bold
+    // directamente y actualiza la orden en nuestra BD, así no queda colgada.
+    let cancelled = false
+    let attempts = 0
+    const maxAttempts = 10
+    const check = async () => {
+      if (cancelled) return
+      attempts++
       try {
-        const order = await api.get(`/api/orders/public/${boldOrderId}`, { skipAuth: true })
+        // 1) Intentar reconciliar contra Bold (fuerza sync con la verdad oficial).
+        try {
+          await api.post(`/api/payments/reconcile/${pendingRef}`, {}, { skipAuth: true })
+        } catch (_e) { /* noop, seguimos con el GET */ }
+
+        // 2) Leer el estado actualizado de nuestra BD.
+        const order = await api.get(`/api/orders/public/${pendingRef}`, { skipAuth: true })
+        if (cancelled) return
         if (order.payment_status === 'approved') {
           setPaidOrder(order)
           clearCart()
-        } else if (order.payment_status === 'pending') {
-          toast.success('Pago en proceso. Te avisamos cuando se confirme.')
+          try { localStorage.removeItem('avisander:pending_bold_order') } catch (_e) {}
+          return
         }
-      } catch (_e) { /* noop: si falla, el usuario ve el carrito normal */ }
-    })()
+        if (['declined', 'voided', 'error', 'rejected'].includes(order.payment_status)) {
+          toast.error('El pago no se completó. Puedes intentar de nuevo o usar WhatsApp.')
+          try { localStorage.removeItem('avisander:pending_bold_order') } catch (_e) {}
+          return
+        }
+        if (attempts < maxAttempts) {
+          setTimeout(check, 2000)
+        } else if (queryOrderId || launchedAt) {
+          toast.info('Tu pago está siendo procesado. Te avisamos por WhatsApp cuando se confirme.')
+        }
+      } catch (_e) {
+        if (attempts < maxAttempts) setTimeout(check, 2000)
+      }
+    }
+    check()
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -381,6 +433,7 @@ function Cart() {
         })
         window.open(waUrl, '_blank')
         clearCart()
+        try { localStorage.removeItem('avisander:pending_bold_order') } catch (_e) {}
         toast.success(`¡Pedido #${res.id} recibido! Te contactamos por WhatsApp.`)
         if (res.payment_reference) {
           navigate(`/pedido/${res.payment_reference}`)
@@ -401,7 +454,9 @@ function Cart() {
       <div className="container mx-auto px-4 py-10 max-w-2xl">
         <div className="bg-white rounded-2xl shadow-md border-t-4 border-green-500 overflow-hidden">
           <div className="p-8 text-center bg-green-50">
-            <CheckCircle2 className="mx-auto text-green-500 mb-3" size={68} />
+            <div className="mx-auto mb-3 flex justify-center">
+              <LottieIcon name="success" size="xl" loop={false} autoplay fallbackIcon="check" />
+            </div>
             <h1 className="text-3xl font-bold text-gray-800">¡Pago aprobado!</h1>
             <p className="text-lg font-mono text-green-700 font-bold mt-2">Pedido #{paidOrder.id}</p>
             <p className="text-gray-600 mt-2">Tu pago fue confirmado por Bold. Ya descontamos tu producto del inventario.</p>
@@ -465,8 +520,12 @@ function Cart() {
   if (items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <ShoppingBag className="mx-auto text-gray-300 mb-4" size={64} />
-        <h1 className="text-2xl font-bold text-gray-800 mb-4">Tu carrito está vacío</h1>
+        <div className="mx-auto mb-6 flex justify-center">
+          <span className="animate-cart-invite">
+            <Icon3D name="shopping-cart" size="2xl" alt="Carrito vacío" />
+          </span>
+        </div>
+        <h1 className="text-2xl font-bold text-gray-800 mb-3">Tu carrito está vacío</h1>
         <p className="text-gray-600 mb-8">Agrega productos del catálogo para empezar tu pedido.</p>
         <Link to="/productos" className="btn-primary">Ver productos</Link>
       </div>

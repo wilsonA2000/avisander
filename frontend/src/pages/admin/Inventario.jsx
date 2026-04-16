@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Boxes, AlertTriangle, History, Edit3, X, Search } from 'lucide-react'
+import { Boxes, AlertTriangle, History, Edit3, X, Search, EyeOff, Power } from 'lucide-react'
 import { api } from '../../lib/apiClient'
 import { useToast } from '../../context/ToastContext'
 
@@ -55,6 +55,17 @@ function Inventario() {
   const openAdjust = (product) => {
     setAdjusting(product)
     setForm({ quantity: '', type: 'adjustment', notes: '' })
+  }
+
+  const enableAvailability = async (productId) => {
+    try {
+      await api.patch(`/api/inventory/availability/${productId}`, { is_available: true })
+      toast.success('Producto activado para venta')
+      setAdjusting((prev) => (prev ? { ...prev, is_available: 1 } : prev))
+      load()
+    } catch (err) {
+      toast.error(err.message || 'No se pudo activar el producto')
+    }
   }
 
   const submitAdjust = async (e) => {
@@ -149,7 +160,14 @@ function Inventario() {
                           />
                         )}
                         <div>
-                          <div className="font-medium">{p.name}</div>
+                          <div className="font-medium flex items-center gap-1.5">
+                            {p.name}
+                            {Number(p.is_available) === 0 && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-100 text-amber-800 border border-amber-200" title="No disponible para venta">
+                                <EyeOff size={9} /> No disponible
+                              </span>
+                            )}
+                          </div>
                           {p.barcode && (
                             <div className="text-[10px] text-gray-400 font-mono">{p.barcode}</div>
                           )}
@@ -213,6 +231,27 @@ function Inventario() {
                 <div className="font-medium text-gray-900">{adjusting.name}</div>
                 <div>Stock actual: <span className="font-semibold">{fmt(adjusting.stock, adjusting.unit)}</span></div>
               </div>
+
+              {Number(adjusting.is_available) === 0 && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+                  <div className="flex items-start gap-2">
+                    <EyeOff size={16} className="text-amber-700 flex-shrink-0 mt-0.5" />
+                    <div className="text-xs text-amber-900 flex-1">
+                      <p className="font-semibold mb-0.5">Producto no disponible para venta</p>
+                      <p className="text-amber-800">
+                        Aunque tenga stock, los clientes no lo verán en el catálogo. Actívalo si quieres venderlo ahora.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => enableAvailability(adjusting.id)}
+                        className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition-colors"
+                      >
+                        <Power size={12} /> Activar disponibilidad
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="text-sm text-gray-600">Cantidad (positivo suma, negativo resta)</label>
                 <input

@@ -89,11 +89,79 @@ function mapEventToStatus(eventType) {
   return map[eventType] || 'pending'
 }
 
+/**
+ * Consulta a Bold el estado real de una transacción por referencia (orderId).
+ * Se usa como fallback cuando el webhook no llega (sandbox suele no enviarlo
+ * y el cliente queda colgado en "pending" pese a haber pagado).
+ *
+ * Devuelve { status, transactionId, paidAt, raw } o null si Bold no responde.
+ * Status interno: approved | declined | pending | voided | error.
+ *
+ * Bold tiene varios endpoints según el tipo de integración; probamos en
+ * cascada los más probables para el botón de pagos.
+ */
+async function fetchTransactionStatus(reference) {
+  const { secretKey } = config()
+  if (!secretKey) return null
+
+  const endpoints = [
+    // Botón de pagos: consulta por el order_id que mandamos
+    `https://integrations.api.bold.co/online/link/v1/${encodeURIComponent(reference)}`,
+    // Voucher por referencia
+    `https://integrations.api.bold.co/online/link/v1/payment-voucher/${encodeURIComponent(reference)}`,
+    // Consulta alternativa (algunas integraciones)
+    `https://integrations.api.bold.co/v2/payments/${encodeURIComponent(reference)}`
+  ]
+
+  const boldToInternal = {
+    APPROVED: 'approved',
+    SUCCESSFUL: 'approved',
+    REJECTED: 'declined',
+    DECLINED: 'declined',
+    PENDING: 'pending',
+    FAILED: 'error',
+    VOIDED: 'voided',
+    CANCELLED: 'voided'
+  }
+
+  const logger = require('./logger')
+  for (const url of endpoints) {
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `x-api-key ${secretKey}`,
+          'Accept': 'application/json'
+        }
+      })
+      const text = await resp.text()
+      logger.info({ url, status: resp.status, bodyPreview: text.slice(0, 300) }, 'Bold API probe')
+      if (!resp.ok) continue
+      let data
+      try { data = JSON.parse(text) } catch (_e) { continue }
+      const p = data?.payload || data?.data || data
+      if (!p) continue
+      const rawStatus = (p.status || p.payment_status || p.transaction_status || '').toString().toUpperCase()
+      if (!rawStatus) continue
+      return {
+        status: boldToInternal[rawStatus] || 'pending',
+        transactionId: p.transaction_id || p.payment_id || p.id || null,
+        paidAt: p.created_at || p.paid_at || p.approved_at || null,
+        raw: p
+      }
+    } catch (err) {
+      logger.warn({ err: err.message, url }, 'Bold API probe error')
+    }
+  }
+  return null
+}
+
 module.exports = {
   config,
   isEnabled,
   signIntegrity,
   verifyWebhook,
   generateOrderId,
-  mapEventToStatus
+  mapEventToStatus,
+  fetchTransactionStatus
 }

@@ -9,7 +9,6 @@ import {
   Truck,
   Snowflake,
   MessageCircle,
-  Flame,
   ChefHat,
   ArrowRight,
   ShieldCheck,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react'
 import ProductCard from '../components/ProductCard'
 import ProductCarousel from '../components/ProductCarousel'
+import Icon3D from '../components/Icon3D'
 import { api } from '../lib/apiClient'
 import { useSettings, whatsappLink } from '../context/SettingsContext'
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed'
@@ -322,8 +322,8 @@ function Home() {
         <section>
           <div className="flex items-end justify-between mb-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-warning/20 text-warning flex items-center justify-center">
-                <Flame size={20} />
+              <div className="flex items-center justify-center">
+                <Icon3D name="fire" size="sm" />
               </div>
               <div>
                 <h2 className="font-display text-2xl md:text-3xl font-bold text-charcoal">En oferta</h2>

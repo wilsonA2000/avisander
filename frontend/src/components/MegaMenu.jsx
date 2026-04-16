@@ -6,20 +6,17 @@ import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronDown,
-  Building2,
-  Users,
   MapPin,
   ChefHat,
   HelpCircle,
   MessageSquare,
   Phone,
   Clock,
-  ArrowRight,
-  Shield,
-  ShieldAlert
+  ArrowRight
 } from 'lucide-react'
 import { useSettings, whatsappLink, telLink, formatPhone } from '../context/SettingsContext'
 import useClickOutside from '../hooks/useClickOutside'
+import Icon3D from './Icon3D'
 
 const PANELS = ['sobre', 'ayuda', 'contacto']
 
@@ -124,24 +121,47 @@ function MegaMenu({ onNavigate }) {
           >
             <div className="container mx-auto px-4 py-6">
               {open === 'sobre' && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl">
                   {[
-                    { to: '/nosotros', Icon: Building2, label: 'Nosotros', desc: 'Misión, visión y valores' },
-                    { to: '/equipo', Icon: Users, label: 'Nuestro equipo', desc: 'Personas detrás de la marca' },
-                    { to: '/politica-privacidad', Icon: Shield, label: 'Política de privacidad', desc: 'Tratamiento de datos personales' },
-                    { to: '/politica-sarlaft', Icon: ShieldAlert, label: 'Política SARLAFT', desc: 'Prevención LA/FT/FPADM' }
-                  ].map(({ to, Icon, label, desc }) => (
+                    { to: '/nosotros', icon3d: 'building', label: 'Nosotros', desc: 'Misión, visión y valores' },
+                    { to: '/equipo', icon3d: 'users', label: 'Nuestro equipo', desc: 'Personas detrás de la marca' },
+                    { to: '/politica-privacidad', icon3d: 'shield', label: 'Política de privacidad', desc: 'Tratamiento de datos personales' },
+                    { to: '/politica-sarlaft', icon3d: 'shield-alert', label: 'Política SARLAFT', desc: 'Prevención LA/FT/FPADM' }
+                  ].map(({ to, icon3d, label, desc }) => (
                     <Link
                       key={to}
                       to={to}
                       onClick={closeAndNav}
-                      className="group flex flex-col gap-1 p-4 rounded-xl hover:bg-cream transition-colors"
+                      className="group relative flex flex-col items-start gap-2 p-5 rounded-2xl
+                                 bg-gradient-to-br from-white via-orange-50/40 to-white
+                                 border border-orange-100/70
+                                 shadow-[0_2px_12px_-4px_rgba(245,130,32,0.12)]
+                                 hover:shadow-[0_8px_28px_-6px_rgba(245,130,32,0.35)]
+                                 hover:-translate-y-0.5
+                                 transition-all duration-300 overflow-hidden"
                     >
-                      <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-1 group-hover:bg-primary group-hover:text-white transition-colors">
-                        <Icon size={18} />
+                      <span aria-hidden="true"
+                            className="pointer-events-none absolute -top-8 -right-8 w-24 h-24 rounded-full
+                                       bg-gradient-radial from-orange-200/60 to-transparent
+                                       blur-2xl opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
+                      <span aria-hidden="true"
+                            className="pointer-events-none absolute -bottom-10 -left-6 w-20 h-20 rounded-full
+                                       bg-gradient-radial from-amber-100/50 to-transparent
+                                       blur-2xl opacity-40 group-hover:opacity-80 transition-opacity duration-500" />
+                      <div className="relative z-10 transition-transform duration-300
+                                      group-hover:scale-110 group-hover:-rotate-3">
+                        <Icon3D name={icon3d} size="md" />
                       </div>
-                      <span className="font-medium text-sm text-charcoal">{label}</span>
-                      <span className="text-xs text-gray-500">{desc}</span>
+                      <span className="relative z-10 font-display font-semibold text-sm text-charcoal leading-tight">
+                        {label}
+                      </span>
+                      <span className="relative z-10 text-[11px] text-gray-500 leading-snug">
+                        {desc}
+                      </span>
+                      <span aria-hidden="true"
+                            className="absolute bottom-0 left-5 right-5 h-0.5 rounded-full
+                                       bg-gradient-to-r from-transparent via-primary to-transparent
+                                       opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     </Link>
                   ))}
                 </div>

@@ -1,7 +1,5 @@
 import { Link } from 'react-router-dom'
 import {
-  ShoppingCart,
-  User,
   Menu,
   X,
   LayoutDashboard,
@@ -12,7 +10,8 @@ import {
   MapPin,
   HelpCircle,
   MessageSquare,
-  Phone
+  Phone,
+  User
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -22,6 +21,7 @@ import { api } from '../lib/apiClient'
 import SearchBar from './SearchBar'
 import MegaMenu from './MegaMenu'
 import CartMiniPreview from './CartMiniPreview'
+import Icon3D from './Icon3D'
 
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -123,7 +123,7 @@ function Header() {
                 aria-label="Carrito de compras"
               >
                 <span key={`d-${bumpKey}`} className={bumpKey ? 'inline-block animate-cart-bounce' : 'inline-block'}>
-                  <ShoppingCart size={24} />
+                  <Icon3D name="shopping-cart" size="xs" alt="Carrito" />
                 </span>
                 {itemCount > 0 && (
                   <span
@@ -142,7 +142,7 @@ function Header() {
           <div className="flex md:hidden items-center gap-2">
             <Link to="/carrito" className="relative p-2 text-gray-700" aria-label="Carrito">
               <span key={`m-${bumpKey}`} className={bumpKey ? 'inline-block animate-cart-bounce' : 'inline-block'}>
-                <ShoppingCart size={24} />
+                <Icon3D name="shopping-cart" size="xs" alt="Carrito" />
               </span>
               {itemCount > 0 && (
                 <span key={`mb-${bumpKey}`} className="absolute -top-1 -right-1 bg-primary text-white text-xs min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center animate-badge-pop">
