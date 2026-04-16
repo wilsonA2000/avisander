@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <!-- Brasero body gradients -->
+    <linearGradient id="a-bowl-top" x1="30" y1="60" x2="98" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8B4513"/>
+      <stop offset="50%" stop-color="#A0522D"/>
+      <stop offset="100%" stop-color="#6B3410"/>
+    </linearGradient>
+    <linearGradient id="a-bowl-front" x1="64" y1="65" x2="64" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7B3B0E"/>
+      <stop offset="100%" stop-color="#4A2008"/>
+    </linearGradient>
+    <linearGradient id="a-leg-l" x1="42" y1="88" x2="38" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5A2D0C"/>
+      <stop offset="100%" stop-color="#3A1A05"/>
+    </linearGradient>
+    <linearGradient id="a-leg-r" x1="86" y1="88" x2="90" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5A2D0C"/>
+      <stop offset="100%" stop-color="#3A1A05"/>
+    </linearGradient>
+    <!-- Coal glow -->
+    <radialGradient id="a-coal" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF6600" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#CC3300" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#880000" stop-opacity="0.3"/>
+    </radialGradient>
+    <!-- Flame gradients -->
+    <linearGradient id="a-flame1" x1="50%" y1="100%" x2="50%" y2="0%" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#FFD700"/>
+      <stop offset="40%" stop-color="#FF6600"/>
+      <stop offset="100%" stop-color="#CC1100" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="a-flame2" x1="50%" y1="100%" x2="50%" y2="0%" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#FFAA00"/>
+      <stop offset="50%" stop-color="#FF4400"/>
+      <stop offset="100%" stop-color="#AA0000" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Highlight -->
+    <linearGradient id="a-highlight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Shadow -->
+    <radialGradient id="a-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Ground shadow -->
+  <ellipse cx="64" cy="116" rx="32" ry="6" fill="url(#a-shadow)"/>
+
+  <!-- Legs -->
+  <rect x="36" y="86" width="8" height="22" rx="3" fill="url(#a-leg-l)"/>
+  <rect x="84" y="86" width="8" height="22" rx="3" fill="url(#a-leg-r)"/>
+  <!-- Center leg -->
+  <rect x="60" y="90" width="8" height="18" rx="3" fill="#4A2008"/>
+
+  <!-- Brasero bowl top ellipse (rim) -->
+  <ellipse cx="64" cy="62" rx="34" ry="12" fill="url(#a-bowl-top)"/>
+
+  <!-- Brasero bowl front face -->
+  <path d="M30 62 Q30 88 64 90 Q98 88 98 62 Z" fill="url(#a-bowl-front)"/>
+
+  <!-- Coals inside -->
+  <ellipse cx="64" cy="62" rx="28" ry="9" fill="url(#a-coal)"/>
+  <ellipse cx="64" cy="62" rx="18" ry="5.5" fill="#FF4400" fill-opacity="0.6"/>
+
+  <!-- Flame 1 (left) -->
+  <path d="M52 62 C50 55 47 50 52 43 C54 39 53 35 56 33 C55 38 58 40 57 45 C61 38 60 32 64 28 C63 35 67 38 65 43 C68 37 70 32 74 30 C71 38 73 43 70 47 C73 42 76 38 78 35 C77 43 74 48 72 52 C72 56 73 59 76 62 Z" fill="url(#a-flame1)" opacity="0.95"/>
+  <!-- Flame 2 (right inner) -->
+  <path d="M58 62 C57 57 55 53 58 47 C60 44 59 40 62 38 C61 43 64 45 62 49 C65 44 64 39 67 36 C66 42 69 45 67 49 C70 44 72 41 74 38 C72 45 71 50 70 54 C71 58 72 60 74 62 Z" fill="url(#a-flame2)" opacity="0.85"/>
+
+  <!-- Rim highlight -->
+  <ellipse cx="54" cy="59" rx="16" ry="5" fill="url(#a-highlight)" opacity="0.5"/>
+
+  <!-- Metal bars (grill on top) -->
+  <line x1="38" y1="60" x2="90" y2="60" stroke="#C0855A" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="35" y1="63" x2="93" y2="63" stroke="#C0855A" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Bowl surface highlight -->
+  <path d="M30 62 Q35 70 45 74" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.25" fill="none" stroke-linecap="round"/>
+</svg>

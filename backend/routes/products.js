@@ -390,7 +390,29 @@ router.get('/:id/related', (req, res, next) => {
       return { r, score }
     })
     scored.sort((a, b) => b.score - a.score)
-    res.json(scored.slice(0, limit).map((s) => s.r))
+    let results = scored.slice(0, limit).map((s) => s.r)
+
+    // Fallback: si no hay suficientes relacionados, completar con populares / featured
+    if (results.length < limit) {
+      const have = new Set(results.map((r) => r.id))
+      have.add(current.id)
+      const missing = limit - results.length
+      const extras = db
+        .prepare(
+          `SELECT p.*, c.name as category_name
+           FROM products p LEFT JOIN categories c ON p.category_id = c.id
+           WHERE p.id != ? AND p.is_available = 1
+           ORDER BY p.is_featured DESC, p.is_on_sale DESC, RANDOM()
+           LIMIT ?`
+        )
+        .all(current.id, missing + 20)
+        .map(hydrateProduct)
+        .filter((p) => !have.has(p.id))
+        .slice(0, missing)
+      results = [...results, ...extras]
+    }
+
+    res.json(results)
   } catch (error) {
     next(error)
   }

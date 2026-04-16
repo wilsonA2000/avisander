@@ -490,7 +490,7 @@ function Products() {
                       ${Number(product.sale_type === 'by_weight' ? product.price_per_kg : product.price).toLocaleString('es-CO')}
                       /{product.sale_type === 'by_weight' ? 'kg' : product.unit}
                     </p>
-                    {product.is_on_sale && product.original_price && (
+                    {!!product.is_on_sale && product.original_price && (
                       <p className="text-sm text-gray-400 line-through">
                         ${product.original_price.toLocaleString('es-CO')}
                       </p>
@@ -530,7 +530,7 @@ function Products() {
                       {product.is_featured && (
                         <span className="badge bg-blue-100 text-blue-800">Destacado</span>
                       )}
-                      {product.is_on_sale && (
+                      {!!product.is_on_sale && (
                         <span className="badge bg-yellow-100 text-yellow-800">Oferta</span>
                       )}
                     </div>

@@ -1,0 +1,30 @@
+PROMPT PARA COPIAR Y PEGAR EN LA PRÓXIMA SESIÓN DE CLAUDE CODE:
+================================================================================
+
+Lee el plan de verificación en backend/scripts/e2e-human-test-plan.md
+
+Ejecuta la verificación E2E completa de Avisander como si fueras un humano
+probando la tienda. Usa Playwright navegando paso a paso (no inyectes
+localStorage — haz login real, clicks reales, llena formularios).
+
+Pasos previos:
+1. Mata zombies: pkill -f "node server.js"
+2. Levanta backend (puerto 3000) y frontend (puerto 5173)
+3. NO toques el proyecto en :5174/:8000
+
+Credenciales: admin@avisander.com / admin123
+
+Sigue los 10 bloques del plan en orden. En cada paso:
+- Navega a la URL
+- Haz clicks y llena formularios como humano
+- Toma screenshot de cada pantalla
+- Reporta lo que ves vs lo esperado
+- Si algo visual se ve mal ("básico", roto, placeholder, cortado, desalineado),
+  corrige el código ahí mismo y vuelve a verificar
+
+Al terminar, dame un reporte con:
+- Total de checks pasados / fallados
+- Screenshots de los problemas encontrados
+- Qué corregiste y por qué
+
+No preguntes — empieza directo con bloque 1.

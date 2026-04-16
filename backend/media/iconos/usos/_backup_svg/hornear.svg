@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="h-body-top" x1="14" y1="38" x2="114" y2="38" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#B0B0B0"/>
+      <stop offset="45%" stop-color="#D8D8D8"/>
+      <stop offset="100%" stop-color="#909090"/>
+    </linearGradient>
+    <linearGradient id="h-body-front" x1="64" y1="40" x2="64" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#888"/>
+      <stop offset="100%" stop-color="#444"/>
+    </linearGradient>
+    <linearGradient id="h-body-side" x1="100" y1="40" x2="114" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#999"/>
+      <stop offset="100%" stop-color="#555"/>
+    </linearGradient>
+    <!-- Door window glow -->
+    <radialGradient id="h-glow" cx="50%" cy="55%" r="50%">
+      <stop offset="0%" stop-color="#FFDD44" stop-opacity="0.95"/>
+      <stop offset="40%" stop-color="#FF8800" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#AA2200" stop-opacity="0.3"/>
+    </radialGradient>
+    <!-- Door frame -->
+    <linearGradient id="h-door" x1="30" y1="50" x2="90" y2="95" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#777"/>
+      <stop offset="100%" stop-color="#333"/>
+    </linearGradient>
+    <linearGradient id="h-knob" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E8B030"/>
+      <stop offset="100%" stop-color="#B07810"/>
+    </linearGradient>
+    <radialGradient id="h-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="h-highlight" x1="0%" y1="0%" x2="60%" y2="100%">
+      <stop offset="0%" stop-color="#FFF" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#FFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="h-vent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#666"/>
+      <stop offset="50%" stop-color="#999"/>
+      <stop offset="100%" stop-color="#555"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ground shadow -->
+  <ellipse cx="64" cy="116" rx="40" ry="6" fill="url(#h-shadow)"/>
+
+  <!-- Oven body — isometric box -->
+  <!-- Right side face -->
+  <path d="M100 40 L114 52 L114 104 L100 104 Z" fill="url(#h-body-side)"/>
+
+  <!-- Top face -->
+  <path d="M14 38 L100 38 L114 52 L28 52 Z" fill="url(#h-body-top)"/>
+
+  <!-- Front face -->
+  <rect x="14" y="38" width="86" height="66" rx="3" fill="url(#h-body-front)"/>
+
+  <!-- Front panel base -->
+  <rect x="14" y="38" width="86" height="66" rx="3" fill="#5A5A5A"/>
+
+  <!-- Door frame (recessed) -->
+  <rect x="22" y="48" width="60" height="46" rx="4" fill="url(#h-door)"/>
+
+  <!-- Door window (with warm glow) -->
+  <rect x="27" y="53" width="50" height="36" rx="3" fill="#1A0800"/>
+  <rect x="27" y="53" width="50" height="36" rx="3" fill="url(#h-glow)"/>
+
+  <!-- Window glass reflections -->
+  <rect x="27" y="53" width="50" height="36" rx="3" fill="none" stroke="#888" stroke-width="1" opacity="0.5"/>
+  <!-- Glass highlight -->
+  <path d="M29 55 Q38 53 50 54" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.35" fill="none" stroke-linecap="round"/>
+
+  <!-- Oven racks visible through window -->
+  <line x1="29" y1="68" x2="75" y2="68" stroke="#CC8820" stroke-width="1.5" opacity="0.6"/>
+  <line x1="29" y1="76" x2="75" y2="76" stroke="#CC8820" stroke-width="1.5" opacity="0.4"/>
+
+  <!-- Heating element glow at bottom of window -->
+  <rect x="29" y="83" width="44" height="4" rx="2" fill="#FF5500" opacity="0.6"/>
+  <rect x="29" y="83" width="44" height="2" rx="1" fill="#FFAA00" opacity="0.7"/>
+
+  <!-- Top panel / controls area -->
+  <rect x="14" y="38" width="86" height="12" rx="3" fill="#4A4A4A"/>
+
+  <!-- Control knobs -->
+  <circle cx="36" cy="44" r="5" fill="url(#h-knob)"/>
+  <circle cx="36" cy="44" r="3" fill="#C08010"/>
+  <circle cx="36" cy="44" r="1.5" fill="#FFD060"/>
+
+  <circle cx="52" cy="44" r="5" fill="url(#h-knob)"/>
+  <circle cx="52" cy="44" r="3" fill="#C08010"/>
+  <circle cx="52" cy="44" r="1.5" fill="#FFD060"/>
+
+  <circle cx="68" cy="44" r="5" fill="#888"/>
+  <circle cx="68" cy="44" r="3" fill="#666"/>
+  <circle cx="68" cy="44" r="1.5" fill="#AAA"/>
+
+  <circle cx="84" cy="44" r="5" fill="#888"/>
+  <circle cx="84" cy="44" r="3" fill="#666"/>
+  <circle cx="84" cy="44" r="1.5" fill="#AAA"/>
+
+  <!-- Door handle -->
+  <rect x="32" y="95" width="44" height="5" rx="2.5" fill="#888"/>
+  <rect x="32" y="95" width="44" height="2.5" rx="1.5" fill="#AAA"/>
+
+  <!-- Body highlight top-left -->
+  <path d="M16 40 Q50 38 98 40" stroke="#FFFFFF" stroke-width="1" stroke-opacity="0.3" fill="none" stroke-linecap="round"/>
+  <path d="M16 40 L16 100" stroke="#FFFFFF" stroke-width="1" stroke-opacity="0.2" fill="none" stroke-linecap="round"/>
+
+  <!-- Vent slots on top -->
+  <line x1="22" y1="36" x2="36" y2="36" stroke="url(#h-vent)" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+  <line x1="22" y1="32" x2="32" y2="32" stroke="url(#h-vent)" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Heat shimmer coming from top -->
+  <path d="M50 36 Q48 30 50 25 Q52 20 50 15" stroke="#FF9900" stroke-width="1" stroke-opacity="0.3" fill="none" stroke-linecap="round"/>
+  <path d="M64 36 Q62 30 64 24 Q66 19 64 14" stroke="#FF9900" stroke-width="1" stroke-opacity="0.25" fill="none" stroke-linecap="round"/>
+</svg>

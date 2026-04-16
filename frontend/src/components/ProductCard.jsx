@@ -81,7 +81,7 @@ function ProductCard({ product, variant = 'grid' }) {
               <span className="text-xs text-gray-500">/{isWeight ? 'kg' : product.unit || 'und'}</span>
             </div>
             <div className="flex flex-wrap gap-1 mt-2">
-              {product.is_on_sale && <span className="badge-sale">Oferta</span>}
+              {!!product.is_on_sale && <span className="badge-sale">Oferta</span>}
               {isWeight && <span className="badge-by-weight">Por peso</span>}
               {showFreeShip && <span className="badge bg-green-100 text-green-800"><Truck size={10} className="inline mr-0.5" /> Envío gratis</span>}
               {!isAvailable && <span className="badge-out-of-stock">Agotado</span>}
@@ -125,7 +125,7 @@ function ProductCard({ product, variant = 'grid' }) {
             </span>
           </div>
           <div className="absolute top-2 left-2 flex flex-col gap-1">
-            {product.is_on_sale && <span className="badge-sale">Oferta</span>}
+            {!!product.is_on_sale && <span className="badge-sale">Oferta</span>}
             {isWeight && <span className="badge-by-weight">Por peso</span>}
             {!isAvailable && <span className="badge-out-of-stock">Agotado</span>}
               {isAvailable && lowStock && (
@@ -156,7 +156,7 @@ function ProductCard({ product, variant = 'grid' }) {
           <div className="flex items-baseline gap-1 mb-2">
             <span className="text-lg font-bold text-primary">${Number(displayPrice).toLocaleString('es-CO')}</span>
             <span className="text-xs text-gray-500">/{isWeight ? 'kg' : product.unit || 'und'}</span>
-            {product.is_on_sale && product.original_price && (
+            {!!product.is_on_sale && !!product.original_price && (
               <span className="text-xs text-gray-400 line-through ml-1">${Number(product.original_price).toLocaleString('es-CO')}</span>
             )}
           </div>

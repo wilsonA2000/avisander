@@ -23,6 +23,7 @@ import VideoPlayer from '../components/VideoPlayer'
 import ProductImage from '../components/ProductImage'
 import ProductGallery from '../components/ProductGallery'
 import RecipeImage from '../components/RecipeImage'
+import TrustIcon3D from '../components/TrustIcon3D'
 import SEO from '../components/SEO'
 import CulinaryIcon from '../components/CulinaryIcon'
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed'
@@ -218,14 +219,14 @@ function ProductDetail() {
         )}
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_380px] gap-8 lg:gap-10">
+      <div className="grid md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_480px] gap-3 lg:gap-4">
         {/* GALERÍA — ocupa la mayor parte del ancho, sticky en desktop. */}
         <div className="lg:sticky lg:top-24 lg:self-start">
           <ProductGallery
             product={product}
             badges={
               <>
-                {product.is_on_sale && <span className="badge-sale">Oferta</span>}
+                {!!product.is_on_sale && <span className="badge-sale">Oferta</span>}
                 {isWeight && <span className="badge-by-weight">Por peso</span>}
                 {!isAvailable && <span className="badge-out-of-stock">Agotado</span>}
                 {isAvailable && lowStock && (
@@ -236,41 +237,59 @@ function ProductDetail() {
           />
         </div>
 
-        {/* INFO + CTA */}
+        {/* INFO + CTA — estilo buy-box eBay, compacto */}
         <div>
-          {product.category_name && (
-            <p className="text-sm text-primary font-medium uppercase tracking-wide mb-1">
-              {product.category_name}
-            </p>
-          )}
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
+          {/* Breadcrumb category + brand */}
+          <div className="flex items-center justify-between mb-1">
+            {product.category_name && (
+              <p className="text-[11px] text-primary font-semibold uppercase tracking-wider">
+                {product.category_name}
+                {product.subcategory && <span className="text-gray-400"> · {product.subcategory}</span>}
+              </p>
+            )}
+            {product.brand && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-gray-500">
+                <Award size={11} /> {product.brand}
+              </span>
+            )}
+          </div>
 
-          {(product.brand || product.reference) && (
-            <p className="text-sm text-gray-500 mb-4">
-              {product.brand && (
-                <span className="inline-flex items-center gap-1 mr-3">
-                  <Award size={14} /> {product.brand}
-                </span>
-              )}
-              {product.reference && (
-                <span className="inline-flex items-center gap-1">
-                  <Tag size={14} /> Ref: {product.reference}
-                </span>
-              )}
-            </p>
-          )}
+          {/* Título grande en bold — eBay-style */}
+          <h1 className="font-display text-[1.75rem] lg:text-[1.875rem] font-bold text-charcoal leading-[1.15] tracking-tight mb-1.5">
+            {product.name}
+          </h1>
 
-          {/* Precio */}
-          <div className="bg-gray-50 rounded-xl p-4 mb-5">
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-bold text-primary">
+          {/* Micro-trust line */}
+          <div className="flex items-center gap-2 text-xs text-gray-600 mb-3">
+            {isAvailable ? (
+              <span className="inline-flex items-center gap-1 text-green-700 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                En stock · listo para despachar
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-red-700 font-medium">Agotado temporalmente</span>
+            )}
+            {product.reference && (
+              <span className="text-gray-400">· Ref: {product.reference}</span>
+            )}
+          </div>
+
+          <hr className="border-gray-200 mb-3" />
+
+          {/* Price block grande */}
+          <div className="mb-3">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-[2.25rem] font-bold text-charcoal leading-none">
                 {formatCOP(isWeight ? pricePerKg : product.price)}
               </span>
-              <span className="text-gray-500">/ {isWeight ? 'kg' : product.unit || 'und'}</span>
-              {product.is_on_sale && product.original_price && (
-                <span className="text-gray-400 line-through ml-1">
-                  {formatCOP(product.original_price)}
-                </span>
+              <span className="text-gray-500 text-sm">/ {isWeight ? 'kg' : product.unit || 'und'}</span>
+              {!!product.is_on_sale && product.original_price && (
+                <>
+                  <span className="text-gray-400 line-through text-sm">
+                    {formatCOP(product.original_price)}
+                  </span>
+                  <span className="badge-sale">¡Oferta!</span>
+                </>
               )}
             </div>
             {isWeight && (
@@ -280,49 +299,28 @@ function ProductDetail() {
             )}
           </div>
 
-          {/* Atributos rápidos */}
-          <div className="flex flex-wrap gap-2 mb-5">
-            {cold && (
-              <span className={`badge ${cold.color}`}>
-                {cold.icon} {cold.text}
-              </span>
-            )}
-            {product.packaging && (
-              <span className="badge bg-gray-100 text-gray-700">
-                <Package size={12} className="inline mr-1" />
-                {product.packaging}
-              </span>
-            )}
-            {isAvailable ? (
-              <span className="badge bg-green-100 text-green-800">✓ Disponible</span>
-            ) : (
-              <span className="badge bg-red-100 text-red-800">Agotado</span>
-            )}
-          </div>
-
-          {/* Descripción */}
+          {/* Descripción corta */}
           {product.description && (
-            <div className="mb-6">
-              <h2 className="text-sm font-semibold text-gray-800 mb-2">Descripción</h2>
-              <p className="text-gray-600 leading-relaxed whitespace-pre-line">{product.description}</p>
-            </div>
+            <p className="text-sm text-gray-600 leading-snug whitespace-pre-line line-clamp-3 mb-3">
+              {product.description}
+            </p>
           )}
 
-          {/* SELECTOR + AGREGAR */}
-          {isAvailable ? (
-            <div className="bg-white border border-gray-200 rounded-xl p-5 mb-5">
+          {/* SELECTOR (cantidad o gramos) — compacto, filas tipo eBay */}
+          {isAvailable && (
+            <>
               {isWeight ? (
-                <>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ¿Cuántos gramos quieres?
+                <div className="mb-3">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    ¿Cuántos gramos?
                   </label>
-                  <div className="flex flex-wrap gap-2 mb-3">
+                  <div className="flex flex-wrap gap-1.5 mb-2">
                     {PRESETS_GRAMS.map((g) => (
                       <button
                         key={g}
                         type="button"
                         onClick={() => setGrams(g)}
-                        className={`px-3 py-1.5 rounded-full text-sm border transition ${
+                        className={`px-2.5 py-1 rounded-full text-xs border transition ${
                           Number(grams) === g
                             ? 'bg-primary text-white border-primary'
                             : 'bg-white text-gray-700 border-gray-300 hover:border-primary'
@@ -340,38 +338,38 @@ function ProductDetail() {
                       step={50}
                       value={grams}
                       onChange={(e) => setGrams(e.target.value)}
-                      className="input"
+                      className="input py-2 text-sm"
                     />
-                    <span className="text-gray-500 font-medium">g</span>
+                    <span className="text-gray-500 text-sm font-medium">g</span>
                   </div>
-                </>
+                </div>
               ) : (
-                <>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Cantidad</label>
-                  <div className="flex items-center border rounded-lg w-fit">
+                <div className="flex items-center gap-3 mb-3">
+                  <label className="text-sm font-semibold text-gray-700 w-20">Cantidad</label>
+                  <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
                     <button
                       type="button"
                       onClick={() => setQty((q) => Math.max(1, q - 1))}
-                      className="p-3 hover:bg-gray-100"
+                      className="px-2.5 py-1.5 hover:bg-gray-100 transition"
                       aria-label="Reducir"
                     >
-                      <Minus size={16} />
+                      <Minus size={14} />
                     </button>
-                    <span className="w-14 text-center font-semibold">{qty}</span>
+                    <span className="w-12 text-center font-bold text-charcoal text-sm">{qty}</span>
                     <button
                       type="button"
                       onClick={() => setQty((q) => q + 1)}
-                      className="p-3 hover:bg-gray-100"
+                      className="px-2.5 py-1.5 hover:bg-gray-100 transition"
                       aria-label="Aumentar"
                     >
-                      <Plus size={16} />
+                      <Plus size={14} />
                     </button>
                   </div>
-                </>
+                </div>
               )}
 
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="mb-3">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Observaciones <span className="text-gray-400 font-normal">(opcional)</span>
                 </label>
                 <textarea
@@ -379,136 +377,94 @@ function ProductDetail() {
                   maxLength={500}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Ej: sin piel, en pedazos, en bolsas separadas, molida fina…"
-                  className="input resize-none"
+                  placeholder="Ej: sin piel, en pedazos, molida fina…"
+                  className="input resize-none text-sm py-2"
                 />
               </div>
 
-              <div className="mt-4 flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                <span className="text-gray-600 text-sm">Subtotal estimado</span>
-                <span className="text-2xl font-bold text-primary">{formatCOP(computedTotal)}</span>
+              <div className="flex items-center justify-between bg-cream border border-primary/15 rounded-md px-3 py-2 mb-3">
+                <span className="text-gray-600 text-xs">Subtotal estimado</span>
+                <span className="text-xl font-bold text-primary">{formatCOP(computedTotal)}</span>
               </div>
-
-              <button
-                onClick={handleAdd}
-                disabled={!isAvailable}
-                className={`mt-4 w-full py-3 flex items-center justify-center gap-2 rounded-lg font-medium transition-colors ${
-                  isAvailable
-                    ? 'btn-primary'
-                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                <ShoppingCart size={20} />
-                {isAvailable ? 'Agregar al carrito' : 'Agotado · sin stock'}
-              </button>
-
-              {/* Signos de confianza */}
-              <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-gray-600">
-                <div className="flex items-center gap-1.5"><span>✓</span> Fresco hoy</div>
-                <div className="flex items-center gap-1.5"><span>❄️</span> Cadena de frío</div>
-                <div className="flex items-center gap-1.5"><span>🚚</span> Envío en Bucaramanga desde $2.000</div>
-                <div className="flex items-center gap-1.5"><span>💬</span> Cambios por WhatsApp</div>
-              </div>
-            </div>
-          ) : (
-            <button disabled className="w-full btn bg-gray-300 text-gray-500 cursor-not-allowed mb-5">
-              No disponible por ahora
-            </button>
+            </>
           )}
 
-          {/* Bondades nutricionales */}
-          {product.benefits && (
-            <div className="bg-gradient-to-br from-cream to-white border border-primary/15 rounded-2xl p-6 shadow-sm">
-              <h2 className="font-display text-lg font-bold text-charcoal mb-3 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm">✦</span>
-                Bondades y beneficios
-              </h2>
-              <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-                {product.benefits.split('\n').map((line, i) => {
-                  const trimmed = line.trim()
-                  if (!trimmed) return <br key={i} />
-                  // Negrita simple con **...**
-                  const parts = trimmed.split(/(\*\*[^*]+\*\*)/g)
-                  const rendered = parts.map((p, j) =>
-                    p.startsWith('**') && p.endsWith('**')
-                      ? <strong key={j} className="text-charcoal">{p.slice(2, -2)}</strong>
-                      : <span key={j}>{p}</span>
-                  )
-                  if (trimmed.startsWith('- ')) {
-                    return <li key={i} className="ml-4 mb-1 list-disc text-sm">{rendered.map((r, idx) => idx === 0 ? <span key={idx}>{trimmed.slice(2)}</span> : r)}</li>
-                  }
-                  return <p key={i} className="mb-2">{rendered}</p>
-                })}
-              </div>
-            </div>
-          )}
+          {/* CTA principal */}
+          <button
+            onClick={handleAdd}
+            disabled={!isAvailable}
+            className={`w-full py-3 mb-3 flex items-center justify-center gap-2 rounded-full font-semibold text-base transition-all shadow-sm ${
+              isAvailable
+                ? 'btn-primary hover:shadow-md'
+                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            <ShoppingCart size={18} />
+            {isAvailable ? 'Agregar al carrito' : 'Agotado · sin stock'}
+          </button>
 
-          {/* Usos culinarios sugeridos */}
-          {Array.isArray(product.culinary_uses) && product.culinary_uses.length > 0 && (
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-              <h2 className="font-display text-lg font-bold text-charcoal mb-1 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-full bg-accent/15 text-accent-dark flex items-center justify-center text-sm">🍳</span>
-                Ideal para
-              </h2>
-              <p className="text-sm text-gray-500 mb-4">Métodos de cocción recomendados para este producto.</p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                {product.culinary_uses.map((slug) => (
-                  <CulinaryIcon key={slug} slug={slug} variant="card" size="md" />
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Info rows estilo eBay: compactas */}
+          <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 bg-white mb-3">
+            <InfoRow icon={<TrustIcon3D name="truck" className="w-7 h-7" />} label="Entrega" value="Envío en Bucaramanga desde $2.000 · o recoges en tienda" />
+            <InfoRow icon={<TrustIcon3D name="cold" className="w-7 h-7" />} label="Cadena de frío" value={cold ? cold.text : 'Garantizada hasta tu puerta'} />
+            <InfoRow icon={<TrustIcon3D name="fresh" className="w-7 h-7" />} label="Frescura" value="Fresco del día · procesado al momento" />
+            <InfoRow icon={<TrustIcon3D name="chat" className="w-7 h-7" />} label="Cambios" value="Coordinamos cambios por WhatsApp si algo no te gusta" />
+          </div>
 
-          {/* Especificaciones detalladas */}
-          {(product.packaging || product.cold_chain || product.brand || product.reference || product.ingredients) && (
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <h2 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <Info size={16} /> Información del producto
-              </h2>
-              <dl className="text-sm divide-y divide-gray-100">
-                {product.brand && (
-                  <div className="py-2 grid grid-cols-3 gap-2">
-                    <dt className="text-gray-500">Marca</dt>
-                    <dd className="col-span-2 text-gray-800">{product.brand}</dd>
-                  </div>
-                )}
-                {product.reference && (
-                  <div className="py-2 grid grid-cols-3 gap-2">
-                    <dt className="text-gray-500">Referencia</dt>
-                    <dd className="col-span-2 text-gray-800">{product.reference}</dd>
-                  </div>
-                )}
-                {product.packaging && (
-                  <div className="py-2 grid grid-cols-3 gap-2">
-                    <dt className="text-gray-500">Empaque</dt>
-                    <dd className="col-span-2 text-gray-800">{product.packaging}</dd>
-                  </div>
-                )}
-                {cold && (
-                  <div className="py-2 grid grid-cols-3 gap-2">
-                    <dt className="text-gray-500">Cadena de frío</dt>
-                    <dd className="col-span-2 text-gray-800 inline-flex items-center gap-1">
-                      <Snowflake size={14} /> {cold.text}
-                    </dd>
-                  </div>
-                )}
-                {product.unit && (
-                  <div className="py-2 grid grid-cols-3 gap-2">
-                    <dt className="text-gray-500">Unidad de venta</dt>
-                    <dd className="col-span-2 text-gray-800">{product.unit}</dd>
-                  </div>
-                )}
-                {product.ingredients && (
-                  <div className="py-2 grid grid-cols-3 gap-2">
-                    <dt className="text-gray-500">Ingredientes</dt>
-                    <dd className="col-span-2 text-gray-800 whitespace-pre-line">{product.ingredients}</dd>
-                  </div>
-                )}
-              </dl>
+          {/* Trust band compacto */}
+          <div className="bg-gradient-to-br from-cream to-white border border-primary/20 rounded-lg px-3 py-2.5 flex items-center gap-2.5">
+            <TrustIcon3D name="medal" className="w-10 h-10 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-semibold text-charcoal text-[13px] leading-tight">Compra con tranquilidad</p>
+              <p className="text-[11px] text-gray-600 leading-tight mt-0.5">Calidad garantizada · pago seguro con Bold · atención personalizada.</p>
             </div>
-          )}
+          </div>
         </div>
       </div>
+
+      {/* TABS estilo "About this item" de eBay */}
+      <ProductTabs product={product} cold={cold} />
+
+      {/* Bondades + Usos culinarios detallados en ancho completo */}
+      {product.benefits && (
+        <section className="mt-10 bg-gradient-to-br from-cream to-white border border-primary/15 rounded-2xl p-6 shadow-sm">
+          <h2 className="font-display text-xl font-bold text-charcoal mb-3 flex items-center gap-2">
+            <TrustIcon3D name="medal" className="w-10 h-10 shrink-0" />
+            Bondades y beneficios
+          </h2>
+          <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+            {product.benefits.split('\n').map((line, i) => {
+              const trimmed = line.trim()
+              if (!trimmed) return <br key={i} />
+              const parts = trimmed.split(/(\*\*[^*]+\*\*)/g)
+              const rendered = parts.map((p, j) =>
+                p.startsWith('**') && p.endsWith('**')
+                  ? <strong key={j} className="text-charcoal">{p.slice(2, -2)}</strong>
+                  : <span key={j}>{p}</span>
+              )
+              if (trimmed.startsWith('- ')) {
+                return <li key={i} className="ml-4 mb-1 list-disc text-sm">{rendered.map((r, idx) => idx === 0 ? <span key={idx}>{trimmed.slice(2)}</span> : r)}</li>
+              }
+              return <p key={i} className="mb-2">{rendered}</p>
+            })}
+          </div>
+        </section>
+      )}
+
+      {Array.isArray(product.culinary_uses) && product.culinary_uses.length > 0 && (
+        <section className="mt-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+          <h2 className="font-display text-xl font-bold text-charcoal mb-1 flex items-center gap-2">
+            <span className="w-9 h-9 rounded-full bg-accent/15 text-accent-dark flex items-center justify-center text-base">🍳</span>
+            Ideal para
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">Métodos de cocción recomendados para este producto.</p>
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+            {product.culinary_uses.map((slug) => (
+              <CulinaryIcon key={slug} slug={slug} variant="card" size="md" />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Video ya integrado como slide dentro de ProductGallery. */}
 
@@ -553,6 +509,128 @@ function ProductDetail() {
         </section>
       )}
     </div>
+  )
+}
+
+// Fila de información estilo eBay (icono + label + value)
+function InfoRow({ icon, label, value }) {
+  return (
+    <div className="flex items-center gap-2.5 px-3 py-2">
+      <div className="shrink-0">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide leading-tight">{label}</p>
+        <p className="text-xs text-charcoal leading-tight mt-0.5">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+// Tabs "About this item" estilo eBay — descripción, especificaciones, ingredientes
+function ProductTabs({ product, cold }) {
+  const [tab, setTab] = useState('descripcion')
+  const tabs = [
+    { key: 'descripcion', label: 'Descripción' },
+    { key: 'especificaciones', label: 'Especificaciones' },
+  ]
+  if (product.ingredients) tabs.push({ key: 'ingredientes', label: 'Ingredientes' })
+
+  return (
+    <section className="mt-10 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+      {/* Tab headers */}
+      <div className="flex border-b border-gray-200 bg-gray-50">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={`px-6 py-3 text-sm font-semibold transition relative ${
+              tab === t.key
+                ? 'text-primary bg-white'
+                : 'text-gray-600 hover:text-charcoal hover:bg-white/50'
+            }`}
+          >
+            {t.label}
+            {tab === t.key && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div className="p-6">
+        {tab === 'descripcion' && (
+          <div className="prose prose-sm max-w-none text-gray-700">
+            {product.description ? (
+              <p className="whitespace-pre-line leading-relaxed">{product.description}</p>
+            ) : (
+              <p className="text-gray-500 italic">Sin descripción disponible.</p>
+            )}
+          </div>
+        )}
+
+        {tab === 'especificaciones' && (
+          <dl className="grid sm:grid-cols-2 gap-x-8 text-sm">
+            {product.brand && (
+              <div className="py-2 border-b border-gray-100 flex justify-between gap-2">
+                <dt className="text-gray-500">Marca</dt>
+                <dd className="text-charcoal font-medium text-right">{product.brand}</dd>
+              </div>
+            )}
+            {product.reference && (
+              <div className="py-2 border-b border-gray-100 flex justify-between gap-2">
+                <dt className="text-gray-500">Referencia</dt>
+                <dd className="text-charcoal font-medium text-right">{product.reference}</dd>
+              </div>
+            )}
+            {product.category_name && (
+              <div className="py-2 border-b border-gray-100 flex justify-between gap-2">
+                <dt className="text-gray-500">Categoría</dt>
+                <dd className="text-charcoal font-medium text-right">{product.category_name}</dd>
+              </div>
+            )}
+            {product.subcategory && (
+              <div className="py-2 border-b border-gray-100 flex justify-between gap-2">
+                <dt className="text-gray-500">Subcategoría</dt>
+                <dd className="text-charcoal font-medium text-right">{product.subcategory}</dd>
+              </div>
+            )}
+            {product.packaging && (
+              <div className="py-2 border-b border-gray-100 flex justify-between gap-2">
+                <dt className="text-gray-500">Empaque</dt>
+                <dd className="text-charcoal font-medium text-right">{product.packaging}</dd>
+              </div>
+            )}
+            {cold && (
+              <div className="py-2 border-b border-gray-100 flex justify-between gap-2">
+                <dt className="text-gray-500">Cadena de frío</dt>
+                <dd className="text-charcoal font-medium text-right">{cold.text}</dd>
+              </div>
+            )}
+            {product.unit && (
+              <div className="py-2 border-b border-gray-100 flex justify-between gap-2">
+                <dt className="text-gray-500">Unidad de venta</dt>
+                <dd className="text-charcoal font-medium text-right">{product.unit}</dd>
+              </div>
+            )}
+            {product.sale_type && (
+              <div className="py-2 border-b border-gray-100 flex justify-between gap-2">
+                <dt className="text-gray-500">Tipo de venta</dt>
+                <dd className="text-charcoal font-medium text-right">
+                  {product.sale_type === 'by_weight' ? 'Por peso' : 'Por unidad'}
+                </dd>
+              </div>
+            )}
+          </dl>
+        )}
+
+        {tab === 'ingredientes' && product.ingredients && (
+          <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+            {product.ingredients}
+          </p>
+        )}
+      </div>
+    </section>
   )
 }
 

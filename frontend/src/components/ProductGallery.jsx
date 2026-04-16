@@ -9,7 +9,8 @@
 // - Badges overlay (Oferta, Por peso, Agotado, etc.).
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Expand, X, Play, ZoomIn, ZoomOut } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { ChevronLeft, ChevronRight, Expand, X, Play, ZoomIn, ZoomOut, RotateCw, Maximize2 } from 'lucide-react'
 import ImageZoom3D from './ImageZoom3D'
 import ProductImage from './ProductImage'
 
@@ -45,10 +46,10 @@ function ProductGallery({ product, badges = null }) {
 
   return (
     <>
-      <div className="flex gap-4">
-        {/* Thumbnails verticales (desktop) */}
-        {slides.length > 1 && (
-          <div className="hidden md:flex flex-col gap-2 w-20 shrink-0">
+      <div className="flex gap-2 items-start">
+        {/* Thumbnails verticales (desktop) — filmstrip estilo eBay, pegados a la izquierda */}
+        {slides.length >= 1 && (
+          <div className="hidden md:flex flex-col gap-1.5 w-[72px] shrink-0">
             {slides.map((s, i) => (
               <ThumbButton
                 key={i}
@@ -60,9 +61,14 @@ function ProductGallery({ product, badges = null }) {
           </div>
         )}
 
-        {/* Slide principal */}
-        <div className="flex-1 relative">
-          <div className="relative rounded-3xl overflow-hidden shadow-lg bg-gray-100 aspect-square md:aspect-[4/5] max-h-[560px]">
+        {/* Slide principal — cuadrada, proporción equilibrada */}
+        <div className="relative min-w-0 flex-1 group">
+          <div
+            className={`relative rounded-lg overflow-hidden bg-gray-50 aspect-square w-full max-h-[560px] transition-all duration-300 group-hover:shadow-xl group-hover:ring-1 group-hover:ring-primary/20 ${current.type === 'image' ? 'cursor-zoom-in' : ''}`}
+            onClick={() => current.type === 'image' && setLightboxOpen(true)}
+            role={current.type === 'image' ? 'button' : undefined}
+            aria-label={current.type === 'image' ? 'Ampliar imagen' : undefined}
+          >
             {current.type === 'image' ? (
               <ImageZoom3D
                 src={current.src}
@@ -89,7 +95,7 @@ function ProductGallery({ product, badges = null }) {
             {current.type === 'image' && (
               <button
                 type="button"
-                onClick={() => setLightboxOpen(true)}
+                onClick={(e) => { e.stopPropagation(); setLightboxOpen(true) }}
                 className="absolute top-3 right-3 z-10 bg-white/85 hover:bg-white text-charcoal rounded-full w-10 h-10 flex items-center justify-center shadow-md backdrop-blur-sm transition"
                 aria-label="Ver imagen a pantalla completa"
               >
@@ -101,14 +107,14 @@ function ProductGallery({ product, badges = null }) {
             {slides.length > 1 && (
               <>
                 <button
-                  onClick={prev}
+                  onClick={(e) => { e.stopPropagation(); prev() }}
                   className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2.5 shadow z-10"
                   aria-label="Anterior"
                 >
                   <ChevronLeft size={20} />
                 </button>
                 <button
-                  onClick={next}
+                  onClick={(e) => { e.stopPropagation(); next() }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2.5 shadow z-10"
                   aria-label="Siguiente"
                 >
@@ -142,28 +148,29 @@ function ProductGallery({ product, badges = null }) {
         </div>
       </div>
 
-      {/* Lightbox */}
-      {lightboxOpen && current.type === 'image' && (
+      {/* Lightbox renderizado en portal para escapar de stacking contexts */}
+      {lightboxOpen && current.type === 'image' && createPortal(
         <Lightbox
           slides={slides}
           initialIdx={idx}
           onClose={() => setLightboxOpen(false)}
           onChangeIdx={setIdx}
           productName={product.name}
-        />
+        />,
+        document.body
       )}
     </>
   )
 }
 
 function ThumbButton({ slide, active, onClick, small = false }) {
-  const size = small ? 'w-16 h-16' : 'w-20 h-20'
+  const size = small ? 'w-14 h-14' : 'w-[72px] h-[72px]'
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`${size} shrink-0 rounded-xl overflow-hidden border-2 transition relative ${
-        active ? 'border-primary shadow-md' : 'border-transparent hover:border-gray-300 opacity-80 hover:opacity-100'
+      className={`${size} shrink-0 rounded-md overflow-hidden border transition relative ${
+        active ? 'border-primary ring-1 ring-primary' : 'border-gray-200 hover:border-gray-400'
       }`}
       aria-label={slide.type === 'video' ? 'Ver video' : 'Ver imagen'}
     >
@@ -181,40 +188,82 @@ function ThumbButton({ slide, active, onClick, small = false }) {
   )
 }
 
-// Lightbox: modal fullscreen con zoom + pan + navegación.
+// Lightbox dinámico: zoom scroll, pan drag, rotate, thumbnails, indicador zoom.
 function Lightbox({ slides, initialIdx, onClose, onChangeIdx, productName }) {
   const [idx, setIdx] = useState(initialIdx)
-  const [zoomed, setZoomed] = useState(false)
+  const [zoom, setZoom] = useState(1)
+  const [rotation, setRotation] = useState(0)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [entering, setEntering] = useState(true)
   const imgRef = useRef(null)
+  const containerRef = useRef(null)
   const panStart = useRef(null)
+  const dragging = useRef(false)
 
   const current = slides[idx]
+  const zoomed = zoom > 1
 
   useEffect(() => {
     onChangeIdx?.(idx)
+    // Reset zoom/rotation al cambiar imagen
+    setZoom(1); setRotation(0); setPan({ x: 0, y: 0 })
   }, [idx, onChangeIdx])
 
   useEffect(() => {
-    // Bloquear scroll del body mientras el lightbox está abierto.
+    // Animación entrada
+    const t = setTimeout(() => setEntering(false), 50)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
+    return () => { document.body.style.overflow = prev; clearTimeout(t) }
   }, [])
+
+  const go = (dir) => {
+    setIdx((i) => (i + dir + slides.length) % slides.length)
+  }
 
   // Teclado
   useEffect(() => {
     const handleKey = (e) => {
       if (e.key === 'Escape') onClose()
-      else if (e.key === 'ArrowLeft') setIdx((i) => (i - 1 + slides.length) % slides.length)
-      else if (e.key === 'ArrowRight') setIdx((i) => (i + 1) % slides.length)
-      else if (e.key === '+' || e.key === '=') setZoomed(true)
-      else if (e.key === '-' || e.key === '0') setZoomed(false)
+      else if (e.key === 'ArrowLeft') go(-1)
+      else if (e.key === 'ArrowRight') go(1)
+      else if (e.key === '+' || e.key === '=') setZoom((z) => Math.min(5, z + 0.5))
+      else if (e.key === '-') setZoom((z) => Math.max(1, z - 0.5))
+      else if (e.key === '0') { setZoom(1); setPan({ x: 0, y: 0 }); setRotation(0) }
+      else if (e.key === 'r' || e.key === 'R') setRotation((r) => (r + 90) % 360)
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [slides.length, onClose])
 
-  // Swipe mobile
+  // Zoom con scroll del mouse
+  const onWheel = (e) => {
+    if (current.type !== 'image') return
+    e.preventDefault()
+    setZoom((z) => {
+      const delta = e.deltaY > 0 ? -0.25 : 0.25
+      const nz = Math.max(1, Math.min(5, z + delta))
+      if (nz === 1) setPan({ x: 0, y: 0 })
+      return nz
+    })
+  }
+
+  // Pan con drag del mouse cuando hay zoom
+  const onMouseDown = (e) => {
+    if (!zoomed || current.type !== 'image') return
+    dragging.current = true
+    panStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y }
+  }
+  const onMouseMove = (e) => {
+    if (!dragging.current || !panStart.current) return
+    setPan({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y })
+  }
+  const onMouseUp = () => {
+    dragging.current = false
+    panStart.current = null
+  }
+
+  // Touch swipe mobile
   const onTouchStart = (e) => {
     if (zoomed) return
     panStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
@@ -223,64 +272,114 @@ function Lightbox({ slides, initialIdx, onClose, onChangeIdx, productName }) {
     if (zoomed || !panStart.current) return
     const dx = e.changedTouches[0].clientX - panStart.current.x
     if (Math.abs(dx) > 60) {
-      if (dx < 0) setIdx((i) => (i + 1) % slides.length)
-      else setIdx((i) => (i - 1 + slides.length) % slides.length)
+      if (dx < 0) go(1)
+      else go(-1)
     }
     panStart.current = null
   }
 
-  const toggleZoom = (e) => {
-    if (current.type !== 'image') return
-    setZoomed((z) => !z)
-    // Si activa zoom, centrar punto de origen donde clickeó
-    if (!zoomed && imgRef.current) {
-      const rect = imgRef.current.getBoundingClientRect()
-      const x = ((e.clientX - rect.left) / rect.width) * 100
-      const y = ((e.clientY - rect.top) / rect.height) * 100
-      imgRef.current.style.transformOrigin = `${x}% ${y}%`
+  const toggleZoomClick = (e) => {
+    if (current.type !== 'image' || dragging.current) return
+    if (zoomed) {
+      setZoom(1); setPan({ x: 0, y: 0 })
+    } else {
+      // zoom hacia el punto del click
+      const rect = imgRef.current?.getBoundingClientRect()
+      if (rect) {
+        const cx = rect.left + rect.width / 2
+        const cy = rect.top + rect.height / 2
+        setPan({ x: (cx - e.clientX) * 1.2, y: (cy - e.clientY) * 1.2 })
+      }
+      setZoom(2.5)
     }
   }
 
+  const zoomPct = Math.round(zoom * 100)
+
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center select-none"
+      ref={containerRef}
+      className={`fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md select-none transition-opacity duration-300 ${entering ? 'opacity-0' : 'opacity-100'}`}
+      onWheel={onWheel}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between text-white z-10 pointer-events-none">
-        <div className="text-sm font-medium truncate max-w-[60%] pointer-events-auto">{productName}</div>
-        <div className="flex items-center gap-2 pointer-events-auto">
-          {current.type === 'image' && (
-            <button
-              onClick={() => setZoomed((z) => !z)}
-              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
-              aria-label={zoomed ? 'Quitar zoom' : 'Ampliar'}
-            >
-              {zoomed ? <ZoomOut size={18} /> : <ZoomIn size={18} />}
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
-            aria-label="Cerrar"
-          >
-            <X size={20} />
-          </button>
+      {/* HEADER */}
+      <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between text-white z-20 bg-gradient-to-b from-black/60 to-transparent">
+        <div className="text-sm font-medium truncate max-w-[40%]">
+          <span className="text-white/60 uppercase text-[10px] tracking-wider block">Vista detallada</span>
+          {productName}
         </div>
+
+        {/* Toolbar centro: zoom controls, rotate, reset */}
+        {current.type === 'image' && (
+          <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md rounded-full px-2 py-1.5 border border-white/15">
+            <button
+              onClick={() => setZoom((z) => Math.max(1, z - 0.5))}
+              disabled={zoom <= 1}
+              className="w-8 h-8 rounded-full hover:bg-white/15 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition"
+              aria-label="Reducir zoom"
+            >
+              <ZoomOut size={16} />
+            </button>
+            <span className="text-xs font-semibold tabular-nums min-w-[3rem] text-center">{zoomPct}%</span>
+            <button
+              onClick={() => setZoom((z) => Math.min(5, z + 0.5))}
+              disabled={zoom >= 5}
+              className="w-8 h-8 rounded-full hover:bg-white/15 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition"
+              aria-label="Aumentar zoom"
+            >
+              <ZoomIn size={16} />
+            </button>
+            <div className="w-px h-5 bg-white/20 mx-1"></div>
+            <button
+              onClick={() => setRotation((r) => (r + 90) % 360)}
+              className="w-8 h-8 rounded-full hover:bg-white/15 flex items-center justify-center transition"
+              aria-label="Rotar imagen"
+              title="Rotar (R)"
+            >
+              <RotateCw size={15} />
+            </button>
+            <button
+              onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); setRotation(0) }}
+              className="w-8 h-8 rounded-full hover:bg-white/15 flex items-center justify-center transition"
+              aria-label="Restablecer"
+              title="Restablecer (0)"
+            >
+              <Maximize2 size={14} />
+            </button>
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center transition"
+          aria-label="Cerrar"
+        >
+          <X size={20} />
+        </button>
       </div>
 
-      {/* Contenido */}
-      <div className="relative w-full h-full flex items-center justify-center p-4 md:p-10">
+      {/* CONTENIDO */}
+      <div className="relative w-full h-full flex items-center justify-center p-4 md:p-16">
         {current.type === 'image' ? (
           <img
             ref={imgRef}
             src={current.src}
             alt={productName}
-            onClick={toggleZoom}
-            className={`max-w-full max-h-full object-contain transition-transform duration-300 ${
-              zoomed ? 'scale-[2] cursor-zoom-out' : 'cursor-zoom-in'
+            onClick={toggleZoomClick}
+            onMouseDown={onMouseDown}
+            draggable={false}
+            className={`max-w-full max-h-full object-contain select-none will-change-transform ${
+              zoomed ? (dragging.current ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
             }`}
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+              transition: dragging.current ? 'none' : 'transform 300ms cubic-bezier(0.22, 1, 0.36, 1)'
+            }}
           />
         ) : (
           <video
@@ -296,33 +395,62 @@ function Lightbox({ slides, initialIdx, onClose, onChangeIdx, productName }) {
         {slides.length > 1 && !zoomed && (
           <>
             <button
-              onClick={() => setIdx((i) => (i - 1 + slides.length) % slides.length)}
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-sm"
+              onClick={() => go(-1)}
+              className="absolute left-6 top-1/2 -translate-y-1/2 w-14 h-14 bg-white/10 hover:bg-white/20 border border-white/15 text-white rounded-full flex items-center justify-center backdrop-blur-md transition shadow-2xl"
               aria-label="Anterior"
             >
-              <ChevronLeft size={24} />
+              <ChevronLeft size={26} />
             </button>
             <button
-              onClick={() => setIdx((i) => (i + 1) % slides.length)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-sm"
+              onClick={() => go(1)}
+              className="absolute right-6 top-1/2 -translate-y-1/2 w-14 h-14 bg-white/10 hover:bg-white/20 border border-white/15 text-white rounded-full flex items-center justify-center backdrop-blur-md transition shadow-2xl"
               aria-label="Siguiente"
             >
-              <ChevronRight size={24} />
+              <ChevronRight size={26} />
             </button>
           </>
         )}
-
-        {/* Contador */}
-        {slides.length > 1 && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/80 text-sm">
-            {idx + 1} / {slides.length}
-          </div>
-        )}
       </div>
 
-      {/* Tips */}
-      <div className="hidden md:block absolute bottom-4 left-4 text-white/60 text-xs">
-        ← → navegar · Esc cerrar · click para zoom
+      {/* THUMBNAILS inferiores */}
+      {slides.length > 1 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-white/5 backdrop-blur-md rounded-full px-3 py-2 border border-white/10 max-w-[90vw] overflow-x-auto">
+          {slides.map((s, i) => (
+            <button
+              key={i}
+              onClick={() => setIdx(i)}
+              className={`shrink-0 w-12 h-12 rounded-lg overflow-hidden transition-all ${
+                i === idx ? 'ring-2 ring-white scale-105' : 'opacity-50 hover:opacity-100'
+              }`}
+              aria-label={`Imagen ${i + 1}`}
+            >
+              {s.type === 'image' ? (
+                <img src={s.src} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-black flex items-center justify-center">
+                  <Play size={14} className="text-white fill-white" />
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Contador esquina inferior derecha */}
+      {slides.length > 1 && (
+        <div className="absolute bottom-5 right-6 text-white/80 text-xs bg-white/5 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/10 tabular-nums">
+          {idx + 1} <span className="text-white/40">/</span> {slides.length}
+        </div>
+      )}
+
+      {/* Tips esquina inferior izquierda */}
+      <div className="hidden md:block absolute bottom-5 left-6 text-white/50 text-[11px] leading-relaxed">
+        <div className="flex items-center gap-4">
+          <span><kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white/80 text-[10px]">← →</kbd> navegar</span>
+          <span><kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white/80 text-[10px]">scroll</kbd> zoom</span>
+          <span><kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white/80 text-[10px]">R</kbd> rotar</span>
+          <span><kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white/80 text-[10px]">Esc</kbd> cerrar</span>
+        </div>
       </div>
     </div>
   )

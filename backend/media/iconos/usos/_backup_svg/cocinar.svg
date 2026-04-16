@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <!-- Hat body -->
+    <linearGradient id="c-hat-body" x1="28" y1="38" x2="100" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="60%" stop-color="#F0EDE8"/>
+      <stop offset="100%" stop-color="#D8D4CE"/>
+    </linearGradient>
+    <!-- Hat top dome -->
+    <radialGradient id="c-hat-dome" cx="38%" cy="25%" r="65%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="55%" stop-color="#F2EEE9"/>
+      <stop offset="100%" stop-color="#D0CBC4"/>
+    </radialGradient>
+    <!-- Hat brim -->
+    <linearGradient id="c-brim" x1="20" y1="78" x2="108" y2="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E8E4DE"/>
+      <stop offset="50%" stop-color="#F8F5F0"/>
+      <stop offset="100%" stop-color="#D0CBC4"/>
+    </linearGradient>
+    <!-- Band accent -->
+    <linearGradient id="c-band" x1="20" y1="78" x2="108" y2="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D32F2F"/>
+      <stop offset="50%" stop-color="#F44336"/>
+      <stop offset="100%" stop-color="#B71C1C"/>
+    </linearGradient>
+    <!-- Gold badge -->
+    <radialGradient id="c-badge" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="55%" stop-color="#F5A623"/>
+      <stop offset="100%" stop-color="#C57B0A"/>
+    </radialGradient>
+    <radialGradient id="c-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Ground shadow (very subtle, hat floating) -->
+  <ellipse cx="64" cy="118" rx="30" ry="4" fill="url(#c-shadow)"/>
+
+  <!-- Hat side face (slight isometric tilt) -->
+  <path d="M96 78 L100 82 L100 98 L96 98 Z" fill="#C8C4BE"/>
+
+  <!-- Hat body — tall cylinder isometric -->
+  <!-- Front face of cylinder -->
+  <path d="M30 44 L30 82 Q30 86 64 88 Q98 86 98 82 L98 44 Z" fill="url(#c-hat-body)"/>
+
+  <!-- Top dome of hat (puffy cloud shape) -->
+  <!-- Main dome ellipse + soft bumps for the "toque" shape -->
+  <ellipse cx="64" cy="44" rx="34" ry="26" fill="url(#c-hat-dome)"/>
+  <!-- Puffy sides -->
+  <ellipse cx="34" cy="50" rx="12" ry="18" fill="#F5F2ED"/>
+  <ellipse cx="94" cy="50" rx="12" ry="18" fill="#EDE9E4"/>
+  <ellipse cx="64" cy="22" rx="22" ry="16" fill="#FFFFFF"/>
+  <ellipse cx="44" cy="28" rx="16" ry="14" fill="#FAFAF8"/>
+  <ellipse cx="84" cy="28" rx="16" ry="14" fill="#F5F2EE"/>
+  <!-- Re-fill the flat top portion -->
+  <ellipse cx="64" cy="42" rx="33" ry="14" fill="url(#c-hat-dome)"/>
+
+  <!-- Hat body fold lines (horizontal pleats) -->
+  <path d="M32 54 Q64 50 96 54" stroke="#E0DBD4" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.6"/>
+  <path d="M31 62 Q64 58 97 62" stroke="#E0DBD4" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.5"/>
+  <path d="M31 70 Q64 66 97 70" stroke="#E0DBD4" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.4"/>
+
+  <!-- Brim band (hatband) -->
+  <path d="M30 80 L30 86 Q30 92 64 94 Q98 92 98 86 L98 80 Z" fill="url(#c-brim)"/>
+  <!-- Red accent stripe on band -->
+  <path d="M30 80 L30 83 Q30 86 64 87 Q98 86 98 83 L98 80 Z" fill="url(#c-band)"/>
+
+  <!-- Brim base ellipse -->
+  <ellipse cx="64" cy="80" rx="34" ry="11" fill="url(#c-brim)"/>
+  <!-- Red band top edge -->
+  <ellipse cx="64" cy="80" rx="34" ry="11" fill="url(#c-band)" opacity="0.7"/>
+
+  <!-- Chef's fork/spoon badge on hat body -->
+  <circle cx="64" cy="68" r="8" fill="url(#c-badge)"/>
+  <circle cx="64" cy="68" r="6" fill="#F5A623"/>
+  <!-- Fork icon inside badge -->
+  <line x1="61" y1="64" x2="61" y2="72" stroke="#FFFFFF" stroke-width="1" stroke-linecap="round"/>
+  <line x1="64" y1="64" x2="64" y2="72" stroke="#FFFFFF" stroke-width="1" stroke-linecap="round"/>
+  <line x1="67" y1="64" x2="67" y2="72" stroke="#FFFFFF" stroke-width="1" stroke-linecap="round"/>
+  <path d="M61 66 Q64 64 67 66" stroke="#FFFFFF" stroke-width="1" fill="none" stroke-linecap="round"/>
+
+  <!-- Highlights on hat -->
+  <!-- Left side light -->
+  <path d="M32 44 Q32 65 33 80" stroke="#FFFFFF" stroke-width="2.5" stroke-opacity="0.35" fill="none" stroke-linecap="round"/>
+  <!-- Top dome highlight -->
+  <ellipse cx="50" cy="30" rx="10" ry="8" fill="#FFFFFF" fill-opacity="0.3"/>
+
+  <!-- Brim rim highlight -->
+  <path d="M32 78 Q50 73 64 72 Q78 73 96 78" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.3" fill="none" stroke-linecap="round"/>
+</svg>

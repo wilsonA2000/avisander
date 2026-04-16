@@ -102,8 +102,8 @@ function WelcomeModal() {
             ) : (
               <>
                 {image && (
-                  <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
-                    <img src={image} alt={title} className="w-full h-full object-cover" />
+                  <div className="bg-cream flex items-center justify-center p-2">
+                    <img src={image} alt={title} className="w-full h-auto max-h-[360px] object-contain" />
                   </div>
                 )}
 
