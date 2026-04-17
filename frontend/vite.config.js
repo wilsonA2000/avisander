@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
       dedupe: ['react', 'react-dom']
     },
     optimizeDeps: {
-      include: ['react', 'react-dom', 'react-filerobot-image-editor']
+      include: ['react', 'react-dom', 'react-filerobot-image-editor', 'konva', 'react-konva', 'use-image']
     },
     server: {
       port: 5173,

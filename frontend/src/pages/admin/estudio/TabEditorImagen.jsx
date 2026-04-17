@@ -8,10 +8,12 @@ if (typeof window !== 'undefined') window.React = React
 import FilerobotImageEditor, { TABS, TOOLS } from 'react-filerobot-image-editor'
 import {
   Upload, FolderOpen, X, ImagePlus, Search, Loader2,
-  Image as ImageIcon, Film, Sparkles, Megaphone, ChevronLeft
+  Image as ImageIcon, Film, Sparkles, Megaphone, ChevronLeft,
+  Zap, Palette
 } from 'lucide-react'
 import { api } from '../../../lib/apiClient'
 import { useToast } from '../../../context/ToastContext'
+import KonvaEditor from './canvas/KonvaEditor'
 
 // Carpetas disponibles en backend/media/
 const FOLDERS = [
@@ -184,6 +186,8 @@ function TabEditorImagen() {
   const [imageName, setImageName] = useState('')
   const [showEditor, setShowEditor] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [mode, setMode] = useState('rapida') // 'rapida' (Filerobot) | 'creativo' (Konva)
+  const [pickImageCallback, setPickImageCallback] = useState(null) // para insertar imágenes en Konva
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0]
@@ -199,7 +203,8 @@ function TabEditorImagen() {
     setShowEditor(true)
   }
 
-  const handleSave = useCallback(async (editedImageObject) => {
+  // Save para Filerobot (recibe objeto con imageBase64)
+  const handleSaveFilerobot = useCallback(async (editedImageObject) => {
     setSaving(true)
     try {
       const { imageBase64, fullName, mimeType } = editedImageObject
@@ -217,16 +222,54 @@ function TabEditorImagen() {
     }
   }, [toast])
 
+  // Save para KonvaEditor (recibe blob directo)
+  const handleSaveKonva = useCallback(async (blob) => {
+    setSaving(true)
+    try {
+      const formData = new FormData()
+      formData.append('image', blob, `diseno-${Date.now()}.png`)
+      const result = await api.post('/api/ai/save-edited', formData)
+      toast.success(`Diseño guardado: ${result.url}`)
+    } catch (e) {
+      toast.error(e.message || 'Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }, [toast])
+
   // Pantalla de selección
   if (!showEditor) {
     return (
       <div className="space-y-6">
         {/* Header + upload */}
         <div className="bg-white rounded-2xl shadow-sm p-6">
+          {/* Toggle de modo */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex bg-gray-100 rounded-xl p-1">
+              <button
+                onClick={() => setMode('rapida')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  mode === 'rapida' ? 'bg-white shadow-sm text-charcoal' : 'text-gray-500 hover:text-charcoal'
+                }`}
+              >
+                <Zap size={14} /> Edición Rápida
+              </button>
+              <button
+                onClick={() => setMode('creativo')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  mode === 'creativo' ? 'bg-white shadow-sm text-charcoal' : 'text-gray-500 hover:text-charcoal'
+                }`}
+              >
+                <Palette size={14} /> Diseño Creativo
+              </button>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-bold text-charcoal flex items-center gap-2">
-                <ImagePlus size={20} className="text-primary" /> Editor de Imagen
+                <ImagePlus size={20} className="text-primary" />
+                {mode === 'rapida' ? 'Editor de Imagen' : 'Diseño Creativo'}
               </h2>
               <p className="text-sm text-gray-500">Selecciona una imagen de tu biblioteca o sube una nueva.</p>
             </div>
@@ -244,7 +287,37 @@ function TabEditorImagen() {
     )
   }
 
-  // Editor activo
+  // Editor activo — modo Rápida (Filerobot) o Creativo (Konva)
+  if (mode === 'creativo') {
+    return (
+      <div className="space-y-3" style={{ height: 'calc(100vh - 240px)', minHeight: '550px' }}>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500">
+            Diseño Creativo {imageName && <>· <strong>{imageName}</strong></>}
+          </p>
+          <button
+            onClick={() => { setShowEditor(false); setImageSrc(null) }}
+            className="text-sm text-gray-500 hover:text-primary inline-flex items-center gap-1"
+          >
+            <X size={14} /> Cerrar
+          </button>
+        </div>
+        <div className="flex-1" style={{ height: 'calc(100% - 32px)' }}>
+          <KonvaEditor
+            initialImage={imageSrc}
+            onSave={handleSaveKonva}
+            onClose={() => { setShowEditor(false); setImageSrc(null) }}
+            onPickImage={(callback) => {
+              // Volver al browser para elegir imagen, luego callback(url)
+              setPickImageCallback(() => callback)
+              setShowEditor(false)
+            }}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -265,11 +338,11 @@ function TabEditorImagen() {
       >
         <FilerobotImageEditor
           source={imageSrc}
-          onSave={(editedImageObject) => handleSave(editedImageObject)}
+          onSave={(editedImageObject) => handleSaveFilerobot(editedImageObject)}
           onClose={() => { setShowEditor(false); setImageSrc(null) }}
           annotationsCommon={{ fill: '#8B1F28' }}
           Text={{ text: 'Avisander', fontFamily: 'Inter', fontSize: 28, fill: '#8B1F28' }}
-          tabsIds={[TABS.ADJUST, TABS.ANNOTATE, TABS.FILTERS, TABS.FINETUNE, TABS.RESIZE]}
+          tabsIds={[TABS.ADJUST, TABS.ANNOTATE, TABS.FILTERS, TABS.FINETUNE, TABS.RESIZE, TABS.WATERMARK]}
           defaultTabId={TABS.ADJUST}
           defaultToolId={TOOLS.CROP}
           savingPixelRatio={2}
