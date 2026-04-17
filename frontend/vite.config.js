@@ -8,6 +8,12 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    resolve: {
+      dedupe: ['react', 'react-dom']
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react-filerobot-image-editor']
+    },
     server: {
       port: 5173,
       // Permitir acceso desde túnel ngrok (redirección de Bold tras pago).

@@ -1,7 +1,10 @@
 // Tab Editor de Imagen — editor completo con react-filerobot-image-editor.
 // Incluye browser de medios que carga desde la biblioteca, videos, IA, publicidad y upload.
 
-import { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
+// Filerobot internamente usa React.createElement sin importar React (bug conocido).
+// Exponemos React al scope global para que no crashee con "React is not defined".
+if (typeof window !== 'undefined') window.React = React
 import FilerobotImageEditor, { TABS, TOOLS } from 'react-filerobot-image-editor'
 import {
   Upload, FolderOpen, X, ImagePlus, Search, Loader2,
