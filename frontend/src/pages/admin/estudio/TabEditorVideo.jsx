@@ -111,24 +111,95 @@ function TabEditorVideo() {
     }
   }
 
+  // Cargar video desde biblioteca
+  const [libraryVideos, setLibraryVideos] = useState([])
+  const [loadingLibrary, setLoadingLibrary] = useState(false)
+  const [showLibrary, setShowLibrary] = useState(false)
+
+  const loadLibraryVideos = async () => {
+    setLoadingLibrary(true)
+    try {
+      const data = await api.get('/api/media?type=video&per_page=60&page=1')
+      setLibraryVideos(data.items || [])
+    } catch { setLibraryVideos([]) }
+    finally { setLoadingLibrary(false) }
+  }
+
+  const selectLibraryVideo = async (url) => {
+    if (videoUrl) URL.revokeObjectURL(videoUrl)
+    // Fetch el video como blob para poder pasarlo a FFmpeg
+    const resp = await fetch(url)
+    const blob = await resp.blob()
+    const file = new File([blob], url.split('/').pop() || 'video.mp4', { type: 'video/mp4' })
+    setVideoFile(file)
+    setVideoUrl(URL.createObjectURL(blob))
+    setResultUrl(null)
+    setTrimStart(0)
+    setTrimEnd(0)
+    setShowLibrary(false)
+  }
+
   // Sin video cargado: pantalla de bienvenida
   if (!videoUrl) {
     return (
       <div className="space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm p-8 text-center max-w-2xl mx-auto">
-          <Film size={48} className="mx-auto text-primary/40 mb-4" />
-          <h2 className="text-xl font-bold text-charcoal mb-2">Editor de Video</h2>
-          <p className="text-gray-500 text-sm mb-6">
-            Recorta, agrega texto y mezcla audio en tus videos. Todo se procesa en tu navegador, sin enviar nada a servidores.
-          </p>
-          <label className="btn-primary inline-flex items-center gap-2 cursor-pointer">
-            <Upload size={16} />
-            Cargar video
-            <input type="file" accept="video/mp4,video/webm,video/mov" onChange={handleFileUpload} className="hidden" />
-          </label>
-          <p className="text-xs text-gray-400 mt-3">
-            Soporta MP4, WebM, MOV. Recomendado: clips de menos de 60 segundos para mejor rendimiento.
-          </p>
+        <div className="bg-white rounded-2xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold text-charcoal flex items-center gap-2">
+                <Film size={20} className="text-primary" /> Editor de Video
+              </h2>
+              <p className="text-sm text-gray-500">Recorta, agrega texto y mezcla audio. Todo en tu navegador.</p>
+            </div>
+            <label className="btn-primary inline-flex items-center gap-2 cursor-pointer text-sm">
+              <Upload size={14} />
+              Subir video
+              <input type="file" accept="video/mp4,video/webm,video/mov" onChange={handleFileUpload} className="hidden" />
+            </label>
+          </div>
+
+          {/* Browser de videos */}
+          {!showLibrary ? (
+            <button
+              onClick={() => { setShowLibrary(true); loadLibraryVideos() }}
+              className="w-full flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-primary hover:bg-primary/5 transition text-left"
+            >
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <Film size={20} />
+              </div>
+              <div>
+                <p className="font-medium text-sm text-charcoal">Biblioteca de videos</p>
+                <p className="text-xs text-gray-500">104 videos disponibles en tu biblioteca</p>
+              </div>
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setShowLibrary(false)} className="text-xs text-gray-500 hover:text-primary">← Volver</button>
+                <span className="text-sm font-semibold text-charcoal">Videos de la biblioteca</span>
+              </div>
+              {loadingLibrary ? (
+                <div className="flex items-center justify-center py-10 text-gray-400">
+                  <Loader2 size={20} className="animate-spin mr-2" /> Cargando...
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-[350px] overflow-y-auto">
+                  {libraryVideos.map((v, i) => (
+                    <button
+                      key={v.url + i}
+                      onClick={() => selectLibraryVideo(v.url)}
+                      className="group relative rounded-lg overflow-hidden border border-gray-200 hover:border-primary transition bg-charcoal/80 aspect-video flex items-center justify-center"
+                    >
+                      <Film size={20} className="text-white/50 group-hover:text-white transition" />
+                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-1">
+                        <p className="text-[8px] text-white truncate">{v.original_name || v.url.split('/').pop()}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 max-w-2xl mx-auto text-sm text-amber-800">
