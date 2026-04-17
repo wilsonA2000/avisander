@@ -33,7 +33,7 @@ import AdminInventario from './pages/admin/Inventario'
 import AdminProveedores from './pages/admin/Proveedores'
 import AdminCompras from './pages/admin/Compras'
 import AdminPqrs from './pages/admin/Pqrs'
-import AdminEstudioAI from './pages/admin/EstudioAI'
+import AdminEstudioMultimedia from './pages/admin/EstudioMultimedia'
 import Nosotros from './pages/Nosotros'
 import Equipo from './pages/Equipo'
 import Ubicacion from './pages/Ubicacion'
@@ -98,7 +98,7 @@ function App() {
         <Route path="proveedores" element={<AdminProveedores />} />
         <Route path="compras" element={<AdminCompras />} />
         <Route path="pqrs" element={<AdminPqrs />} />
-        <Route path="estudio-ai" element={<AdminEstudioAI />} />
+        <Route path="estudio-ai" element={<AdminEstudioMultimedia />} />
       </Route>
 
       {/* 404 */}

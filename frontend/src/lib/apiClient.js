@@ -70,7 +70,8 @@ async function parseOrThrow(res) {
 export async function apiFetch(path, { method = 'GET', body, headers = {}, skipAuth = false } = {}) {
   const doFetch = async () => {
     const h = { ...headers }
-    if (body !== undefined) h['Content-Type'] = 'application/json'
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
+    if (body !== undefined && !isFormData) h['Content-Type'] = 'application/json'
     if (!skipAuth) {
       const token = getAccessToken()
       if (token) h['Authorization'] = `Bearer ${token}`
@@ -78,7 +79,7 @@ export async function apiFetch(path, { method = 'GET', body, headers = {}, skipA
     return fetch(`${baseUrl}${path}`, {
       method,
       headers: h,
-      body: body !== undefined ? JSON.stringify(body) : undefined
+      body: body !== undefined ? (isFormData ? body : JSON.stringify(body)) : undefined
     })
   }
 

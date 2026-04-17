@@ -13,6 +13,12 @@ export default defineConfig(({ mode }) => {
       // Permitir acceso desde túnel ngrok (redirección de Bold tras pago).
       // Vite 5 por defecto bloquea hosts no listados como medida de seguridad.
       allowedHosts: ['.ngrok-free.app', '.ngrok.app', '.ngrok.io'],
+      // Headers requeridos por FFmpeg.wasm (SharedArrayBuffer necesita
+      // Cross-Origin Isolation). Sin estos, el editor de video no funciona.
+      headers: {
+        'Cross-Origin-Opener-Policy': 'same-origin',
+        'Cross-Origin-Embedder-Policy': 'credentialless'
+      },
       proxy: {
         '/api': {
           target: proxyTarget,
