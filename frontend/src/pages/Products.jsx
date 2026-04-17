@@ -28,10 +28,14 @@ function filtersToParams(f) {
   return p
 }
 
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+}
+
 function paramsToFilters(sp) {
   const asArr = (k) => {
     const v = sp.get(k)
-    return v ? v.split(',').filter(Boolean) : []
+    return v ? v.split(',').filter(Boolean).map((s) => s.toLowerCase()) : []
   }
   return {
     q: sp.get('q') || '',
@@ -118,7 +122,7 @@ function Products() {
           <span className="mx-1">/</span>
           <span className="text-gray-700">Productos</span>
           {filters.category.length === 1 && (
-            <><span className="mx-1">/</span><span className="text-gray-700 capitalize">{filters.category[0]}</span></>
+            <><span className="mx-1">/</span><span className="text-gray-700">{toTitleCase(filters.category[0])}</span></>
           )}
         </nav>
 

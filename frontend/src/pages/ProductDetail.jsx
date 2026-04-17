@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+
+const toTitleCase = (str) => str.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import useScrollToTop from '../hooks/useScrollToTop'
 import {
@@ -216,7 +218,7 @@ function ProductDetail() {
         {product.category_name && (
           <>
             <span>/</span>
-            <span className="text-gray-700">{product.category_name}</span>
+            <span className="text-gray-700">{toTitleCase(product.category_name)}</span>
           </>
         )}
       </div>
