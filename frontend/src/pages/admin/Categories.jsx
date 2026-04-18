@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Plus, Pencil, Trash2, X } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Pencil, Trash2, X, Upload, Image as ImageIcon } from 'lucide-react'
 import CategoryIcon from '../../components/CategoryIcon'
 
 function Categories() {
@@ -7,10 +7,12 @@ function Categories() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingCategory, setEditingCategory] = useState(null)
-  const [formData, setFormData] = useState({ name: '', icon: '', display_order: 0 })
+  const [formData, setFormData] = useState({ name: '', icon: '', display_order: 0, hero_image: '' })
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [error, setError] = useState('')
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     fetchCategories()
@@ -39,13 +41,41 @@ function Categories() {
       setFormData({
         name: category.name,
         icon: category.icon || '',
-        display_order: category.display_order || 0
+        display_order: category.display_order || 0,
+        hero_image: category.hero_image || ''
       })
     } else {
       setEditingCategory(null)
-      setFormData({ name: '', icon: '', display_order: categories.length })
+      setFormData({ name: '', icon: '', display_order: categories.length, hero_image: '' })
     }
     setShowModal(true)
+  }
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const token = localStorage.getItem('token')
+      const fd = new FormData()
+      fd.append('image', file)
+      const response = await fetch('/api/upload/image', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setFormData((prev) => ({ ...prev, hero_image: data.url }))
+      } else {
+        const data = await response.json()
+        alert(data.error || 'Error al subir imagen')
+      }
+    } catch {
+      alert('Error al subir imagen')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -121,6 +151,7 @@ function Categories() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Orden</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Foto</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Nombre</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Icono</th>
                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">Acciones</th>
@@ -130,6 +161,20 @@ function Categories() {
               {categories.map((category) => (
                 <tr key={category.id} className="border-t">
                   <td className="px-4 py-3 text-gray-500">{category.display_order}</td>
+                  <td className="px-4 py-3">
+                    {category.hero_image ? (
+                      <img
+                        src={category.hero_image}
+                        alt={category.name}
+                        className="w-14 h-14 rounded-lg object-cover border border-gray-200"
+                        onError={(e) => { e.currentTarget.style.display = 'none' }}
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+                        <ImageIcon size={20} />
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 font-medium">{category.name}</td>
                   <td className="px-4 py-3">
                         <CategoryIcon category={category.name} variant="inline" size="sm" />
@@ -206,6 +251,62 @@ function Categories() {
                   className="input"
                   min="0"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Foto de categoría (hero)</label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Se muestra en las tarjetas destacadas del home. Pega una URL o sube una imagen.
+                </p>
+
+                {formData.hero_image ? (
+                  <div className="relative mb-2 inline-block">
+                    <img
+                      src={formData.hero_image}
+                      alt="Preview"
+                      className="w-32 h-32 rounded-lg object-cover border border-gray-200"
+                      onError={(e) => {
+                        e.currentTarget.style.opacity = '0.3'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, hero_image: '' })}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow hover:bg-red-600"
+                      title="Quitar"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-32 h-32 mb-2 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 border border-dashed border-gray-300">
+                    <ImageIcon size={28} />
+                  </div>
+                )}
+
+                <input
+                  type="text"
+                  value={formData.hero_image}
+                  onChange={(e) => setFormData({ ...formData, hero_image: e.target.value })}
+                  className="input"
+                  placeholder="https://... (URL de imagen)"
+                />
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="mt-2 inline-flex items-center gap-2 text-sm text-primary hover:underline disabled:opacity-50"
+                >
+                  <Upload size={16} />
+                  {uploading ? 'Subiendo...' : 'O subir desde mi equipo'}
+                </button>
               </div>
               <div className="flex gap-3 pt-4">
                 <button

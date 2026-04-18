@@ -9,6 +9,8 @@ const baseRecipeShape = {
   body_markdown: z.string().trim().max(20000).optional().nullable(),
   duration_min: z.number().int().positive().max(1440).optional().nullable(),
   difficulty: z.enum(['facil', 'media', 'dificil']).optional().nullable(),
+  meal_type: z.enum(['desayuno', 'almuerzo', 'cena', 'rapido', 'gourmet', 'especial']).optional().nullable(),
+  servings: z.number().int().positive().max(100).optional().nullable(),
   is_published: z.boolean().optional(),
   product_ids: z.array(z.number().int().positive()).max(30).optional().nullable()
 }

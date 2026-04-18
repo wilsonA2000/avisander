@@ -38,7 +38,12 @@ function Login() {
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-xl shadow-lg p-8">
-          <h1 className="text-2xl font-bold text-center mb-6">Iniciar Sesion</h1>
+          <img
+            src="/logo.png"
+            alt="Avisander"
+            className="h-16 w-auto mx-auto mb-4 object-contain"
+          />
+          <h1 className="text-2xl font-bold text-center mb-6">Iniciar Sesión</h1>
 
           {error && (
             <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">

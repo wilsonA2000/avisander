@@ -15,11 +15,15 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.bak*
+*.env.bak*
 
 # Database
 *.sqlite
 *.sqlite3
 database.sqlite
+*.sqlite.bak*
+database.sqlite.bak*
 
 # Logs
 npm-debug.log*

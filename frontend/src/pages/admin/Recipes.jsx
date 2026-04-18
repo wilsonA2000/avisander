@@ -1,14 +1,15 @@
 // Admin CRUD de recetas: tabla + modal de edición con búsqueda de productos para enlazar.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Pencil, Trash2, X, Eye, Search, ChefHat } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Eye, Search, ChefHat, Upload, Image as ImageIcon } from 'lucide-react'
 import { api } from '../../lib/apiClient'
 import { useToast } from '../../context/ToastContext'
 
 const EMPTY = {
   title: '', summary: '', cover_image_url: '', video_url: '',
   body_markdown: '', duration_min: '', difficulty: '',
+  meal_type: '', servings: '',
   is_published: false, product_ids: []
 }
 
@@ -23,6 +24,37 @@ function Recipes() {
   const [deleteId, setDeleteId] = useState(null)
   const [productQuery, setProductQuery] = useState('')
   const [productResults, setProductResults] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const token = localStorage.getItem('token')
+      const fd = new FormData()
+      fd.append('image', file)
+      const response = await fetch('/api/upload/image', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setForm((f) => ({ ...f, cover_image_url: data.url }))
+        toast.success('Imagen subida')
+      } else {
+        const data = await response.json()
+        toast.error(data.error || 'Error al subir imagen')
+      }
+    } catch {
+      toast.error('Error al subir imagen')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   const load = () => {
     setLoading(true)
@@ -44,6 +76,8 @@ function Recipes() {
         body_markdown: r.body_markdown || '',
         duration_min: r.duration_min || '',
         difficulty: r.difficulty || '',
+        meal_type: r.meal_type || '',
+        servings: r.servings || '',
         is_published: !!r.is_published,
         product_ids: (r.products || []).map((p) => p.id)
       })
@@ -100,6 +134,8 @@ function Recipes() {
         ...form,
         duration_min: form.duration_min ? parseInt(form.duration_min) : null,
         difficulty: form.difficulty || null,
+        meal_type: form.meal_type || null,
+        servings: form.servings ? parseInt(form.servings) : null,
         product_ids: form.product_ids
       }
       if (editing) {
@@ -215,18 +251,69 @@ function Recipes() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Imagen de portada (URL)</label>
-                  <input type="text" value={form.cover_image_url} onChange={(e) => setForm({ ...form, cover_image_url: e.target.value })} className="input" placeholder="/media/recetas/..." />
+                  <label className="block text-sm font-medium mb-1">Imagen de portada</label>
+
+                  {form.cover_image_url ? (
+                    <div className="relative mb-2 inline-block">
+                      <img
+                        src={form.cover_image_url}
+                        alt="Preview"
+                        className="w-32 h-32 rounded-lg object-cover border border-gray-200"
+                        onError={(e) => { e.currentTarget.style.opacity = '0.3' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, cover_image_url: '' })}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow hover:bg-red-600"
+                        title="Quitar"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 mb-2 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 border border-dashed border-gray-300">
+                      <ImageIcon size={28} />
+                    </div>
+                  )}
+
+                  <input
+                    type="text"
+                    value={form.cover_image_url}
+                    onChange={(e) => setForm({ ...form, cover_image_url: e.target.value })}
+                    className="input"
+                    placeholder="https://... (URL de imagen)"
+                  />
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="mt-2 inline-flex items-center gap-2 text-sm text-primary hover:underline disabled:opacity-50"
+                  >
+                    <Upload size={16} />
+                    {uploading ? 'Subiendo...' : 'O subir desde mi equipo'}
+                  </button>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Video (URL opcional)</label>
                   <input type="text" value={form.video_url} onChange={(e) => setForm({ ...form, video_url: e.target.value })} className="input" placeholder="https://youtube.com/..." />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">Duración (min)</label>
                   <input type="number" min={1} value={form.duration_min} onChange={(e) => setForm({ ...form, duration_min: e.target.value })} className="input" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Porciones</label>
+                  <input type="number" min={1} value={form.servings} onChange={(e) => setForm({ ...form, servings: e.target.value })} className="input" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Dificultad</label>
@@ -235,6 +322,18 @@ function Recipes() {
                     <option value="facil">Fácil</option>
                     <option value="media">Media</option>
                     <option value="dificil">Difícil</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Categoría</label>
+                  <select value={form.meal_type} onChange={(e) => setForm({ ...form, meal_type: e.target.value })} className="input">
+                    <option value="">—</option>
+                    <option value="desayuno">Desayuno</option>
+                    <option value="almuerzo">Almuerzo</option>
+                    <option value="cena">Cena</option>
+                    <option value="rapido">Rápido</option>
+                    <option value="gourmet">Gourmet</option>
+                    <option value="especial">Día especial</option>
                   </select>
                 </div>
               </div>

@@ -91,9 +91,11 @@ function Footer() {
 
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <h3 className="font-display text-2xl font-bold text-white mb-2">
-              Avisander
-            </h3>
+            <img
+              src="/logo-transparent.png"
+              alt="Avisander"
+              className="h-20 md:h-24 w-auto object-contain mb-3 drop-shadow-lg"
+            />
             <p className="font-display italic text-accent text-sm mb-3">
               Carnicería Premium · Bucaramanga
             </p>

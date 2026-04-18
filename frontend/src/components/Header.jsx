@@ -58,8 +58,12 @@ function Header() {
       <div className="container mx-auto px-4">
         <div className="flex items-center gap-4 py-3">
           {/* Logo */}
-          <Link to="/" className="flex items-center flex-shrink-0">
-            <span className="text-2xl font-extrabold text-primary tracking-tight">Avisander</span>
+          <Link to="/" className="flex items-center flex-shrink-0" aria-label="Avisander - Inicio">
+            <img
+              src="/logo.png"
+              alt="Avisander"
+              className="h-10 md:h-14 w-auto object-contain"
+            />
           </Link>
 
           {/* Search (hidden en mobile muy pequeño, aparece abajo) */}

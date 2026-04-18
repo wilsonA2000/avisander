@@ -37,7 +37,7 @@ function withProducts(recipe) {
 // Listado público (solo publicadas por defecto)
 router.get('/', optionalAuth, (req, res, next) => {
   try {
-    const { published, difficulty, limit, by_product, random } = req.query
+    const { published, difficulty, meal_type, limit, by_product, random } = req.query
     const where = []
     const params = []
 
@@ -48,6 +48,13 @@ router.get('/', optionalAuth, (req, res, next) => {
     if (difficulty) {
       where.push('r.difficulty = ?')
       params.push(difficulty)
+    }
+    if (meal_type) {
+      const types = String(meal_type).split(',').map((s) => s.trim()).filter(Boolean)
+      if (types.length) {
+        where.push(`r.meal_type IN (${types.map(() => '?').join(',')})`)
+        params.push(...types)
+      }
     }
 
     let query = `SELECT r.* FROM recipes r`
@@ -97,7 +104,7 @@ router.post('/', authenticateToken, requireAdmin, validate(recipeCreateSchema), 
   try {
     const {
       title, summary, cover_image_url, video_url, body_markdown,
-      duration_min, difficulty, is_published,
+      duration_min, difficulty, is_published, meal_type, servings,
       slug: providedSlug, product_ids
     } = req.body
 
@@ -108,8 +115,8 @@ router.post('/', authenticateToken, requireAdmin, validate(recipeCreateSchema), 
         .prepare(
           `INSERT INTO recipes
             (slug, title, summary, cover_image_url, video_url, body_markdown,
-             duration_min, difficulty, is_published)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+             duration_min, difficulty, meal_type, servings, is_published)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           slug,
@@ -120,6 +127,8 @@ router.post('/', authenticateToken, requireAdmin, validate(recipeCreateSchema), 
           body_markdown || null,
           duration_min || null,
           difficulty || null,
+          meal_type || null,
+          servings || null,
           is_published ? 1 : 0
         )
       const id = r.lastInsertRowid
@@ -153,7 +162,8 @@ router.put('/:id', authenticateToken, requireAdmin, validate(recipeUpdateSchema)
       db.prepare(
         `UPDATE recipes SET
           slug = ?, title = ?, summary = ?, cover_image_url = ?, video_url = ?,
-          body_markdown = ?, duration_min = ?, difficulty = ?, is_published = ?,
+          body_markdown = ?, duration_min = ?, difficulty = ?,
+          meal_type = ?, servings = ?, is_published = ?,
           updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`
       ).run(
@@ -165,6 +175,8 @@ router.put('/:id', authenticateToken, requireAdmin, validate(recipeUpdateSchema)
         merged.body_markdown ?? null,
         merged.duration_min ?? null,
         merged.difficulty ?? null,
+        merged.meal_type ?? null,
+        merged.servings ?? null,
         merged.is_published ? 1 : 0,
         req.params.id
       )

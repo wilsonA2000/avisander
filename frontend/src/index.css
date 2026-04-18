@@ -124,6 +124,116 @@
     pointer-events: none;
   }
 
+  @keyframes hero-shimmer {
+    0%   { background-position: 200% center; }
+    100% { background-position: -200% center; }
+  }
+  .hero-shimmer {
+    display: inline;
+    background-size: 300% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: hero-shimmer 6s ease-in-out infinite;
+  }
+  .hero-shimmer--white {
+    background-image: linear-gradient(
+      110deg,
+      #ffffff 0%,
+      #ffffff 35%,
+      #ffffffcc 42%,
+      #ffe8c2 48%,
+      #fff5e0 50%,
+      #ffe8c2 52%,
+      #ffffffcc 58%,
+      #ffffff 65%,
+      #ffffff 100%
+    );
+  }
+  .hero-shimmer--primary {
+    background-image: linear-gradient(
+      110deg,
+      #f58220 0%,
+      #f58220 35%,
+      #ffb366 42%,
+      #ffe0b2 48%,
+      #fff5e0 50%,
+      #ffe0b2 52%,
+      #ffb366 58%,
+      #f58220 65%,
+      #f58220 100%
+    );
+  }
+
+  /* ── Culinary icon micro-animations ── */
+  .culinary-icon {
+    display: inline-flex;
+    transition: transform 0.3s ease;
+  }
+
+  /* Flicker: llama que parpadea */
+  @keyframes culinary-flicker-kf {
+    0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    25%      { transform: scale(1.12) rotate(-3deg); opacity: 0.85; }
+    50%      { transform: scale(0.95) rotate(2deg); opacity: 1; }
+    75%      { transform: scale(1.08) rotate(-1deg); opacity: 0.9; }
+  }
+  .group:hover .culinary-flicker {
+    animation: culinary-flicker-kf 0.6s ease-in-out infinite;
+  }
+
+  /* Shake: sartén que se sacude */
+  @keyframes culinary-shake-kf {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    20%      { transform: translateX(-2px) rotate(-4deg); }
+    40%      { transform: translateX(2px) rotate(4deg); }
+    60%      { transform: translateX(-1px) rotate(-2deg); }
+    80%      { transform: translateX(1px) rotate(2deg); }
+  }
+  .group:hover .culinary-shake {
+    animation: culinary-shake-kf 0.5s ease-in-out;
+  }
+
+  /* Bubble: olla que burbujea */
+  @keyframes culinary-bubble-kf {
+    0%, 100% { transform: translateY(0); }
+    25%      { transform: translateY(-3px); }
+    50%      { transform: translateY(0); }
+    75%      { transform: translateY(-2px); }
+  }
+  .group:hover .culinary-bubble {
+    animation: culinary-bubble-kf 0.7s ease-in-out infinite;
+  }
+
+  /* Steam: vapor que sube y se desvanece */
+  @keyframes culinary-steam-kf {
+    0%   { transform: translateY(0) scale(1); opacity: 1; }
+    50%  { transform: translateY(-4px) scale(1.05); opacity: 0.7; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .group:hover .culinary-steam {
+    animation: culinary-steam-kf 1s ease-in-out infinite;
+  }
+
+  /* Pulse: pulso cálido suave */
+  @keyframes culinary-pulse-kf {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.15); }
+  }
+  .group:hover .culinary-pulse {
+    animation: culinary-pulse-kf 0.8s ease-in-out infinite;
+  }
+
+  /* Bounce: rebote del chef */
+  @keyframes culinary-bounce-kf {
+    0%, 100% { transform: translateY(0); }
+    40%      { transform: translateY(-5px); }
+    60%      { transform: translateY(-2px); }
+  }
+  .group:hover .culinary-bounce {
+    animation: culinary-bounce-kf 0.6s ease-in-out;
+  }
+
   /* Oculta scrollbar en barra horizontal de categorías */
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -150,11 +260,15 @@
 
   /* Toast animations */
   @keyframes toast-in {
-    from {
+    0% {
       opacity: 0;
-      transform: translateY(16px) scale(0.96);
+      transform: translateY(20px) scale(0.9);
     }
-    to {
+    60% {
+      opacity: 1;
+      transform: translateY(-4px) scale(1.02);
+    }
+    100% {
       opacity: 1;
       transform: translateY(0) scale(1);
     }
@@ -163,28 +277,144 @@
     from {
       opacity: 1;
       transform: translateX(0) scale(1);
+      filter: blur(0);
     }
     to {
       opacity: 0;
-      transform: translateX(40px) scale(0.95);
+      transform: translateX(48px) scale(0.92);
+      filter: blur(2px);
     }
   }
   @keyframes toast-progress {
     from { transform: scaleX(1); }
     to   { transform: scaleX(0); }
   }
+  @keyframes toast-halo {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 0.7;
+    }
+    50% {
+      transform: scale(1.25);
+      opacity: 0;
+    }
+  }
+  @keyframes toast-shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(500%); }
+  }
   @media (min-width: 640px) {
     @keyframes toast-in {
-      from {
+      0% {
         opacity: 0;
-        transform: translateX(24px) scale(0.96);
+        transform: translateX(32px) scale(0.9);
       }
-      to {
+      60% {
+        opacity: 1;
+        transform: translateX(-6px) scale(1.02);
+      }
+      100% {
         opacity: 1;
         transform: translateX(0) scale(1);
       }
     }
   }
-  .animate-toast-in  { animation: toast-in 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
-  .animate-toast-out { animation: toast-out 0.22s ease-in forwards; }
+  .animate-toast-in    { animation: toast-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .animate-toast-out   { animation: toast-out 0.28s cubic-bezier(0.4, 0, 1, 1) forwards; }
+  .animate-toast-halo  { animation: toast-halo 2.4s ease-in-out infinite; }
+  .animate-toast-shimmer { animation: toast-shimmer 2.5s linear infinite; }
+}
+
+/* Estilos de impresión para /recetas/:slug */
+.print-only { display: none; }
+
+@media print {
+  /* Ocultar todo lo que no sea la página de receta */
+  header, nav, footer, aside.no-print, .no-print { display: none !important; }
+
+  /* Reset container para impresión */
+  body { background: white !important; color: #000 !important; font-size: 12pt; }
+  .recipe-page {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .recipe-page > div.grid {
+    display: block !important;
+  }
+
+  /* Mostrar header/footer de impresión */
+  .print-only { display: block !important; }
+
+  /* Header con logo y datos */
+  .print-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #f58220;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+  .print-brand { display: flex; align-items: center; gap: 14px; }
+  .print-logo { height: 50px; width: auto; }
+  .print-tagline {
+    font-size: 10pt;
+    color: #555;
+    font-style: italic;
+    border-left: 2px solid #ddd;
+    padding-left: 10px;
+  }
+  .print-meta {
+    font-size: 9pt;
+    color: #666;
+    text-align: right;
+  }
+
+  /* Footer con datos institucionales */
+  .print-footer {
+    margin-top: 24px;
+    padding-top: 12px;
+    border-top: 2px solid #f58220;
+    font-size: 9pt;
+    color: #444;
+  }
+  .print-footer-brand {
+    font-size: 11pt;
+    margin-bottom: 4px;
+    color: #f58220;
+  }
+  .print-footer-info {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+  .print-footer-hours {
+    font-size: 8pt;
+    color: #666;
+    margin-bottom: 8px;
+  }
+  .print-footer-note {
+    font-size: 8pt;
+    color: #888;
+    font-style: italic;
+    text-align: center;
+    border-top: 1px dashed #ddd;
+    padding-top: 8px;
+  }
+
+  /* Asegurar saltos de página limpios */
+  h1, h2, h3 { page-break-after: avoid; break-after: avoid; }
+  img { max-width: 100%; page-break-inside: avoid; break-inside: avoid; }
+  li, p { page-break-inside: avoid; break-inside: avoid; }
+
+  /* Links sin subrayado feo y sin URL impresa */
+  a { text-decoration: none !important; color: #000 !important; }
+  a[href]::after { content: none !important; }
+
+  /* Quitar fondos sólidos que consumen tinta innecesaria */
+  .bg-white, .bg-gray-100, .bg-gray-50, .rounded-2xl, .rounded-xl, .shadow-sm, .shadow-md {
+    background: white !important;
+    box-shadow: none !important;
+  }
 }

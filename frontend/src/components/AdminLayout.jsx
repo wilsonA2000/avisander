@@ -57,8 +57,8 @@ function AdminLayout() {
         }`}
       >
         <div className="p-4 border-b border-gray-800 flex-shrink-0">
-          <Link to="/" className="flex items-center space-x-2">
-            <span className="text-xl font-bold text-primary">Avisander</span>
+          <Link to="/" className="flex items-center gap-2">
+            <img src="/logo-transparent.png" alt="Avisander" className="h-9 w-auto object-contain" />
             <span className="text-gray-400 text-sm">Admin</span>
           </Link>
         </div>
