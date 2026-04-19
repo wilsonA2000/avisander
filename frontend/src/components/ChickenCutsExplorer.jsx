@@ -51,7 +51,7 @@ const CUTS = [
     id: 'piernas',
     n: 4,
     label: 'Piernas (pernil)',
-    image: '/real-pollo-pierna.webp',
+    image: '/real-pollo-pierna-v2.webp',
     short: 'Favorito de los niños',
     desc: 'Hueso grande, cocción pareja, fácil de sujetar. Estrella de las parrillas y almuerzos familiares.',
     protein: '16g', fat: '9g', kcal: '172',
