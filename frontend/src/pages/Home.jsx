@@ -86,14 +86,20 @@ function Hero({ settings }) {
           }}
           aria-hidden="true"
         />
-        {/* Watermark logo estilo Aldelis. */}
-        <img
-          src="/logo-transparent.webp"
-          alt=""
+        {/* Firma tipográfica en el hero (estilo editorial). En lugar de embed
+            del logo oficial —que lleva placa amarilla y se ve pegado—, usamos
+            el nombre en la fuente de marca con opacidad baja. */}
+        <div
           aria-hidden="true"
-          className="pointer-events-none absolute right-4 bottom-4 md:right-10 md:bottom-8 w-24 md:w-36 opacity-60"
-          style={{ mixBlendMode: 'soft-light' }}
-        />
+          className="pointer-events-none absolute right-6 bottom-5 md:right-12 md:bottom-10 text-right"
+        >
+          <p className="font-display font-black tracking-tight text-white/15 text-3xl md:text-5xl leading-none italic">
+            Avisander
+          </p>
+          <p className="text-[9px] md:text-[11px] uppercase tracking-[0.3em] text-white/25 font-medium mt-1">
+            Carnicería Premium · Bucaramanga
+          </p>
+        </div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
