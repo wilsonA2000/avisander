@@ -136,15 +136,32 @@ function createApp({ enableRateLimit = true } = {}) {
     })
   )
 
-  // Medios (fotos productos, videos, recetas, publicidad). Ver backend/media/README.md
+  // Medios: dos capas con fallback.
+  //   1) Archivos del repo (iconos 3D, Lotties, QRs de pagos) — siempre presentes.
+  //   2) Archivos subidos dinámicamente (biblioteca, productos, videos, publicidad)
+  //      viven en el volumen persistente. En prod MEDIA_PATH=/data/media.
+  // Si un archivo no está en la capa 1, express.static cae a la 2. Si no está en
+  // ninguna, 404.
   app.use(
     '/media',
     express.static(path.join(__dirname, 'media'), {
       dotfiles: 'deny',
       maxAge: '7d',
-      index: false
+      index: false,
+      fallthrough: true
     })
   )
+  const mediaPath = process.env.MEDIA_PATH || path.join(__dirname, 'media')
+  if (mediaPath !== path.join(__dirname, 'media')) {
+    app.use(
+      '/media',
+      express.static(mediaPath, {
+        dotfiles: 'deny',
+        maxAge: '7d',
+        index: false
+      })
+    )
+  }
 
   app.use('/api/auth', authLimiter, authRoutes)
   app.use('/api/products', productRoutes)
