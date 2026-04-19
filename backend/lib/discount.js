@@ -21,6 +21,14 @@ function getSetting(key, defaultValue = null) {
  * @param {number|null} userId - id del usuario autenticado (null si invitado)
  * @param {number} subtotal - subtotal de items (antes del domicilio)
  */
+function normalizePhone(phone) {
+  if (!phone) return null
+  const digits = String(phone).replace(/\D/g, '')
+  if (!digits) return null
+  // Últimos 10 dígitos: ignora prefijos +57 o 0.
+  return digits.length > 10 ? digits.slice(-10) : digits
+}
+
 function computeFirstPurchaseDiscount(userId, subtotal) {
   if (!userId) return { amount: 0 }
   const enabled = getSetting('first_purchase_discount_enabled', '1')
@@ -40,7 +48,23 @@ function computeFirstPurchaseDiscount(userId, subtotal) {
     .get(userId)
   if (prev.n > 0) return { amount: 0 }
 
-  // Redondeo a pesos enteros (COP).
+  // Anti-fraude multi-cuenta: si el teléfono del usuario ya aparece en alguna
+  // orden histórica que haya recibido descuento (misma persona, email distinto),
+  // tampoco aplica. Compara últimos 10 dígitos para ignorar prefijos.
+  const user = db.prepare('SELECT phone FROM users WHERE id = ?').get(userId)
+  const phone = normalizePhone(user?.phone)
+  if (phone) {
+    const byPhone = db
+      .prepare(
+        `SELECT COUNT(*) as n FROM orders
+         WHERE discount_amount > 0
+           AND customer_phone IS NOT NULL
+           AND REPLACE(REPLACE(REPLACE(customer_phone,'+',''),' ',''),'-','') LIKE ?`
+      )
+      .get('%' + phone)
+    if (byPhone.n > 0) return { amount: 0 }
+  }
+
   const amount = Math.round((subtotal * percent) / 100)
   return {
     amount,
