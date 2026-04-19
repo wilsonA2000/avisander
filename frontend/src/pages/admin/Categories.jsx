@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { Plus, Pencil, Trash2, X, Upload, Image as ImageIcon } from 'lucide-react'
 import CategoryIcon from '../../components/CategoryIcon'
 import { api, apiFetchFormData } from '../../lib/apiClient'
+import { useToast } from '../../context/ToastContext'
 
 function Categories() {
+  const toast = useToast()
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -56,7 +58,7 @@ function Categories() {
       const data = await apiFetchFormData('/api/upload/image', fd)
       setFormData((prev) => ({ ...prev, hero_image: data.url }))
     } catch (err) {
-      alert(err.message || 'Error al subir imagen')
+      toast.error(err.message || 'Error al subir imagen')
     } finally {
       setUploading(false)
     }
@@ -88,7 +90,7 @@ function Categories() {
       setDeleteConfirm(null)
       fetchCategories()
     } catch (error) {
-      alert(error.message || 'No se puede eliminar la categoria')
+      toast.error(error.message || 'No se puede eliminar la categoria')
       setDeleteConfirm(null)
     }
   }
