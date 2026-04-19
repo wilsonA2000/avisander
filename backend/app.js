@@ -67,12 +67,15 @@ function createApp({ enableRateLimit = true } = {}) {
                 "'self'",
                 'https://wa.me',
                 'https://maps.googleapis.com',
-                'https://nominatim.openstreetmap.org'
+                'https://nominatim.openstreetmap.org',
+                'https://checkout.bold.co',
+                'https://integrations.api.bold.co'
               ],
               scriptSrc: [
                 "'self'",
                 'https://maps.googleapis.com',
-                'https://maps.gstatic.com'
+                'https://maps.gstatic.com',
+                'https://checkout.bold.co'
               ],
               styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
               mediaSrc: ["'self'", 'data:', 'blob:', 'https:'],
@@ -81,7 +84,8 @@ function createApp({ enableRateLimit = true } = {}) {
                 'https://www.google.com',
                 'https://www.youtube.com',
                 'https://www.youtube-nocookie.com',
-                'https://player.vimeo.com'
+                'https://player.vimeo.com',
+                'https://checkout.bold.co'
               ]
             }
           }
