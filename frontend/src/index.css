@@ -418,3 +418,17 @@
     box-shadow: none !important;
   }
 }
+
+/* Ken-burns: zoom lento + pan suave en el hero. Solo desktop (motion OK). */
+@keyframes hero-kenburns {
+  0%   { transform: scale(1.06) translate(0, 0); }
+  50%  { transform: scale(1.12) translate(-1.5%, -1%); }
+  100% { transform: scale(1.06) translate(0, 0); }
+}
+@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+  .hero-kenburns {
+    animation: hero-kenburns 22s ease-in-out infinite;
+    transform-origin: center 45%;
+    will-change: transform;
+  }
+}

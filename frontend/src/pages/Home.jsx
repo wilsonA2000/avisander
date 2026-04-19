@@ -34,32 +34,6 @@ const BANNER_CANDIDATES = [
 function Hero({ settings }) {
   const [banners, setBanners] = useState([])
   const [idx, setIdx] = useState(0)
-  const [heroVideoOk, setHeroVideoOk] = useState(false)
-
-  useEffect(() => {
-    // En mobile y conexiones lentas, el video es el cuello de botella del LCP.
-    // Mostramos solo el poster estático: mismo look cinemático, 0 descarga extra.
-    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
-    const conn = typeof navigator !== 'undefined' ? navigator.connection || navigator.mozConnection : null
-    const saveData = conn?.saveData === true
-    const slow = conn && /2g|slow-2g/.test(conn.effectiveType || '')
-    if (isMobile || saveData || slow) return
-    let cancelled = false
-    const probe = document.createElement('video')
-    probe.muted = true
-    probe.preload = 'metadata'
-    probe.src = '/media/videos/hero.mp4'
-    const onOk = () => { if (!cancelled) setHeroVideoOk(true); cleanup() }
-    const onFail = () => { if (!cancelled) setHeroVideoOk(false); cleanup() }
-    const cleanup = () => {
-      probe.removeEventListener('loadedmetadata', onOk)
-      probe.removeEventListener('error', onFail)
-    }
-    probe.addEventListener('loadedmetadata', onOk)
-    probe.addEventListener('error', onFail)
-    const t = setTimeout(onFail, 4000)
-    return () => { cancelled = true; clearTimeout(t); cleanup() }
-  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -89,45 +63,30 @@ function Hero({ settings }) {
   if (banners.length === 0) {
     return (
       <section
-        className="relative overflow-hidden rounded-3xl mb-10 min-h-[calc(100vh-180px)] md:min-h-[calc(100vh-200px)] flex items-center"
-        style={
-          heroVideoOk
-            ? undefined
-            : {
-                backgroundImage:
-                  "linear-gradient(95deg, rgba(26,26,26,0.85) 0%, rgba(90,20,26,0.75) 55%, rgba(26,26,26,0.35) 100%), image-set(url('/hero-poster-mobile.webp') 1x, url('/hero-poster.webp') 2x)",
-                backgroundSize: 'cover',
-                backgroundPosition: 'center'
-              }
-        }
+        className="relative overflow-hidden rounded-3xl mb-10 min-h-[calc(100vh-180px)] md:min-h-[calc(100vh-200px)] flex items-center bg-charcoal"
       >
-        {heroVideoOk && (
-          <>
-            <video
-              src="/media/videos/hero.mp4"
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-              poster="/hero-poster.webp"
-              onError={() => setHeroVideoOk(false)}
-              className="absolute inset-0 w-full h-full object-cover"
-              aria-hidden="true"
-            />
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  'linear-gradient(95deg, rgba(26,26,26,0.85) 0%, rgba(90,20,26,0.7) 55%, rgba(26,26,26,0.35) 100%)'
-              }}
-              aria-hidden="true"
-            />
-          </>
-        )}
-
-        {/* Logo integrado (watermark): no pegado como sticker, se funde con el
-            fondo usando mix-blend-soft-light + baja opacidad. Estilo Aldelis. */}
+        {/* Imagen IA del hero — LCP element. Animación ken-burns sutil solo en
+            desktop: scale lento + pan. No corre en mobile para no gastar GPU. */}
+        <picture className="absolute inset-0 w-full h-full">
+          <source media="(min-width: 768px)" srcSet="/hero-poster.webp" />
+          <img
+            src="/hero-poster-mobile.webp"
+            alt=""
+            aria-hidden="true"
+            fetchPriority="high"
+            className="absolute inset-0 w-full h-full object-cover hero-kenburns"
+          />
+        </picture>
+        {/* Gradient overlay: da legibilidad al texto sin tapar la imagen. */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'linear-gradient(95deg, rgba(26,26,26,0.82) 0%, rgba(90,20,26,0.65) 50%, rgba(26,26,26,0.3) 100%)'
+          }}
+          aria-hidden="true"
+        />
+        {/* Watermark logo estilo Aldelis. */}
         <img
           src="/logo-transparent.webp"
           alt=""
@@ -420,6 +379,38 @@ function Home() {
         </AnimatedSection>
       )}
 
+      {/* Banda descubrimiento: despiece interactivo */}
+      <AnimatedSection className="relative rounded-3xl overflow-hidden bg-charcoal text-white p-6 md:p-10">
+        <img
+          src="/ai-despiece-pollo.webp"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover opacity-40"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-charcoal via-charcoal/85 to-transparent" aria-hidden="true" />
+        <div className="relative grid md:grid-cols-2 gap-4 items-center">
+          <div>
+            <p className="inline-block text-[10px] uppercase tracking-[0.25em] text-primary font-semibold mb-2">
+              Guía del corte
+            </p>
+            <h2 className="font-display text-2xl md:text-3xl font-bold leading-tight mb-3">
+              Descubre cada parte del pollo
+            </h2>
+            <p className="text-white/75 mb-5 max-w-md leading-relaxed">
+              Pechuga, muslos, alas, piernas, rabadilla. Explora en qué receta
+              brilla cada corte, cuánta proteína aporta y cómo prepararlo.
+            </p>
+            <Link
+              to="/despiece/pollo"
+              className="inline-flex items-center gap-2 bg-white text-charcoal hover:bg-cream font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-lg"
+            >
+              Explorar el pollo <ArrowRight size={16} />
+            </Link>
+          </div>
+          <div className="hidden md:block" />
+        </div>
+      </AnimatedSection>
+
       {/* Destacados — carrusel para soportar cualquier cantidad >= 1 */}
       {featured.length > 0 && (
         <AnimatedSection>
@@ -440,14 +431,14 @@ function Home() {
       )}
 
       {recentlyViewed.length > 0 && (
-        <section>
+        <AnimatedSection>
           <ProductCarousel title="Sigue comprando" items={recentlyViewed.slice(0, 12)} />
-        </section>
+        </AnimatedSection>
       )}
 
       {/* En oferta */}
       {onSale.length > 0 && (
-        <section>
+        <AnimatedSection>
           <div className="flex items-end justify-between mb-5">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center">
@@ -466,20 +457,20 @@ function Home() {
             </Link>
           </div>
           <ProductCarousel items={onSale} />
-        </section>
+        </AnimatedSection>
       )}
 
       {newest.length > 0 && (
-        <section>
+        <AnimatedSection>
           <ProductCarousel title="Recién agregados" items={newest} />
-        </section>
+        </AnimatedSection>
       )}
 
       <PromoBanner />
 
       {/* Recetas */}
       {recipes.length > 0 && (
-        <section>
+        <AnimatedSection>
           <div className="flex items-end justify-between mb-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
@@ -525,7 +516,7 @@ function Home() {
               </motion.div>
             ))}
           </div>
-        </section>
+        </AnimatedSection>
       )}
 
       {loading && featured.length === 0 && (

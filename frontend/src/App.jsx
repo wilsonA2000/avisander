@@ -32,6 +32,7 @@ const Ayuda = lazy(() => import('./pages/Ayuda'))
 const PqrsPage = lazy(() => import('./pages/Pqrs'))
 const PoliticaPrivacidad = lazy(() => import('./pages/PoliticaPrivacidad'))
 const PoliticaSarlaft = lazy(() => import('./pages/PoliticaSarlaft'))
+const DespiecePollo = lazy(() => import('./pages/DespiecePollo'))
 
 // Admin: bundle separado. El cliente público nunca lo descarga.
 const AdminLayout = lazy(() => import('./components/AdminLayout'))
@@ -95,6 +96,7 @@ function App() {
         <Route path="pqrs" element={<PqrsPage />} />
         <Route path="politica-privacidad" element={<PoliticaPrivacidad />} />
         <Route path="politica-sarlaft" element={<PoliticaSarlaft />} />
+        <Route path="despiece/pollo" element={<DespiecePollo />} />
         <Route
           path="mi-cuenta"
           element={
