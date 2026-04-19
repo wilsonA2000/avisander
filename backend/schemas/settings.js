@@ -69,11 +69,46 @@ const PUBLIC_KEYS = [
   'loyalty_point_value'
 ]
 
+// Validaciones por clave: evita valores sin sentido (tax negativo, coords
+// fuera de rango, etc.). Aplica tras la conversión a número/boolean.
+// Las claves no listadas aquí solo se validan como "pertenecen a WRITABLE_KEYS".
+const VALUE_RULES = {
+  delivery_cost: { num: true, min: 0, max: 200000 },
+  free_shipping_threshold: { num: true, min: 0, max: 10000000 },
+  tax_rate: { num: true, min: 0, max: 100 },
+  store_lat: { num: true, min: -90, max: 90 },
+  store_lng: { num: true, min: -180, max: 180 },
+  first_purchase_discount_percent: { num: true, min: 0, max: 100 },
+  loyalty_points_per_1000: { num: true, min: 0, max: 10000 },
+  loyalty_point_value: { num: true, min: 0, max: 100000 }
+}
+
+function validateValue(key, value) {
+  const rule = VALUE_RULES[key]
+  if (!rule) return null
+  if (rule.num) {
+    const n = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(n)) return `${key} debe ser un número`
+    if (n < rule.min || n > rule.max) return `${key} debe estar entre ${rule.min} y ${rule.max}`
+  }
+  return null
+}
+
 const settingsUpdateSchema = z
   .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
-  .refine(
-    (obj) => Object.keys(obj).every((k) => WRITABLE_KEYS.includes(k)),
-    { message: `Solo estas claves son editables: ${WRITABLE_KEYS.join(', ')}` }
-  )
+  .superRefine((obj, ctx) => {
+    for (const [k, v] of Object.entries(obj)) {
+      if (!WRITABLE_KEYS.includes(k)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [k],
+          message: `Clave no permitida: "${k}"`
+        })
+        continue
+      }
+      const err = validateValue(k, v)
+      if (err) ctx.addIssue({ code: 'custom', path: [k], message: err })
+    }
+  })
 
-module.exports = { settingsUpdateSchema, WRITABLE_KEYS, PUBLIC_KEYS }
+module.exports = { settingsUpdateSchema, WRITABLE_KEYS, PUBLIC_KEYS, VALUE_RULES }

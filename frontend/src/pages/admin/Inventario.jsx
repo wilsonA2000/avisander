@@ -73,6 +73,7 @@ function Inventario() {
     e.preventDefault()
     const qty = Number(form.quantity)
     if (!qty || isNaN(qty)) return toast.warn('Cantidad requerida (positivo o negativo)')
+    if (Math.abs(qty) > 20000) return toast.warn('Cantidad fuera de rango (máx. ±20.000)')
     if (!form.notes.trim()) return toast.warn('Razón del ajuste requerida')
     try {
       await api.post('/api/inventory/adjust', {
@@ -259,6 +260,8 @@ function Inventario() {
                   className="input"
                   type="number"
                   step="0.01"
+                  min="-20000"
+                  max="20000"
                   required
                   value={form.quantity}
                   onChange={(e) => setForm({ ...form, quantity: e.target.value })}

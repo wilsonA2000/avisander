@@ -733,7 +733,8 @@ function Products() {
                       onChange={(e) => setFormData({ ...formData, price_per_kg: e.target.value })}
                       className="input"
                       required
-                      min="0"
+                      min="100"
+                      max="10000000"
                       step="100"
                       placeholder="Ej: 35000"
                     />
@@ -751,7 +752,9 @@ function Products() {
                         onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                         className="input"
                         required
-                        min="0"
+                        min="100"
+                        max="10000000"
+                        step="100"
                       />
                     </div>
                     <div>
@@ -762,6 +765,8 @@ function Products() {
                         onChange={(e) => setFormData({ ...formData, original_price: e.target.value })}
                         className="input"
                         min="0"
+                        max="10000000"
+                        step="100"
                       />
                     </div>
                   </>
