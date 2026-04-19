@@ -187,7 +187,7 @@ function Inventario() {
                       {p.last_movement_at ? (
                         <>
                           {TYPE_LABEL[p.last_movement_type] || p.last_movement_type}
-                          <div>{new Date(p.last_movement_at).toLocaleString('es-CO')}</div>
+                          <div>{fmtDateTime(p.last_movement_at)}</div>
                         </>
                       ) : (
                         '—'

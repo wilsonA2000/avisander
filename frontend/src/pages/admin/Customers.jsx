@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import { Search, MessageCircle, X, User as UserIcon, Package, DollarSign, Calendar } from 'lucide-react'
 import { api } from '../../lib/apiClient'
+import { fmtDate } from '../../lib/format'
 
 function fmtCOP(n) { return `$${Math.round(Number(n) || 0).toLocaleString('es-CO')}` }
-function fmtDate(s) { return s ? new Date(s).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—' }
 function initials(name) {
   return String(name || '?').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
 }
