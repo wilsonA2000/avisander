@@ -87,7 +87,7 @@ function Hero({ settings }) {
             ? undefined
             : {
                 backgroundImage:
-                  "linear-gradient(95deg, rgba(26,26,26,0.85) 0%, rgba(90,20,26,0.75) 55%, rgba(26,26,26,0.35) 100%), url('https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=1920&q=80&auto=format&fit=crop')",
+                  "linear-gradient(95deg, rgba(26,26,26,0.85) 0%, rgba(90,20,26,0.75) 55%, rgba(26,26,26,0.35) 100%), url('https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=1200&q=70&fm=webp&auto=format&fit=crop')",
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
               }
@@ -101,6 +101,8 @@ function Hero({ settings }) {
               muted
               loop
               playsInline
+              preload="metadata"
+              poster="/hero-poster.webp"
               onError={() => setHeroVideoOk(false)}
               className="absolute inset-0 w-full h-full object-cover"
               aria-hidden="true"

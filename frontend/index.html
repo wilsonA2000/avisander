@@ -18,9 +18,16 @@
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Preconnect a dominios críticos: ahorra ~100-300ms en primer fetch. -->
+    <!-- Cloudflare Insights se carga automáticamente desde el edge. -->
+    <link rel="preconnect" href="https://static.cloudflareinsights.com">
+    <!-- Bold: script del botón de pago (sólo relevante en /carrito). -->
+    <link rel="dns-prefetch" href="https://checkout.bold.co">
+    <!-- Google Maps: cuando el cliente busca dirección. -->
+    <link rel="dns-prefetch" href="https://maps.googleapis.com">
+    <link rel="dns-prefetch" href="https://places.googleapis.com">
+    <!-- Hero: imagen externa actual (será reemplazada por local). -->
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
   </head>
   <body>
     <div id="root"></div>

@@ -1,55 +1,69 @@
 import { Routes, Route } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 import IdleCursorPet from './components/IdleCursorPet'
 import { usePageTracking } from './hooks/usePageTracking'
 import Layout from './components/Layout'
-import AdminLayout from './components/AdminLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 
-// Public pages
+// Home, Products y Cart son el camino crítico del cliente — eager para que
+// el LCP no espere a un chunk.
 import Home from './pages/Home'
 import Products from './pages/Products'
 import ProductDetail from './pages/ProductDetail'
 import CategoryProducts from './pages/CategoryProducts'
 import Cart from './pages/Cart'
-import Login from './pages/Login'
-import Register from './pages/Register'
-import ForgotPassword from './pages/ForgotPassword'
-import ResetPassword from './pages/ResetPassword'
-import ChangePassword from './pages/ChangePassword'
-import MyAccount from './pages/MyAccount'
-import Recipes from './pages/Recipes'
-import RecipeDetail from './pages/RecipeDetail'
-import PaymentResult from './pages/PaymentResult'
-import OrderTracking from './pages/OrderTracking'
-import NotFound from './pages/NotFound'
 
-// Admin pages
-import AdminDashboard from './pages/admin/Dashboard'
-import AdminProducts from './pages/admin/Products'
-import AdminCategories from './pages/admin/Categories'
-import AdminOrders from './pages/admin/Orders'
-import AdminSettings from './pages/admin/Settings'
-import AdminRecipes from './pages/admin/Recipes'
-import AdminMedia from './pages/admin/MediaLibrary'
-import AdminCustomers from './pages/admin/Customers'
-import AdminInventario from './pages/admin/Inventario'
-import AdminProveedores from './pages/admin/Proveedores'
-import AdminCompras from './pages/admin/Compras'
-import AdminPqrs from './pages/admin/Pqrs'
-import AdminEstudioMultimedia from './pages/admin/EstudioMultimedia'
-import Nosotros from './pages/Nosotros'
-import Equipo from './pages/Equipo'
-import Ubicacion from './pages/Ubicacion'
-import Ayuda from './pages/Ayuda'
-import PqrsPage from './pages/Pqrs'
-import PoliticaPrivacidad from './pages/PoliticaPrivacidad'
-import PoliticaSarlaft from './pages/PoliticaSarlaft'
+// Todo lo demás es lazy: no lo carga el cliente hasta que navega allí.
+const Login = lazy(() => import('./pages/Login'))
+const Register = lazy(() => import('./pages/Register'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const ChangePassword = lazy(() => import('./pages/ChangePassword'))
+const MyAccount = lazy(() => import('./pages/MyAccount'))
+const Recipes = lazy(() => import('./pages/Recipes'))
+const RecipeDetail = lazy(() => import('./pages/RecipeDetail'))
+const PaymentResult = lazy(() => import('./pages/PaymentResult'))
+const OrderTracking = lazy(() => import('./pages/OrderTracking'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+const Nosotros = lazy(() => import('./pages/Nosotros'))
+const Equipo = lazy(() => import('./pages/Equipo'))
+const Ubicacion = lazy(() => import('./pages/Ubicacion'))
+const Ayuda = lazy(() => import('./pages/Ayuda'))
+const PqrsPage = lazy(() => import('./pages/Pqrs'))
+const PoliticaPrivacidad = lazy(() => import('./pages/PoliticaPrivacidad'))
+const PoliticaSarlaft = lazy(() => import('./pages/PoliticaSarlaft'))
+
+// Admin: bundle separado. El cliente público nunca lo descarga.
+const AdminLayout = lazy(() => import('./components/AdminLayout'))
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
+const AdminProducts = lazy(() => import('./pages/admin/Products'))
+const AdminCategories = lazy(() => import('./pages/admin/Categories'))
+const AdminOrders = lazy(() => import('./pages/admin/Orders'))
+const AdminSettings = lazy(() => import('./pages/admin/Settings'))
+const AdminRecipes = lazy(() => import('./pages/admin/Recipes'))
+const AdminMedia = lazy(() => import('./pages/admin/MediaLibrary'))
+const AdminCustomers = lazy(() => import('./pages/admin/Customers'))
+const AdminInventario = lazy(() => import('./pages/admin/Inventario'))
+const AdminProveedores = lazy(() => import('./pages/admin/Proveedores'))
+const AdminCompras = lazy(() => import('./pages/admin/Compras'))
+const AdminPqrs = lazy(() => import('./pages/admin/Pqrs'))
+// Estudio AI (Konva + FFmpeg wasm) pesa decenas de MB. Lazy obligatorio.
+const AdminEstudioMultimedia = lazy(() => import('./pages/admin/EstudioMultimedia'))
+
+function PageSkeleton() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+    </div>
+  )
+}
 
 function App() {
   usePageTracking()
   return (
     <>
     <IdleCursorPet />
+    <Suspense fallback={<PageSkeleton />}>
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<Layout />}>
@@ -118,6 +132,7 @@ function App() {
       {/* 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </Suspense>
     </>
   )
 }

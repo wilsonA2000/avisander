@@ -60,8 +60,10 @@ function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center flex-shrink-0" aria-label="Avisander - Inicio">
             <img
-              src="/logo.png"
+              src="/logo.webp"
               alt="Avisander"
+              width="140"
+              height="56"
               className="h-10 md:h-14 w-auto object-contain"
             />
           </Link>

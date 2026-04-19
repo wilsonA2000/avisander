@@ -186,7 +186,7 @@ function RecipeDetail() {
       {/* Header de impresión: solo aparece al imprimir (ver @media print en index.css) */}
       <div className="print-only print-header">
         <div className="print-brand">
-          <img src="/logo.png" alt="Avisander" className="print-logo" />
+          <img src="/logo.webp" alt="Avisander" className="print-logo" />
           <div className="print-tagline">Carnicería Premium · Bucaramanga</div>
         </div>
         <div className="print-meta">

@@ -1,4 +1,10 @@
 import { Outlet, NavLink, Link } from 'react-router-dom'
+// Inter y Playfair solo se usan en el admin (impresión de pedidos, editor
+// multimedia). Se cargan aquí para que el bundle público no las descargue.
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/700.css'
+import '@fontsource/playfair-display/700.css'
+import '@fontsource/playfair-display/900.css'
 import {
   LayoutDashboard,
   Package,

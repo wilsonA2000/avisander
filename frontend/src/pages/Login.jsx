@@ -39,8 +39,10 @@ function Login() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-xl shadow-lg p-8">
           <img
-            src="/logo.png"
+            src="/logo.webp"
             alt="Avisander"
+            width="200"
+            height="64"
             className="h-16 w-auto mx-auto mb-4 object-contain"
           />
           <h1 className="text-2xl font-bold text-center mb-6">Iniciar Sesión</h1>
