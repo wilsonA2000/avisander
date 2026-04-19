@@ -63,12 +63,22 @@ function createApp({ enableRateLimit = true } = {}) {
             directives: {
               defaultSrc: ["'self'"],
               imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-              connectSrc: ["'self'", 'https://wa.me'],
-              scriptSrc: ["'self'"],
-              styleSrc: ["'self'", "'unsafe-inline'"],
+              connectSrc: [
+                "'self'",
+                'https://wa.me',
+                'https://maps.googleapis.com',
+                'https://nominatim.openstreetmap.org'
+              ],
+              scriptSrc: [
+                "'self'",
+                'https://maps.googleapis.com',
+                'https://maps.gstatic.com'
+              ],
+              styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
               mediaSrc: ["'self'", 'data:', 'blob:', 'https:'],
               frameSrc: [
                 "'self'",
+                'https://www.google.com',
                 'https://www.youtube.com',
                 'https://www.youtube-nocookie.com',
                 'https://player.vimeo.com'

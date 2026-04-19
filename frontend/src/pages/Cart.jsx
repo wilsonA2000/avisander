@@ -1120,25 +1120,37 @@ function Cart() {
 
                   {/* Fila inferior: qty + total (apilados en su propia fila en móvil) */}
                   <div className="flex items-center justify-between mt-3 ml-[76px] sm:ml-[92px]">
-                    {!isWeight ? (
-                      <div className="flex items-center border rounded-lg">
-                        <button
-                          onClick={() => updateLine(item.id, { quantity: Math.max(1, item.quantity - 1) })}
-                          className="p-1.5 sm:p-2 hover:bg-gray-100 transition-colors"
-                          aria-label="Reducir cantidad"
-                        >
-                          <Minus size={14} />
-                        </button>
-                        <span className="w-8 sm:w-12 text-center text-sm font-medium">{item.quantity}</span>
-                        <button
-                          onClick={() => updateLine(item.id, { quantity: item.quantity + 1 })}
-                          className="p-1.5 sm:p-2 hover:bg-gray-100 transition-colors"
-                          aria-label="Aumentar cantidad"
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
-                    ) : (
+                    {!isWeight ? (() => {
+                      const hasStock = item.product.stock !== undefined && item.product.stock !== null
+                      const stock = Number(item.product.stock) || 0
+                      const atMax = hasStock && item.quantity >= stock
+                      return (
+                        <div className="flex items-center border rounded-lg">
+                          <button
+                            onClick={() => updateLine(item.id, { quantity: Math.max(1, item.quantity - 1) })}
+                            className="p-1.5 sm:p-2 hover:bg-gray-100 transition-colors"
+                            aria-label="Reducir cantidad"
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span className="w-8 sm:w-12 text-center text-sm font-medium">{item.quantity}</span>
+                          <button
+                            onClick={() => {
+                              if (atMax) {
+                                toast.warn(`Solo hay ${stock} en inventario`)
+                                return
+                              }
+                              updateLine(item.id, { quantity: item.quantity + 1 })
+                            }}
+                            disabled={atMax}
+                            className="p-1.5 sm:p-2 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                            aria-label="Aumentar cantidad"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      )
+                    })() : (
                       <span />
                     )}
                     <p className="font-semibold text-gray-800">{fmt(lt)}</p>
