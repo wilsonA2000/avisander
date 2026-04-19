@@ -16,5 +16,18 @@ backend/backups/
 backend/database.sqlite
 backend/database.sqlite-*
 backend/tests
+backend/test-*.mjs
+
+# Media pesada: NO entra al build (está en volumen Fly o se re-sube vía admin).
+# Sólo entran los iconos, lotties y QRs de pagos que sí están en git.
+backend/media/biblioteca/
+backend/media/videos/
+backend/media/productos/
+backend/media/recetas/
+backend/media/avatares/
+backend/media/publicidad/
+backend/media/ia/
+
 TUTELAS*
 CLAUDE.md
+*.bak*
