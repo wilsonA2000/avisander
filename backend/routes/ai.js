@@ -2,10 +2,13 @@
 // Todas requieren autenticación admin.
 
 const express = require('express')
+const rateLimit = require('express-rate-limit')
 const path = require('path')
 const fs = require('fs')
 const crypto = require('crypto')
 const { authenticateToken, requireAdmin } = require('../middleware/auth')
+const { validate } = require('../middleware/validate')
+const { aiGenerateImageSchema, aiImageUrlSchema, aiAssistantSchema } = require('../schemas/ai')
 const { db } = require('../db/database')
 const replicate = require('../lib/replicate')
 const logger = require('../lib/logger')
@@ -13,6 +16,15 @@ const logger = require('../lib/logger')
 const router = express.Router()
 
 router.use(authenticateToken, requireAdmin)
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60_000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `user:${req.user?.id || 'anon'}`,
+  message: { error: 'Has alcanzado el límite de solicitudes de IA por hora. Intenta más tarde.' }
+})
 
 const AI_DIR = path.join(__dirname, '..', 'media', 'ia')
 fs.mkdirSync(AI_DIR, { recursive: true })
@@ -49,24 +61,15 @@ router.get('/status', (_req, res) => {
   res.json({ enabled: replicate.isEnabled() })
 })
 
-router.post('/generate-image', async (req, res, next) => {
+router.post('/generate-image', aiLimiter, validate(aiGenerateImageSchema), async (req, res, next) => {
   try {
-    const {
+    const { prompt, negative_prompt, aspect_ratio, num_outputs, model } = req.body
+    const out = await replicate.generateImage({
       prompt,
       negative_prompt,
-      aspect_ratio = '1:1',
-      num_outputs = 1,
-      model = 'flux-schnell'
-    } = req.body
-    if (!prompt || prompt.trim().length < 5) {
-      return res.status(400).json({ error: 'Prompt requerido (mínimo 5 caracteres).' })
-    }
-    const out = await replicate.generateImage({
-      prompt: prompt.trim(),
-      negative_prompt,
       aspect_ratio,
-      num_outputs: Math.min(4, Math.max(1, parseInt(num_outputs) || 1)),
-      model: model === 'flux-dev' ? 'flux-dev' : 'flux-schnell'
+      num_outputs,
+      model
     })
 
     const persisted = await Promise.all(
@@ -92,10 +95,9 @@ router.post('/generate-image', async (req, res, next) => {
   }
 })
 
-router.post('/remove-background', async (req, res, next) => {
+router.post('/remove-background', aiLimiter, validate(aiImageUrlSchema), async (req, res, next) => {
   try {
     const { image_url } = req.body
-    if (!image_url) return res.status(400).json({ error: 'image_url requerido' })
     const out = await replicate.removeBackground(image_url)
     if (!out.output) return res.status(500).json({ error: 'Sin output' })
     const local = await persistOutput(out.output, 'png')
@@ -109,10 +111,9 @@ router.post('/remove-background', async (req, res, next) => {
   }
 })
 
-router.post('/upscale', async (req, res, next) => {
+router.post('/upscale', aiLimiter, validate(aiImageUrlSchema), async (req, res, next) => {
   try {
     const { image_url } = req.body
-    if (!image_url) return res.status(400).json({ error: 'image_url requerido' })
     const out = await replicate.upscale(image_url)
     if (!out.output) return res.status(500).json({ error: 'Sin output' })
     const local = await persistOutput(out.output, 'png')
@@ -197,14 +198,13 @@ const CONTENT_TYPES = {
   }
 }
 
-router.post('/assistant/generate', async (req, res, next) => {
+router.post('/assistant/generate', aiLimiter, validate(aiAssistantSchema), async (req, res, next) => {
   try {
     if (!anthropic.isEnabled()) {
       return res.status(400).json({ error: 'ANTHROPIC_API_KEY no configurada en backend/.env' })
     }
     const { type, product_id, prompt: customPrompt } = req.body
     const config = CONTENT_TYPES[type]
-    if (!config) return res.status(400).json({ error: `Tipo inválido: ${type}` })
 
     let product = { name: '', price: 0, category_name: '', description: '' }
     if (product_id) {

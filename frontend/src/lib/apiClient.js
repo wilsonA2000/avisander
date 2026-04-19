@@ -1,51 +1,22 @@
-// Cliente HTTP centralizado: inyecta el access token, maneja refresh
-// automático en 401 (una vez por request) y lanza Error con el mensaje del backend.
-
-const ACCESS_KEY = 'token'
-const REFRESH_KEY = 'refreshToken'
+// Cliente HTTP centralizado: envía cookies httpOnly automáticamente (credentials:'include'),
+// maneja refresh en 401 (una vez por request) y lanza Error con el mensaje del backend.
+// El access_token y refresh_token viven en cookies, no en localStorage.
 
 const baseUrl = import.meta.env.VITE_API_URL || '' // en dev: proxy Vite
-
-function getAccessToken() {
-  return localStorage.getItem(ACCESS_KEY)
-}
-
-function getRefreshToken() {
-  return localStorage.getItem(REFRESH_KEY)
-}
-
-export function setTokens({ token, refreshToken }) {
-  if (token) localStorage.setItem(ACCESS_KEY, token)
-  if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken)
-}
-
-export function clearTokens() {
-  localStorage.removeItem(ACCESS_KEY)
-  localStorage.removeItem(REFRESH_KEY)
-}
 
 let refreshing = null
 
 async function tryRefresh() {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) return false
   if (refreshing) return refreshing
   refreshing = (async () => {
     try {
       const res = await fetch(`${baseUrl}/api/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken })
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
       })
-      if (!res.ok) {
-        clearTokens()
-        return false
-      }
-      const data = await res.json()
-      setTokens(data)
-      return true
+      return res.ok
     } catch {
-      clearTokens()
       return false
     } finally {
       refreshing = null
@@ -72,20 +43,17 @@ export async function apiFetch(path, { method = 'GET', body, headers = {}, skipA
     const h = { ...headers }
     const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
     if (body !== undefined && !isFormData) h['Content-Type'] = 'application/json'
-    if (!skipAuth) {
-      const token = getAccessToken()
-      if (token) h['Authorization'] = `Bearer ${token}`
-    }
     return fetch(`${baseUrl}${path}`, {
       method,
       headers: h,
+      credentials: 'include',
       body: body !== undefined ? (isFormData ? body : JSON.stringify(body)) : undefined
     })
   }
 
   let res = await doFetch()
 
-  if (res.status === 401 && !skipAuth && getRefreshToken()) {
+  if (res.status === 401 && !skipAuth) {
     const ok = await tryRefresh()
     if (ok) res = await doFetch()
   }
@@ -99,4 +67,21 @@ export const api = {
   put: (path, body, opts) => apiFetch(path, { ...opts, method: 'PUT', body }),
   patch: (path, body, opts) => apiFetch(path, { ...opts, method: 'PATCH', body }),
   delete: (path, opts) => apiFetch(path, { ...opts, method: 'DELETE' })
+}
+
+// Helper para uploads multipart/form-data. Envía cookies httpOnly con credentials:include.
+export async function apiFetchFormData(path, formData, { method = 'POST' } = {}) {
+  const res = await fetch(`${baseUrl}${path}`, {
+    method,
+    credentials: 'include',
+    body: formData
+  })
+  if (res.status === 401) {
+    const ok = await tryRefresh()
+    if (ok) {
+      const retry = await fetch(`${baseUrl}${path}`, { method, credentials: 'include', body: formData })
+      return parseOrThrow(retry)
+    }
+  }
+  return parseOrThrow(res)
 }

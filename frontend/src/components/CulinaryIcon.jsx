@@ -1,131 +1,132 @@
-// Ícono 3D premium para usos culinarios. Usa PNG renderizado 3D (Fluent Emoji).
-// Fallback a lucide si el archivo no está disponible.
-
 import {
   Flame,
   Utensils,
   ChefHat,
   Microwave,
   Droplets,
-  Sparkles,
+  Wind,
   CookingPot,
-  Salad,
-  Pizza
+  Pizza,
+  ThermometerSun
 } from 'lucide-react'
 
-// Cada uso tiene label + gradiente de glow sutil coherente con la acción.
-// Los gradientes ahora son más saturados y definen el halo alrededor del icono 3D.
 export const CULINARY_USES = {
   asar: {
     label: 'Asar',
     description: 'Al horno o a las brasas, sellando jugos',
     Icon: Flame,
-    glow: 'from-orange-500/25 to-red-500/10',
-    iconColor: 'text-orange-700',
-    emoji: '🔥'
+    color: 'text-orange-600',
+    bg: 'bg-orange-50',
+    hoverBg: 'group-hover:bg-orange-100',
+    anim: 'culinary-flicker'
   },
   parrilla: {
     label: 'Parrilla',
     description: 'Directo a la brasa con marca de parrilla',
-    Icon: Flame,
-    glow: 'from-red-500/25 to-amber-500/10',
-    iconColor: 'text-red-700',
-    emoji: '🔥'
+    Icon: ThermometerSun,
+    color: 'text-red-600',
+    bg: 'bg-red-50',
+    hoverBg: 'group-hover:bg-red-100',
+    anim: 'culinary-pulse'
   },
   freir: {
     label: 'Freír',
     description: 'En sartén con aceite caliente',
-    Icon: CookingPot,
-    glow: 'from-amber-400/25 to-yellow-400/10',
-    iconColor: 'text-amber-700',
-    emoji: '🍳'
+    Icon: Utensils,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50',
+    hoverBg: 'group-hover:bg-amber-100',
+    anim: 'culinary-shake'
   },
   sofreir: {
     label: 'Sofreír',
     description: 'A fuego medio con poco aceite',
     Icon: Utensils,
-    glow: 'from-lime-400/25 to-amber-400/10',
-    iconColor: 'text-amber-700',
-    emoji: '🥘'
+    color: 'text-yellow-700',
+    bg: 'bg-yellow-50',
+    hoverBg: 'group-hover:bg-yellow-100',
+    anim: 'culinary-shake'
   },
   hornear: {
     label: 'Hornear',
     description: 'Cocción lenta y uniforme en horno',
     Icon: Pizza,
-    glow: 'from-amber-500/25 to-orange-500/10',
-    iconColor: 'text-orange-700',
-    emoji: '🥧'
+    color: 'text-orange-700',
+    bg: 'bg-orange-50',
+    hoverBg: 'group-hover:bg-orange-100',
+    anim: 'culinary-pulse'
   },
   estofar: {
     label: 'Estofar',
     description: 'Cocción lenta en salsa o caldo',
     Icon: CookingPot,
-    glow: 'from-rose-500/25 to-red-500/10',
-    iconColor: 'text-rose-700',
-    emoji: '🍲'
+    color: 'text-rose-600',
+    bg: 'bg-rose-50',
+    hoverBg: 'group-hover:bg-rose-100',
+    anim: 'culinary-bubble'
   },
   guisar: {
     label: 'Guisar',
     description: 'En olla con hogao y especias',
     Icon: CookingPot,
-    glow: 'from-orange-500/25 to-rose-500/10',
-    iconColor: 'text-rose-700',
-    emoji: '🍲'
+    color: 'text-red-700',
+    bg: 'bg-red-50',
+    hoverBg: 'group-hover:bg-red-100',
+    anim: 'culinary-bubble'
   },
   sudar: {
     label: 'Sudar',
     description: 'A fuego bajo tapado en su propio jugo',
     Icon: Droplets,
-    glow: 'from-sky-500/25 to-cyan-500/10',
-    iconColor: 'text-sky-700',
-    emoji: '💦'
+    color: 'text-sky-600',
+    bg: 'bg-sky-50',
+    hoverBg: 'group-hover:bg-sky-100',
+    anim: 'culinary-steam'
   },
   ahumar: {
     label: 'Ahumar',
     description: 'Cocción lenta con humo aromático',
-    Icon: Sparkles,
-    glow: 'from-stone-500/25 to-amber-500/10',
-    iconColor: 'text-stone-700',
-    emoji: '🪵'
+    Icon: Wind,
+    color: 'text-stone-600',
+    bg: 'bg-stone-50',
+    hoverBg: 'group-hover:bg-stone-100',
+    anim: 'culinary-steam'
   },
   cocinar: {
     label: 'Cocinar',
     description: 'Hervido o preparación estándar',
     Icon: ChefHat,
-    glow: 'from-primary/25 to-amber-400/10',
-    iconColor: 'text-primary',
-    emoji: '👨\u200d🍳'
+    color: 'text-primary',
+    bg: 'bg-orange-50',
+    hoverBg: 'group-hover:bg-orange-100',
+    anim: 'culinary-bounce'
   },
   microondas: {
     label: 'Microondas',
     description: 'Calentar rápidamente',
     Icon: Microwave,
-    glow: 'from-cyan-500/25 to-blue-500/10',
-    iconColor: 'text-slate-700',
-    emoji: '⚡'
+    color: 'text-slate-600',
+    bg: 'bg-slate-50',
+    hoverBg: 'group-hover:bg-slate-100',
+    anim: 'culinary-pulse'
   }
 }
 
-/**
- * @param {string} slug   Uno de los keys de CULINARY_USES.
- * @param {'card'|'pill'|'inline'} variant
- * @param {'sm'|'md'|'lg'} size
- */
 function CulinaryIcon({ slug, variant = 'card', size = 'md', className = '' }) {
   const use = CULINARY_USES[slug]
   if (!use) return null
-  const { Icon, glow, iconColor, label } = use
+  const { Icon, color, bg, hoverBg, label, description, anim } = use
 
   const sizeMap = {
-    sm: { wrap: 'w-14 h-14', img: 'w-10 h-10', icon: 18 },
-    md: { wrap: 'w-20 h-20', img: 'w-16 h-16', icon: 22 },
-    lg: { wrap: 'w-24 h-24', img: 'w-20 h-20', icon: 28 }
+    sm: { wrap: 'w-10 h-10', icon: 18, text: 'text-[10px]' },
+    md: { wrap: 'w-12 h-12', icon: 22, text: 'text-xs' },
+    lg: { wrap: 'w-16 h-16', icon: 28, text: 'text-sm' }
   }
   const s = sizeMap[size] || sizeMap.md
 
   if (variant === 'inline') {
     return (
-      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${iconColor} ${className}`}>
+      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${color} ${className}`}>
         <Icon size={14} />
         {label}
       </span>
@@ -135,60 +136,32 @@ function CulinaryIcon({ slug, variant = 'card', size = 'md', className = '' }) {
   if (variant === 'pill') {
     return (
       <span
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-br ${glow}
+        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${bg}
                     border border-gray-200/60 shadow-sm text-xs font-semibold text-charcoal
                     ${className}`}
       >
-        <Icon size={14} strokeWidth={2.5} className={iconColor} />
+        <Icon size={14} strokeWidth={2.5} className={color} />
         {label}
       </span>
     )
   }
 
-  // card (default): PNG 3D premium. Primero intenta /3d/ (clay Iconscout),
-  // luego cae a /usos/ (Fluent Emoji actual), y finalmente a lucide.
-  const pngSrc = `/media/iconos/3d/${slug}.png`
-  const pngFallback = `/media/iconos/usos/${slug}.png`
   return (
-    <div className={`flex flex-col items-center gap-2 group ${className}`}>
+    <div className={`group flex flex-col items-center gap-2 cursor-default ${className}`} title={description}>
       <div
-        className={`${s.wrap} rounded-2xl relative overflow-hidden
-                    bg-gradient-to-br ${glow}
+        className={`${s.wrap} rounded-xl ${bg} ${hoverBg}
                     border border-gray-200/70
-                    shadow-[0_4px_20px_-8px_rgba(0,0,0,0.12)]
+                    flex items-center justify-center
                     transition-all duration-300
-                    group-hover:shadow-[0_8px_30px_-6px_rgba(245,130,32,0.25)]
-                    group-hover:scale-105 group-hover:-translate-y-0.5
-                    flex items-center justify-center`}
-        aria-label={label}
+                    group-hover:shadow-md group-hover:-translate-y-1`}
       >
-        {/* Halo radial sutil */}
-        <div className={`absolute inset-0 bg-gradient-radial ${glow} opacity-50 blur-md`} aria-hidden="true"/>
-        <img
-          src={pngSrc}
-          alt={label}
-          loading="lazy"
-          className={`${s.img} relative z-10 object-contain transition-transform duration-300 group-hover:scale-110 group-hover:rotate-[-4deg] drop-shadow-[0_4px_12px_rgba(0,0,0,0.18)]`}
-          onError={(e) => {
-            // Primer error: intenta el PNG de /usos/ (Fluent Emoji actual)
-            if (e.currentTarget.src.includes('/3d/') && !e.currentTarget.dataset.tried2) {
-              e.currentTarget.dataset.tried2 = '1'
-              e.currentTarget.src = pngFallback
-              return
-            }
-            // Segundo error: cae a lucide fallback
-            e.currentTarget.style.display = 'none'
-            e.currentTarget.parentElement?.querySelector('[data-fallback]')?.classList.remove('hidden')
-          }}
-        />
-        <Icon
-          size={s.icon}
-          className={`${iconColor} hidden relative z-10`}
-          strokeWidth={2.3}
-          data-fallback="1"
-        />
+        <span className={`culinary-icon ${anim} ${color}`}>
+          <Icon size={s.icon} strokeWidth={1.8} />
+        </span>
       </div>
-      <span className="text-xs font-semibold text-charcoal tracking-tight">{label}</span>
+      <span className={`${s.text} font-semibold text-gray-700 group-hover:text-gray-900 transition-colors`}>
+        {label}
+      </span>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import ProductImage from './ProductImage'
 import ProductCard from './ProductCard'
+import SaleRibbon from './SaleRibbon'
 
 function CompactCard({ product }) {
   const isWeight = product.sale_type === 'by_weight'
@@ -15,8 +16,9 @@ function CompactCard({ product }) {
       to={`/producto/${product.id}`}
       className="w-56 md:w-60 flex-shrink-0 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden block snap-start"
     >
-      <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
+      <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
         <ProductImage product={product} size="sm" />
+        {!!product.is_on_sale && <SaleRibbon />}
       </div>
       <div className="p-3">
         <h4 className="text-sm font-medium text-gray-800 line-clamp-2 min-h-[2.5rem]">{product.name}</h4>

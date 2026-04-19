@@ -6,6 +6,8 @@ const fs = require('fs')
 const path = require('path')
 const { db } = require('../db/database')
 const { authenticateToken, requireAdmin } = require('../middleware/auth')
+const { validate } = require('../middleware/validate')
+const { mediaAssignSchema } = require('../schemas/media')
 const logger = require('../lib/logger')
 
 const router = express.Router()
@@ -92,17 +94,12 @@ router.get('/:id', authenticateToken, requireAdmin, (req, res, next) => {
 //  - 'image_url': reemplaza la foto principal
 //  - 'gallery':   agrega a gallery_urls (array JSON), sin duplicados, máx 8
 //  - 'video_url': asigna como video del producto (reemplaza si ya hay)
-router.post('/:id/assign', authenticateToken, requireAdmin, (req, res, next) => {
+router.post('/:id/assign', authenticateToken, requireAdmin, validate(mediaAssignSchema), (req, res, next) => {
   try {
     const row = db.prepare('SELECT * FROM media_library WHERE id = ?').get(req.params.id)
     if (!row) return res.status(404).json({ error: 'Medio no encontrado' })
 
-    const productId = parseInt(req.body.product_id)
-    const field = ['image_url', 'gallery', 'video_url'].includes(req.body.field)
-      ? req.body.field
-      : 'image_url'
-
-    if (!productId) return res.status(400).json({ error: 'product_id requerido' })
+    const { product_id: productId, field } = req.body
 
     // Validación de tipo
     if (field === 'video_url' && row.type !== 'video') {
@@ -148,15 +145,12 @@ router.post('/:id/assign', authenticateToken, requireAdmin, (req, res, next) => 
 // DELETE /api/media/:id/assign
 // body: { product_id, field: 'image_url' | 'gallery' | 'video_url' }
 // Para 'gallery' quita solo esa URL; para image_url/video_url la pone en NULL.
-router.post('/:id/unassign', authenticateToken, requireAdmin, (req, res, next) => {
+router.post('/:id/unassign', authenticateToken, requireAdmin, validate(mediaAssignSchema), (req, res, next) => {
   try {
     const row = db.prepare('SELECT * FROM media_library WHERE id = ?').get(req.params.id)
     if (!row) return res.status(404).json({ error: 'Medio no encontrado' })
 
-    const productId = parseInt(req.body.product_id)
-    const field = ['image_url', 'gallery', 'video_url'].includes(req.body.field)
-      ? req.body.field
-      : 'image_url'
+    const { product_id: productId, field } = req.body
 
     const product = db.prepare('SELECT * FROM products WHERE id = ?').get(productId)
     if (!product) return res.status(404).json({ error: 'Producto no encontrado' })

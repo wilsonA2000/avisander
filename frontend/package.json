@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "build:sitemap": "node scripts/build-sitemap.cjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preview:ngrok": "vite build && vite preview --host --port 4173 --strictPort"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
@@ -21,6 +22,7 @@
     "framer-motion": "^12.38.0",
     "konva": "^10.2.5",
     "leaflet": "^1.9.4",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.323.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

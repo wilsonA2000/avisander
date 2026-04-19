@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { api, setTokens, clearTokens } from '../lib/apiClient'
+import { api } from '../lib/apiClient'
 
 const AuthContext = createContext(null)
 
@@ -8,28 +8,23 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      setLoading(false)
-      return
-    }
+    // Pedimos /me siempre al montar. Si hay cookie httpOnly válida, el backend
+    // devuelve el user; si no, 401 silencioso y el usuario queda como anónimo.
     api
-      .get('/api/auth/me')
+      .get('/api/auth/me', { skipAuth: true })
       .then((data) => setUser(data.user))
-      .catch(() => clearTokens())
+      .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
   const login = async (email, password) => {
     const data = await api.post('/api/auth/login', { email, password }, { skipAuth: true })
-    setTokens(data)
     setUser(data.user)
     return data
   }
 
   const register = async (userData) => {
     const data = await api.post('/api/auth/register', userData, { skipAuth: true })
-    setTokens(data)
     setUser(data.user)
     return data
   }
@@ -40,7 +35,6 @@ export function AuthProvider({ children }) {
   const resetPassword = (token, password) =>
     api.post('/api/auth/reset-password', { token, password }, { skipAuth: true })
 
-  // Refresca desde /api/auth/me. Útil tras editar perfil para reflejar cambios en el header.
   const refreshUser = async () => {
     try {
       const data = await api.get('/api/auth/me')
@@ -58,13 +52,11 @@ export function AuthProvider({ children }) {
   }
 
   const logout = async () => {
-    const refreshToken = localStorage.getItem('refreshToken')
     try {
-      await api.post('/api/auth/logout', { refreshToken }, { skipAuth: true })
+      await api.post('/api/auth/logout', {}, { skipAuth: true })
     } catch {
       /* ignore */
     }
-    clearTokens()
     setUser(null)
   }
 

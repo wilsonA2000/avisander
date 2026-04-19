@@ -2,6 +2,7 @@
 // Bold es más económico que Wompi (PSE ~$900 fijo) y es Colombia-native.
 
 const express = require('express')
+const rateLimit = require('express-rate-limit')
 const { db } = require('../db/database')
 const bold = require('../lib/bold')
 const logger = require('../lib/logger')
@@ -9,6 +10,21 @@ const inventory = require('../lib/inventory')
 const stockReservation = require('../lib/stockReservation')
 
 const router = express.Router()
+
+const reconcileLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas reconciliaciones. Esperá un minuto.' }
+})
+
+const transactionLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false
+})
 
 // Config pública: el frontend consulta esto para saber si mostrar el botón Bold
 router.get('/config', (_req, res) => {
@@ -21,7 +37,7 @@ router.get('/config', (_req, res) => {
 })
 
 // Consulta estado de transacción por reference (la usa /pago/:reference del frontend)
-router.get('/transaction/:reference', (req, res) => {
+router.get('/transaction/:reference', transactionLimiter, (req, res) => {
   const order = db
     .prepare('SELECT id, payment_status, payment_transaction_id, payment_paid_at, total FROM orders WHERE payment_reference = ?')
     .get(req.params.reference)
@@ -39,7 +55,7 @@ router.get('/transaction/:reference', (req, res) => {
 // Reconciliación manual: consulta a Bold el estado real y actualiza nuestra BD.
 // El frontend puede llamar este endpoint tras volver del checkout si el webhook
 // aún no ha llegado (común en sandbox). Es idempotente.
-router.post('/reconcile/:reference', async (req, res) => {
+router.post('/reconcile/:reference', reconcileLimiter, async (req, res) => {
   try {
     const reference = req.params.reference
     const order = db

@@ -149,14 +149,18 @@ export const ICON_SIZES = {
   md: 40,
   lg: 56,
   xl: 80,
-  '2xl': 112
+  '2xl': 112,
+  '3xl': 160,
+  '4xl': 220
 }
 
 // Lottie animations mapa — se usan en LottieIcon. Si el archivo no existe (404),
 // el componente cae a Icon3D automático con el slug equivalente.
 export const LOTTIE_MAP = {
-  'loading':        '/media/lotties/loading.json',
-  'success':        '/media/lotties/success.json',
+  'loading':            '/media/lotties/loading.json',
+  'success':            '/media/lotties/success.json',
+  'payment-processing': '/media/lotties/payment-processing.json',
+  'payment-success':    '/media/lotties/payment-success.json',
   'error':          '/media/lotties/error.json',
   'empty-cart':     '/media/lotties/empty-cart.json',
   'delivery-truck': '/media/lotties/delivery-truck.json',

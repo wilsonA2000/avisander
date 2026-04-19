@@ -1,8 +1,13 @@
 const Database = require('better-sqlite3')
 const path = require('path')
+const fs = require('fs')
 const bcrypt = require('bcryptjs')
 
-const dbPath = path.join(__dirname, '..', 'database.sqlite')
+// En Railway/Fly/VPS seteamos DB_PATH=/data/database.sqlite para que la BD
+// viva en el volumen persistente y sobreviva redeploys.
+const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'database.sqlite')
+const dbDir = path.dirname(dbPath)
+if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true })
 const db = new Database(dbPath)
 
 // Enable foreign keys
@@ -329,6 +334,23 @@ function initialize() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_loyalty_user ON loyalty_transactions(user_id);
+
+    -- Analytics: registro ligero de pageviews para panel admin.
+    -- Nada de IPs completas (privacidad); el session_id viene del localStorage
+    -- del cliente y es un UUID random. Los bots se marcan con is_bot=1 para
+    -- filtrar las métricas del dashboard.
+    CREATE TABLE IF NOT EXISTS page_visits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL,
+      user_id INTEGER REFERENCES users(id),
+      path TEXT NOT NULL,
+      referrer TEXT,
+      user_agent TEXT,
+      is_bot INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_page_visits_created_at ON page_visits(created_at);
+    CREATE INDEX IF NOT EXISTS idx_page_visits_session_id ON page_visits(session_id);
   `)
 
   // Seed admin SOLO en entornos no-producción. En prod hay que crearlo manualmente.

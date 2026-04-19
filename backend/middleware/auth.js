@@ -6,9 +6,14 @@ if (!JWT_SECRET) {
   throw new Error('JWT_SECRET no está definido. Configura backend/.env antes de arrancar.')
 }
 
-function authenticateToken(req, res, next) {
+function extractToken(req) {
+  if (req.cookies?.access_token) return req.cookies.access_token
   const authHeader = req.headers['authorization']
-  const token = authHeader && authHeader.split(' ')[1]
+  return authHeader && authHeader.split(' ')[1]
+}
+
+function authenticateToken(req, res, next) {
+  const token = extractToken(req)
 
   if (!token) {
     return res.status(401).json({ error: 'Token de acceso requerido' })
@@ -42,8 +47,7 @@ function requireAdmin(req, res, next) {
 }
 
 function optionalAuth(req, res, next) {
-  const authHeader = req.headers['authorization']
-  const token = authHeader && authHeader.split(' ')[1]
+  const token = extractToken(req)
 
   if (token) {
     try {

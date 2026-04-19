@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Save } from 'lucide-react'
+import { api } from '../../lib/apiClient'
 
 function Settings() {
   const [settings, setSettings] = useState({
@@ -74,14 +75,8 @@ function Settings() {
 
   const fetchSettings = async () => {
     try {
-      const token = localStorage.getItem('token')
-      // Usamos /all para obtener también los no-públicos (admin_notification_email)
-      const response = await fetch('/api/settings/all', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        const loadedSettings = {
+      const data = await api.get('/api/settings/all')
+      const loadedSettings = {
           delivery_cost: data.delivery_cost || '4000',
           business_hours_weekday: data.business_hours_weekday || '6:30 AM – 1:00 PM y 3:00 PM – 8:00 PM',
           business_hours_saturday: data.business_hours_saturday || '6:30 AM – 1:00 PM y 3:00 PM – 7:00 PM',
@@ -111,9 +106,8 @@ function Settings() {
           loyalty_points_per_1000: data.loyalty_points_per_1000 || '1',
           loyalty_point_value: data.loyalty_point_value || '1'
         }
-        setSettings(loadedSettings)
-        setOriginalSettings(loadedSettings)
-      }
+      setSettings(loadedSettings)
+      setOriginalSettings(loadedSettings)
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -127,25 +121,11 @@ function Settings() {
     setMessage({ type: '', text: '' })
 
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(settings)
-      })
-
-      if (response.ok) {
-        setMessage({ type: 'success', text: 'Configuracion guardada correctamente' })
-        setOriginalSettings({ ...settings })
-      } else {
-        const data = await response.json()
-        setMessage({ type: 'error', text: data.error || 'Error al guardar' })
-      }
+      await api.put('/api/settings', settings)
+      setMessage({ type: 'success', text: 'Configuracion guardada correctamente' })
+      setOriginalSettings({ ...settings })
     } catch (error) {
-      setMessage({ type: 'error', text: 'Error al guardar configuracion' })
+      setMessage({ type: 'error', text: error.message || 'Error al guardar configuracion' })
     } finally {
       setSaving(false)
     }

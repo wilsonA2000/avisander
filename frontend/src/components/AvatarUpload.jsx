@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Camera, Loader2, User } from 'lucide-react'
 import { useToast } from '../context/ToastContext'
+import { apiFetchFormData } from '../lib/apiClient'
 
 function initials(name) {
   return String(name || '?')
@@ -37,16 +38,9 @@ function AvatarUpload({ value, name, onUploaded, size = 96 }) {
 
     setUploading(true)
     try {
-      const token = localStorage.getItem('token')
       const fd = new FormData()
       fd.append('image', file)
-      const res = await fetch('/api/upload/avatar', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Error al subir')
+      const data = await apiFetchFormData('/api/upload/avatar', fd)
       await onUploaded(data.url)
       toast.success('Foto actualizada')
     } catch (err) {

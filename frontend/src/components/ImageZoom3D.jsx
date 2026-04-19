@@ -4,7 +4,7 @@
 
 import { useRef, useState } from 'react'
 
-function ImageZoom3D({ src, alt = '', className = '', maxTilt = 8, zoom = 1.18, children }) {
+function ImageZoom3D({ src, alt = '', className = '', maxTilt = 8, zoom = 1.08, children }) {
   const containerRef = useRef(null)
   const imgRef = useRef(null)
   const [active, setActive] = useState(false)
@@ -72,7 +72,7 @@ function ImageZoom3D({ src, alt = '', className = '', maxTilt = 8, zoom = 1.18, 
             ref={imgRef}
             src={src}
             alt={alt}
-            className="w-full h-full object-cover will-change-transform"
+            className="w-full h-full object-contain will-change-transform"
             style={{
               transform: 'scale(var(--zoom))',
               transformOrigin: 'var(--ox) var(--oy)',

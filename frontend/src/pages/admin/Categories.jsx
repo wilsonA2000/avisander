@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Pencil, Trash2, X, Upload, Image as ImageIcon } from 'lucide-react'
 import CategoryIcon from '../../components/CategoryIcon'
+import { api, apiFetchFormData } from '../../lib/apiClient'
 
 function Categories() {
   const [categories, setCategories] = useState([])
@@ -20,13 +21,7 @@ function Categories() {
 
   const fetchCategories = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch('/api/categories', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      if (response.ok) {
-        setCategories(await response.json())
-      }
+      setCategories(await api.get('/api/categories'))
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -56,23 +51,12 @@ function Categories() {
     if (!file) return
     setUploading(true)
     try {
-      const token = localStorage.getItem('token')
       const fd = new FormData()
       fd.append('image', file)
-      const response = await fetch('/api/upload/image', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setFormData((prev) => ({ ...prev, hero_image: data.url }))
-      } else {
-        const data = await response.json()
-        alert(data.error || 'Error al subir imagen')
-      }
-    } catch {
-      alert('Error al subir imagen')
+      const data = await apiFetchFormData('/api/upload/image', fd)
+      setFormData((prev) => ({ ...prev, hero_image: data.url }))
+    } catch (err) {
+      alert(err.message || 'Error al subir imagen')
     } finally {
       setUploading(false)
     }
@@ -84,29 +68,15 @@ function Categories() {
     setError('')
 
     try {
-      const token = localStorage.getItem('token')
       const url = editingCategory
         ? `/api/categories/${editingCategory.id}`
         : '/api/categories'
-
-      const response = await fetch(url, {
-        method: editingCategory ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      })
-
-      if (response.ok) {
-        setShowModal(false)
-        fetchCategories()
-      } else {
-        const data = await response.json()
-        setError(data.error || 'Error al guardar')
-      }
+      if (editingCategory) await api.put(url, formData)
+      else await api.post(url, formData)
+      setShowModal(false)
+      fetchCategories()
     } catch (error) {
-      setError('Error al guardar categoria')
+      setError(error.message || 'Error al guardar categoria')
     } finally {
       setSaving(false)
     }
@@ -114,22 +84,12 @@ function Categories() {
 
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(`/api/categories/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      })
-
-      if (response.ok) {
-        setDeleteConfirm(null)
-        fetchCategories()
-      } else {
-        const data = await response.json()
-        alert(data.error || 'No se puede eliminar la categoria')
-        setDeleteConfirm(null)
-      }
+      await api.delete(`/api/categories/${id}`)
+      setDeleteConfirm(null)
+      fetchCategories()
     } catch (error) {
-      alert('Error al eliminar')
+      alert(error.message || 'No se puede eliminar la categoria')
+      setDeleteConfirm(null)
     }
   }
 

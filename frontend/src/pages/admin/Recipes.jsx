@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Pencil, Trash2, X, Eye, Search, ChefHat, Upload, Image as ImageIcon } from 'lucide-react'
-import { api } from '../../lib/apiClient'
+import { api, apiFetchFormData } from '../../lib/apiClient'
 import { useToast } from '../../context/ToastContext'
 
 const EMPTY = {
@@ -32,24 +32,13 @@ function Recipes() {
     if (!file) return
     setUploading(true)
     try {
-      const token = localStorage.getItem('token')
       const fd = new FormData()
       fd.append('image', file)
-      const response = await fetch('/api/upload/image', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setForm((f) => ({ ...f, cover_image_url: data.url }))
-        toast.success('Imagen subida')
-      } else {
-        const data = await response.json()
-        toast.error(data.error || 'Error al subir imagen')
-      }
-    } catch {
-      toast.error('Error al subir imagen')
+      const data = await apiFetchFormData('/api/upload/image', fd)
+      setForm((f) => ({ ...f, cover_image_url: data.url }))
+      toast.success('Imagen subida')
+    } catch (err) {
+      toast.error(err.message || 'Error al subir imagen')
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''

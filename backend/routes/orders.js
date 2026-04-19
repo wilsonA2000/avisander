@@ -1,4 +1,5 @@
 const express = require('express')
+const rateLimit = require('express-rate-limit')
 const { db } = require('../db/database')
 const { authenticateToken, requireAdmin, optionalAuth } = require('../middleware/auth')
 const { validate } = require('../middleware/validate')
@@ -16,6 +17,14 @@ const { whatsappAdminLink } = require('../lib/whatsapp')
 const logger = require('../lib/logger')
 
 const router = express.Router()
+
+const publicOrderLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas consultas, intenta en un momento.' }
+})
 
 router.get('/', authenticateToken, (req, res, next) => {
   try {
@@ -54,7 +63,7 @@ router.get('/discount-preview', optionalAuth, (req, res, next) => {
 // Endpoint público para que el cliente pueda trackear su pedido sin login
 // usando la payment_reference generada al crear la orden. Devuelve sólo
 // campos no sensibles: estado, items, total, modo de entrega.
-router.get('/public/:reference', (req, res, next) => {
+router.get('/public/:reference', publicOrderLimiter, (req, res, next) => {
   try {
     const order = db
       .prepare(
@@ -442,12 +451,49 @@ router.put(
         }
       }
 
-      // Al cancelar: liberar reserva sin descontar stock.
-      if (newStatus === 'cancelled' && !existing.stock_deducted) {
+      // Al cancelar/abandonar: liberar reserva sin descontar stock.
+      if ((newStatus === 'cancelled' || newStatus === 'abandoned') && !existing.stock_deducted) {
         try { stockReservation.releaseReservation(existing.id) } catch (_e) { /* noop */ }
       }
 
+      // Reversar loyalty (devolver canje + quitar ganado si lo hubo).
+      // Idempotente — revertOrderLoyalty verifica que no se haya aplicado ya.
+      if (newStatus === 'cancelled' || newStatus === 'abandoned') {
+        try {
+          loyalty.revertOrderLoyalty(
+            existing.id,
+            newStatus === 'abandoned' ? 'Pedido abandonado' : 'Cancelado por admin'
+          )
+        } catch (err) {
+          logger.error({ err, orderId: existing.id }, 'Fallo revirtiendo loyalty')
+        }
+      }
+
       db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(newStatus, req.params.id)
+
+      // Si la orden queda cancelled/abandoned y el pago estaba pending,
+      // cerramos también el payment_status para que la columna PAGO no siga
+      // mostrando "Pendiente" en una venta ya descartada.
+      if (
+        (newStatus === 'cancelled' || newStatus === 'abandoned') &&
+        existing.payment_status === 'pending'
+      ) {
+        db.prepare("UPDATE orders SET payment_status = 'cancelled' WHERE id = ?").run(req.params.id)
+      }
+
+      // Al avanzar el estado a processing/shipped/completed en órdenes no-Bold
+      // (manual o whatsapp), la cajera confirma implícitamente que ya recibió
+      // el pago — el comprobante fue validado por ella antes de avanzar.
+      // Bold queda fuera porque su payment_status lo gestiona el webhook.
+      if (
+        confirmStatuses.includes(newStatus) &&
+        existing.payment_method !== 'bold' &&
+        existing.payment_status !== 'approved'
+      ) {
+        db.prepare(
+          "UPDATE orders SET payment_status = 'approved', payment_paid_at = CURRENT_TIMESTAMP WHERE id = ?"
+        ).run(req.params.id)
+      }
 
       // Acumular puntos de fidelización al completar un pedido.
       if (newStatus === 'completed' && existing.user_id) {

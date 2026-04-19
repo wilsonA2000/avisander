@@ -19,7 +19,8 @@ const {
   verifyRefreshToken,
   revokeRefreshToken,
   revokeAllUserTokens,
-  ACCESS_TTL_SECONDS
+  ACCESS_TTL_SECONDS,
+  REFRESH_TTL_DAYS
 } = require('../lib/tokens')
 const { sendMail, passwordResetEmail } = require('../lib/mailer')
 const logger = require('../lib/logger')
@@ -34,12 +35,29 @@ function sanitizeUser(user) {
   return rest
 }
 
-function issueTokens(userId) {
+// SameSite=Lax es suficiente: Bold no necesita enviar cookies desde su dominio,
+// nuestro frontend corre bajo mismo host (ngrok/avisander.com) o CORS con credentials.
+function cookieOptions(maxAgeMs, path = '/') {
   return {
-    token: signAccessToken(userId),
-    refreshToken: generateRefreshToken(userId),
-    expiresIn: ACCESS_TTL_SECONDS
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production' || process.env.COOKIES_SECURE === '1',
+    sameSite: 'lax',
+    maxAge: maxAgeMs,
+    path
   }
+}
+
+function setAuthCookies(res, userId) {
+  const accessToken = signAccessToken(userId)
+  const refreshToken = generateRefreshToken(userId)
+  res.cookie('access_token', accessToken, cookieOptions(ACCESS_TTL_SECONDS * 1000, '/'))
+  res.cookie('refresh_token', refreshToken, cookieOptions(REFRESH_TTL_DAYS * 24 * 3600 * 1000, '/api/auth'))
+  return { token: accessToken, refreshToken, expiresIn: ACCESS_TTL_SECONDS }
+}
+
+function clearAuthCookies(res) {
+  res.clearCookie('access_token', { path: '/' })
+  res.clearCookie('refresh_token', { path: '/api/auth' })
 }
 
 // Register
@@ -64,7 +82,7 @@ router.post('/register', validate(registerSchema), (req, res, next) => {
       .prepare('SELECT id, email, name, phone, address, avatar_url, role, must_change_password FROM users WHERE id = ?')
       .get(result.lastInsertRowid)
 
-    const tokens = issueTokens(user.id)
+    const tokens = setAuthCookies(res, user.id)
     res.status(201).json({ user, ...tokens })
   } catch (error) {
     next(error)
@@ -82,24 +100,26 @@ router.post('/login', validate(loginSchema), (req, res, next) => {
       return res.status(401).json({ error: 'Credenciales inválidas' })
     }
 
-    const tokens = issueTokens(user.id)
+    const tokens = setAuthCookies(res, user.id)
     res.json({ user: sanitizeUser(user), ...tokens })
   } catch (error) {
     next(error)
   }
 })
 
-// Refresh access token usando refresh token
-router.post('/refresh', validate(refreshSchema), (req, res) => {
+// Refresh access token. Lee el refresh desde cookie httpOnly; si no hay, cae
+// al body (fallback para clientes legacy / Postman / tests).
+router.post('/refresh', (req, res) => {
   try {
-    const { refreshToken } = req.body
+    const refreshToken = req.cookies?.refresh_token || req.body?.refreshToken
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      return res.status(401).json({ error: 'Refresh token requerido' })
+    }
     const { userId } = verifyRefreshToken(refreshToken)
-    // Rotación: revoco el actual y emito par nuevo
     revokeRefreshToken(refreshToken)
-    const tokens = issueTokens(userId)
+    const tokens = setAuthCookies(res, userId)
     res.json(tokens)
   } catch (error) {
-    // Solo errores auténticos de validación de token caen en 401; otros suben al handler central
     if (
       error.name === 'JsonWebTokenError' ||
       error.name === 'TokenExpiredError'
@@ -111,9 +131,9 @@ router.post('/refresh', validate(refreshSchema), (req, res) => {
   }
 })
 
-// Logout: invalida refresh token(s)
+// Logout: invalida refresh token(s) y limpia cookies
 router.post('/logout', (req, res) => {
-  const { refreshToken } = req.body || {}
+  const refreshToken = req.cookies?.refresh_token || req.body?.refreshToken
   if (refreshToken && typeof refreshToken === 'string') {
     try {
       revokeRefreshToken(refreshToken)
@@ -121,6 +141,7 @@ router.post('/logout', (req, res) => {
       // noop
     }
   }
+  clearAuthCookies(res)
   res.json({ message: 'Sesión cerrada' })
 })
 

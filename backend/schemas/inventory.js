@@ -8,4 +8,8 @@ const inventoryAdjustSchema = z.object({
   notes: z.string().trim().min(1, 'Razón requerida').max(500)
 })
 
-module.exports = { inventoryAdjustSchema }
+const inventoryAvailabilitySchema = z.object({
+  is_available: z.coerce.boolean()
+})
+
+module.exports = { inventoryAdjustSchema, inventoryAvailabilitySchema }

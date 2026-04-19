@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  Minus
+  Minus,
+  UtensilsCrossed
 } from 'lucide-react'
 import Icon3D from '../components/Icon3D'
 import { api } from '../lib/apiClient'
@@ -230,7 +231,7 @@ function ProductDetail() {
             product={product}
             badges={
               <>
-                {!!product.is_on_sale && <SaleRibbon className="!relative !top-auto !left-auto" />}
+                {!!product.is_on_sale && <SaleRibbon size="lg" className="!relative !top-auto !left-auto" />}
                 {isWeight && <span className="badge-by-weight">Por peso</span>}
                 {!isAvailable && <span className="badge-out-of-stock">Agotado</span>}
                 {isAvailable && lowStock && <LowStockBadge />}
@@ -460,11 +461,13 @@ function ProductDetail() {
 
       {Array.isArray(product.culinary_uses) && product.culinary_uses.length > 0 && (
         <section className="mt-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-          <h2 className="font-display text-xl font-bold text-charcoal mb-1 flex items-center gap-2">
-            <span className="w-9 h-9 rounded-full bg-accent/15 text-accent-dark flex items-center justify-center text-base">🍳</span>
-            Ideal para
+          <h2 className="font-display text-xl font-bold text-charcoal mb-1 flex items-center gap-2.5">
+            <span className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+              <UtensilsCrossed size={18} className="text-primary" />
+            </span>
+            Métodos de preparación
           </h2>
-          <p className="text-sm text-gray-500 mb-4">Métodos de cocción recomendados para este producto.</p>
+          <p className="text-sm text-gray-500 mb-4">Formas recomendadas de cocinar este producto.</p>
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
             {product.culinary_uses.map((slug) => (
               <CulinaryIcon key={slug} slug={slug} variant="card" size="md" />

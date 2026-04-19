@@ -94,8 +94,22 @@ function expireStalePending() {
   for (const o of stale) {
     try {
       releaseReservation(o.id)
-      db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(o.id)
-      logger.info({ orderId: o.id }, 'Pedido pending expirado y cancelado')
+      // 'abandoned' (no 'cancelled') diferencia una expiración automática por
+      // timeout de una cancelación explícita hecha por la cajera desde el admin.
+      // Además forzamos payment_status='cancelled' para que la columna PAGO
+      // del admin no siga mostrando "Pendiente" en una venta ya muerta.
+      db.prepare(
+        "UPDATE orders SET status = 'abandoned', payment_status = 'cancelled' WHERE id = ?"
+      ).run(o.id)
+      // Revertir loyalty: si el cliente había canjeado puntos al crear la
+      // orden, debemos devolvérselos antes de darla por muerta.
+      try {
+        const loyalty = require('./loyalty')
+        loyalty.revertOrderLoyalty(o.id, 'Pedido abandonado (timeout)')
+      } catch (err) {
+        logger.error({ err, orderId: o.id }, 'Fallo revirtiendo loyalty al expirar')
+      }
+      logger.info({ orderId: o.id }, 'Pedido pending expirado y marcado como abandoned')
     } catch (err) {
       logger.error({ err, orderId: o.id }, 'Error expirando pedido')
     }

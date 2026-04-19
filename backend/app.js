@@ -2,6 +2,7 @@
 const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
+const cookieParser = require('cookie-parser')
 const rateLimit = require('express-rate-limit')
 const pinoHttp = require('pino-http')
 const path = require('path')
@@ -26,6 +27,7 @@ const reportsRoutes = require('./routes/reports')
 const pqrsRoutes = require('./routes/pqrs')
 const aiRoutes = require('./routes/ai')
 const loyaltyRoutes = require('./routes/loyalty')
+const analyticsRoutes = require('./routes/analytics')
 
 function createApp({ enableRateLimit = true } = {}) {
   const app = express()
@@ -88,6 +90,8 @@ function createApp({ enableRateLimit = true } = {}) {
     })
   )
 
+  app.use(cookieParser())
+
   // El webhook de Bold necesita el body RAW para verificar HMAC-SHA256.
   // Si el express.json() lo parsea antes, perdemos la firma.
   // Saltamos esta ruta del parser global.
@@ -121,9 +125,11 @@ function createApp({ enableRateLimit = true } = {}) {
       })
     : (_req, _res, next) => next()
 
+  // En producción UPLOADS_PATH=/data/uploads (volumen persistente).
+  const uploadsPath = process.env.UPLOADS_PATH || path.join(__dirname, 'uploads')
   app.use(
     '/uploads',
-    express.static(path.join(__dirname, 'uploads'), {
+    express.static(uploadsPath, {
       dotfiles: 'deny',
       maxAge: '30d',
       index: false
@@ -158,10 +164,28 @@ function createApp({ enableRateLimit = true } = {}) {
   app.use('/api/pqrs', pqrsRoutes)
   app.use('/api/ai', aiRoutes)
   app.use('/api/loyalty', loyaltyRoutes)
+  app.use('/api/analytics', analyticsRoutes)
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() })
   })
+
+  // En producción, el mismo Express sirve el frontend buildeado (Vite → dist/).
+  // Evita tener dos servicios/dominios y simplifica el deploy.
+  // En dev, Vite corre aparte en :5173 y proxea /api a este backend.
+  const frontendDist = path.resolve(__dirname, '..', 'frontend', 'dist')
+  if (isProd && require('fs').existsSync(frontendDist)) {
+    app.use(
+      express.static(frontendDist, {
+        index: 'index.html',
+        maxAge: '1h'
+      })
+    )
+    // SPA fallback: rutas del cliente (carrito, producto/:id, admin/*) devuelven el index.
+    app.get(/^(?!\/api\/|\/uploads\/|\/media\/).*/, (_req, res) => {
+      res.sendFile(path.join(frontendDist, 'index.html'))
+    })
+  }
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'Recurso no encontrado' })

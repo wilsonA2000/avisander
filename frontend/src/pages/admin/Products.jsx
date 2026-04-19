@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Plus, Pencil, Trash2, X, Upload, Eye, Search, Download, CheckSquare, Square } from 'lucide-react'
 import Pagination from '../../components/Pagination'
 import { CULINARY_USES, CULINARY_USE_SLUGS } from '../../components/CulinaryIcon'
+import { api, apiFetchFormData } from '../../lib/apiClient'
 
 const PER_PAGE = 25
 
@@ -81,7 +82,6 @@ function Products() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('token')
       const params = new URLSearchParams()
       if (q) params.set('q', q)
       if (categoryFilter) params.set('category', categoryFilter)
@@ -90,20 +90,15 @@ function Products() {
       params.set('per_page', PER_PAGE)
       params.set('include_unavailable', '1')
 
-      const res = await fetch(`/api/products?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (Array.isArray(data)) {
-          setProducts(data)
-          setTotal(data.length)
-        } else {
-          setProducts(data.items || [])
-          setTotal(data.total || 0)
-        }
-        setSelectedIds(new Set()) // limpia selección al cambiar página
+      const data = await api.get(`/api/products?${params.toString()}`)
+      if (Array.isArray(data)) {
+        setProducts(data)
+        setTotal(data.length)
+      } else {
+        setProducts(data.items || [])
+        setTotal(data.total || 0)
       }
+      setSelectedIds(new Set())
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -142,15 +137,11 @@ function Products() {
     if (!confirm(`¿${labels[action]} ${ids.length} producto(s)?`)) return
     setBulkProcessing(true)
     try {
-      const token = localStorage.getItem('token')
-      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
       if (action === 'delete') {
-        await Promise.all(ids.map((id) => fetch(`/api/products/${id}`, { method: 'DELETE', headers })))
+        await Promise.all(ids.map((id) => api.delete(`/api/products/${id}`)))
       } else {
         const is_available = action === 'available'
-        await Promise.all(ids.map((id) =>
-          fetch(`/api/products/${id}`, { method: 'PUT', headers, body: JSON.stringify({ is_available }) })
-        ))
+        await Promise.all(ids.map((id) => api.put(`/api/products/${id}`, { is_available })))
       }
       setMessage({ type: 'success', text: `${ids.length} producto(s) actualizado(s).` })
       setTimeout(() => setMessage({ type: '', text: '' }), 4000)
@@ -227,27 +218,12 @@ function Products() {
 
     setUploading(true)
     try {
-      const token = localStorage.getItem('token')
       const formDataUpload = new FormData()
       formDataUpload.append('image', file)
-
-      const response = await fetch('/api/upload/image', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        body: formDataUpload
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setFormData(prev => ({ ...prev, image_url: data.url }))
-      } else {
-        const data = await response.json()
-        alert(data.error || 'Error al subir imagen')
-      }
+      const data = await apiFetchFormData('/api/upload/image', formDataUpload)
+      setFormData(prev => ({ ...prev, image_url: data.url }))
     } catch (error) {
-      alert('Error al subir imagen')
+      alert(error.message || 'Error al subir imagen')
     } finally {
       setUploading(false)
     }
@@ -274,7 +250,6 @@ function Products() {
     setSaving(true)
 
     try {
-      const token = localStorage.getItem('token')
       const url = editingProduct
         ? `/api/products/${editingProduct.id}`
         : '/api/products'
@@ -304,30 +279,17 @@ function Products() {
         culinary_uses: Array.isArray(formData.culinary_uses) ? formData.culinary_uses : []
       }
 
-      const response = await fetch(url, {
-        method: editingProduct ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
+      if (editingProduct) await api.put(url, payload)
+      else await api.post(url, payload)
+      setShowModal(false)
+      setMessage({
+        type: 'success',
+        text: editingProduct ? 'Producto actualizado correctamente' : 'Producto creado correctamente'
       })
-
-      if (response.ok) {
-        setShowModal(false)
-        setMessage({
-          type: 'success',
-          text: editingProduct ? 'Producto actualizado correctamente' : 'Producto creado correctamente'
-        })
-        fetchData()
-        // Auto-clear message after 5 seconds
-        setTimeout(() => setMessage({ type: '', text: '' }), 5000)
-      } else {
-        const data = await response.json()
-        setMessage({ type: 'error', text: data.error || 'Error al guardar' })
-      }
+      fetchData()
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000)
     } catch (error) {
-      setMessage({ type: 'error', text: 'Error al guardar producto' })
+      setMessage({ type: 'error', text: error.message || 'Error al guardar producto' })
     } finally {
       setSaving(false)
     }
@@ -335,18 +297,11 @@ function Products() {
 
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(`/api/products/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      })
-
-      if (response.ok) {
-        setDeleteConfirm(null)
-        fetchData()
-      }
+      await api.delete(`/api/products/${id}`)
+      setDeleteConfirm(null)
+      fetchData()
     } catch (error) {
-      alert('Error al eliminar')
+      alert(error.message || 'Error al eliminar')
     }
   }
 

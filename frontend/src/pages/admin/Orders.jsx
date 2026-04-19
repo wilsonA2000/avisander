@@ -22,14 +22,16 @@ const STATUS_COLORS = {
   processing: 'bg-blue-100 text-blue-800',
   shipped: 'bg-violet-100 text-violet-800',
   completed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-red-100 text-red-800'
+  cancelled: 'bg-red-100 text-red-800',
+  abandoned: 'bg-gray-200 text-gray-700'
 }
 const STATUS_LABEL = {
   pending: 'Pendiente',
   processing: 'En proceso',
   shipped: 'En camino',
   completed: 'Completado',
-  cancelled: 'Cancelado'
+  cancelled: 'Cancelado',
+  abandoned: 'Abandonado'
 }
 
 const WA_TEMPLATES = {
@@ -86,12 +88,13 @@ function buildWhatsAppUrl(phone, message) {
   const intl = clean.startsWith('57') ? clean : `57${clean}`
   return `https://wa.me/${intl}?text=${encodeURIComponent(message)}`
 }
-const PAYMENT_LABEL = { bold: 'Bold', whatsapp: 'WhatsApp', cash: 'Efectivo' }
+const PAYMENT_LABEL = { bold: 'Bold', whatsapp: 'WhatsApp', cash: 'Efectivo', manual: 'Transferencia' }
 const PAYMENT_STATUS = {
   approved: { label: 'Aprobado', icon: CheckCircle2, color: 'text-emerald-600 bg-emerald-50' },
   pending: { label: 'Pendiente', icon: Clock, color: 'text-amber-600 bg-amber-50' },
   declined: { label: 'Rechazado', icon: XCircle, color: 'text-rose-600 bg-rose-50' },
-  rejected: { label: 'Rechazado', icon: XCircle, color: 'text-rose-600 bg-rose-50' }
+  rejected: { label: 'Rechazado', icon: XCircle, color: 'text-rose-600 bg-rose-50' },
+  cancelled: { label: 'Cerrado', icon: XCircle, color: 'text-gray-600 bg-gray-100' }
 }
 
 function printOrder(order) {
@@ -328,10 +331,7 @@ function Orders() {
 
   const exportExcel = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch('/api/orders/export/excel', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const res = await fetch('/api/orders/export/excel', { credentials: 'include' })
       if (!res.ok) throw new Error('Error al exportar')
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
@@ -448,6 +448,7 @@ function Orders() {
               <option value="shipped">En camino</option>
               <option value="completed">Completado</option>
               <option value="cancelled">Cancelado</option>
+              <option value="abandoned">Abandonado</option>
             </select>
           </div>
           <div>

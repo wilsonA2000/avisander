@@ -1,4 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
+import IdleCursorPet from './components/IdleCursorPet'
+import { usePageTracking } from './hooks/usePageTracking'
 import Layout from './components/Layout'
 import AdminLayout from './components/AdminLayout'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -43,7 +45,10 @@ import PoliticaPrivacidad from './pages/PoliticaPrivacidad'
 import PoliticaSarlaft from './pages/PoliticaSarlaft'
 
 function App() {
+  usePageTracking()
   return (
+    <>
+    <IdleCursorPet />
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<Layout />}>
@@ -104,6 +109,7 @@ function App() {
       {/* 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </>
   )
 }
 

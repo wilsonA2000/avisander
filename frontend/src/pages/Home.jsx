@@ -353,7 +353,7 @@ function Home() {
                         <Link
                           key={c.id}
                           to={`/productos?category=${encodeURIComponent(c.name.toLowerCase())}`}
-                          className="relative group bg-white rounded-2xl p-4 flex items-center gap-3
+                          className="relative group bg-white rounded-2xl p-3 sm:p-4 flex items-center gap-2 sm:gap-3
                                      border border-gray-100 shadow-sm hover:shadow-lg
                                      hover:-translate-y-0.5 hover:border-primary/30
                                      transition-all duration-300 overflow-hidden"
@@ -364,17 +364,17 @@ function Home() {
                           <CategoryIcon
                             category={c.name}
                             variant="circle"
-                            className="w-14 h-14 flex-shrink-0 transition-transform duration-300
+                            className="w-11 h-11 sm:w-14 sm:h-14 flex-shrink-0 transition-transform duration-300
                                        group-hover:scale-110 group-hover:-rotate-3"
                           />
 
                           <div className="min-w-0 flex-1 relative">
                             <h3 className="font-display font-semibold text-sm sm:text-base text-charcoal leading-tight
-                                           line-clamp-2 group-hover:text-primary transition-colors">
+                                           line-clamp-2 group-hover:text-primary transition-colors break-words">
                               {c.name}
                             </h3>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-gray-500">{countLabel(count)}</span>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1">
+                              <span className="text-[11px] sm:text-xs text-gray-500">{countLabel(count)}</span>
                               {c.has_sale && (
                                 <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wide
                                                  bg-red-50 text-red-600 px-1.5 py-0.5 rounded-full">
@@ -386,7 +386,7 @@ function Home() {
 
                           <ArrowRight
                             size={16}
-                            className="text-gray-300 group-hover:text-primary group-hover:translate-x-1
+                            className="hidden sm:block text-gray-300 group-hover:text-primary group-hover:translate-x-1
                                        transition-all flex-shrink-0"
                           />
                         </Link>

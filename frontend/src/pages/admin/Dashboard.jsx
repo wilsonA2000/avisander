@@ -15,7 +15,10 @@ import {
   Award,
   Clock,
   Calendar,
-  CheckCircle2
+  CheckCircle2,
+  Eye,
+  Globe,
+  Activity
 } from 'lucide-react'
 import {
   LineChart,
@@ -191,6 +194,9 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Tráfico del sitio */}
+      <TrafficWidget />
 
       {/* Fila 1: ingresos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
@@ -465,6 +471,142 @@ function Dashboard() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Widget de tráfico en tiempo real. Refresca cada 30s para que "Ahora
+// navegando" se sienta vivo sin saturar el backend.
+function TrafficWidget() {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    let cancelled = false
+    const fetchIt = () => {
+      api.get('/api/analytics/summary')
+        .then((d) => { if (!cancelled) { setData(d); setLoading(false) } })
+        .catch(() => { if (!cancelled) setLoading(false) })
+    }
+    fetchIt()
+    const int = setInterval(fetchIt, 30_000)
+    return () => { cancelled = true; clearInterval(int) }
+  }, [])
+
+  const activeNow = data?.active_now ?? 0
+  const todayVisits = data?.today?.visits ?? 0
+  const todayUnique = data?.today?.unique ?? 0
+  const totalVisits = data?.total_visits ?? 0
+
+  // Normalizar 7 días (rellenar días sin data con 0)
+  const chart7d = useMemo(() => {
+    if (!data?.last_7_days) return []
+    const map = Object.fromEntries(data.last_7_days.map((r) => [r.date, r]))
+    const out = []
+    const today = new Date()
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 86400_000)
+      const iso = d.toISOString().slice(0, 10)
+      const row = map[iso] || { visits: 0, unique: 0 }
+      out.push({
+        label: d.toLocaleDateString('es-CO', { weekday: 'short' }).replace('.', ''),
+        visits: row.visits,
+        unique: row.unique
+      })
+    }
+    return out
+  }, [data])
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4 sm:p-5 mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div>
+          <h2 className="font-bold text-gray-800 flex items-center gap-2">
+            <Activity size={18} className="text-primary" /> Tráfico del sitio
+          </h2>
+          <p className="text-xs text-gray-400">Actualización automática cada 30 s</p>
+        </div>
+        {loading && <span className="text-xs text-gray-400">Cargando…</span>}
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* Ahora navegando */}
+        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-emerald-700 text-xs font-semibold uppercase tracking-wider">
+            <span className={`relative flex h-2 w-2 ${activeNow > 0 ? '' : 'opacity-30'}`}>
+              {activeNow > 0 && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              )}
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            Ahora
+          </div>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{activeNow}</p>
+          <p className="text-[11px] text-gray-500">navegando (5 min)</p>
+        </div>
+        {/* Hoy visitas */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-gray-600 text-xs font-semibold uppercase tracking-wider">
+            <Eye size={12} /> Hoy
+          </div>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{todayVisits}</p>
+          <p className="text-[11px] text-gray-500">páginas vistas</p>
+        </div>
+        {/* Hoy únicos */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-gray-600 text-xs font-semibold uppercase tracking-wider">
+            <Users size={12} /> Hoy
+          </div>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{todayUnique}</p>
+          <p className="text-[11px] text-gray-500">visitantes únicos</p>
+        </div>
+        {/* Total histórico */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-gray-600 text-xs font-semibold uppercase tracking-wider">
+            <Globe size={12} /> Total
+          </div>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{totalVisits.toLocaleString('es-CO')}</p>
+          <p className="text-[11px] text-gray-500">desde el inicio</p>
+        </div>
+      </div>
+
+      {/* 7 días + top páginas */}
+      <div className="grid lg:grid-cols-[1.4fr_1fr] gap-4 mt-4">
+        <div className="bg-white border border-gray-100 rounded-lg p-3">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Últimos 7 días</h3>
+          <div className="h-32">
+            {chart7d.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chart7d} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <ReTooltip
+                    contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                    formatter={(v, n) => [v, n === 'visits' ? 'Vistas' : 'Únicos']}
+                  />
+                  <Bar dataKey="visits" fill="#F58220" radius={[4, 4, 0, 0]} name="visits" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-xs text-gray-400">Sin datos aún</div>
+            )}
+          </div>
+        </div>
+        <div className="bg-white border border-gray-100 rounded-lg p-3">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Top páginas (hoy)</h3>
+          {data?.top_paths?.length > 0 ? (
+            <ul className="space-y-1 text-sm">
+              {data.top_paths.slice(0, 5).map((p) => (
+                <li key={p.path} className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs text-gray-600 truncate" title={p.path}>{p.path || '/'}</span>
+                  <span className="font-bold text-primary text-xs">{p.visits}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-gray-400">Sin visitas hoy</p>
+          )}
         </div>
       </div>
     </div>

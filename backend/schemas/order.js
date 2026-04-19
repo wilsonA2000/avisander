@@ -54,12 +54,18 @@ const orderCreateSchema = z.object({
   delivery_city: z.string().trim().max(80).optional().nullable(),
   // 'cash' (contra entrega) eliminado: política — Wilson no despacha sin pago previo.
   // 'pickup' nunca fue un método de pago real, era un alias confuso.
-  payment_method: z.enum(['whatsapp', 'bold']).optional().default('whatsapp'),
+  // 'manual': transferencia directa (Nequi/Bancolombia/QR) sin comisión de
+  // pasarela. Orden queda pending hasta que la cajera valida el comprobante
+  // desde el admin.
+  payment_method: z.enum(['whatsapp', 'bold', 'manual']).optional().default('whatsapp'),
   redeem_points: z.number().int().min(0).optional().default(0)
 })
 
 const orderStatusSchema = z.object({
-  status: z.enum(['pending', 'processing', 'shipped', 'completed', 'cancelled'])
+  // 'abandoned' se asigna automáticamente por el scheduler al expirar stock
+  // reservado; 'cancelled' lo usa la cajera explícitamente. Ambos permitidos
+  // aquí porque el admin puede re-enviar cualquier estado desde el dropdown.
+  status: z.enum(['pending', 'processing', 'shipped', 'completed', 'cancelled', 'abandoned'])
 })
 
 module.exports = { orderCreateSchema, orderStatusSchema }

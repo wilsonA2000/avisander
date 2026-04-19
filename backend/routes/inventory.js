@@ -2,7 +2,7 @@ const express = require('express')
 const { db } = require('../db/database')
 const { authenticateToken, requireAdmin } = require('../middleware/auth')
 const { validate } = require('../middleware/validate')
-const { inventoryAdjustSchema } = require('../schemas/inventory')
+const { inventoryAdjustSchema, inventoryAvailabilitySchema } = require('../schemas/inventory')
 const inventory = require('../lib/inventory')
 
 const router = express.Router()
@@ -65,9 +65,9 @@ router.post('/adjust', validate(inventoryAdjustSchema), (req, res, next) => {
   }
 })
 
-router.patch('/availability/:productId', (req, res, next) => {
+router.patch('/availability/:productId', validate(inventoryAvailabilitySchema), (req, res, next) => {
   try {
-    const value = req.body?.is_available ? 1 : 0
+    const value = req.body.is_available ? 1 : 0
     const product = db.prepare('SELECT id, name FROM products WHERE id = ?').get(req.params.productId)
     if (!product) return res.status(404).json({ error: 'Producto no encontrado' })
     db.prepare('UPDATE products SET is_available = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
