@@ -539,6 +539,30 @@ router.put(
       const newStatus = req.body.status
       const confirmStatuses = ['processing', 'shipped', 'completed']
 
+      // FSM de transiciones: evita errores tipo completed → pending.
+      // 'completed' y 'cancelled' son terminales (solo el sistema puede llegar
+      // a 'abandoned'). Si el admin necesita desbloquear, debe contactar soporte.
+      const ALLOWED_TRANSITIONS = {
+        pending: ['processing', 'cancelled'],
+        processing: ['shipped', 'completed', 'cancelled'],
+        shipped: ['completed', 'cancelled'],
+        completed: [],
+        cancelled: [],
+        abandoned: []
+      }
+      if (existing.status !== newStatus) {
+        const allowed = ALLOWED_TRANSITIONS[existing.status] || []
+        if (!allowed.includes(newStatus)) {
+          return res.status(409).json({
+            error: `Transición inválida: "${existing.status}" → "${newStatus}". Permitidas: ${allowed.join(', ') || 'ninguna (estado terminal)'}.`,
+            code: 'invalid_transition',
+            from: existing.status,
+            to: newStatus,
+            allowed
+          })
+        }
+      }
+
       // Al confirmar pedido (whatsapp/efectivo) se descuenta stock.
       // Para pedidos Bold, el descuento ya ocurrió al aprobar el pago.
       if (

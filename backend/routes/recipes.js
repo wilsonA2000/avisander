@@ -77,6 +77,9 @@ router.get('/', optionalAuth, (req, res, next) => {
 // Por slug (público si publicada; admin la ve siempre)
 router.get('/by-slug/:slug', optionalAuth, (req, res, next) => {
   try {
+    if (!req.params.slug || req.params.slug.length > 100) {
+      return res.status(400).json({ error: 'Slug inválido' })
+    }
     const recipe = db.prepare('SELECT * FROM recipes WHERE slug = ?').get(req.params.slug)
     if (!recipe) return res.status(404).json({ error: 'Receta no encontrada' })
     if (!recipe.is_published && req.user?.role !== 'admin') {

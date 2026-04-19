@@ -337,6 +337,9 @@ router.get('/on-sale', (_req, res, next) => {
 // Búsqueda O(1) por código de barras (usado por POS en Fase B)
 router.get('/by-barcode/:code', (req, res, next) => {
   try {
+    if (!req.params.code || req.params.code.length > 50) {
+      return res.status(400).json({ error: 'Código inválido' })
+    }
     const product = db
       .prepare(
         `SELECT p.*, c.name as category_name
@@ -354,6 +357,9 @@ router.get('/by-barcode/:code', (req, res, next) => {
 // Producto por slug amigable
 router.get('/by-slug/:slug', optionalAuth, (req, res, next) => {
   try {
+    if (!req.params.slug || req.params.slug.length > 100) {
+      return res.status(400).json({ error: 'Slug inválido' })
+    }
     const product = db
       .prepare(
         `SELECT p.*, c.name as category_name
