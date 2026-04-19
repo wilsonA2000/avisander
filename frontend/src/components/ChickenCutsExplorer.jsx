@@ -1,130 +1,87 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Drumstick, Utensils } from 'lucide-react'
+import { ArrowRight, Drumstick, Utensils, Maximize2, Minimize2, RotateCcw } from 'lucide-react'
 import { api } from '../lib/apiClient'
 
-// Despiece interactivo del pollo.
-// Approach: imagen IA del pollo + hotspots circulares numerados posicionados
-// sobre cada parte. Estilo infografía clásica de carnicería. No requiere
-// mapeo anatómico pixel-perfect (a diferencia de polígonos) porque cada
-// hotspot solo necesita estar dentro de su zona, no cubrirla.
+// Explosion view: el pollo entero se descompone en 5 piezas que vuelan a sus
+// posiciones con spring physics (Framer Motion), simulando un diagrama 3D
+// despiezado. Click en pieza → foco (centrada y ampliada), panel info al lado.
+// Cero Three.js, cero Blender — solo imágenes IA + animación 2D.
 
 const CUTS = [
   {
     id: 'pechuga',
     n: 1,
     label: 'Pechuga',
+    image: '/ai-pollo-pechuga.webp',
     short: 'El corte magro por excelencia',
     desc: 'Alta proteína, baja grasa. Ideal para plancha, horno o ensaladas. Cocción rápida — 6 a 8 min por lado.',
-    protein: '23g',
-    fat: '1.2g',
-    kcal: '165',
+    protein: '23g', fat: '1.2g', kcal: '165',
     tips: ['Marinar 30 min en limón y hierbas', 'Plancha a fuego medio-alto', 'No sobrecocinar: queda seca'],
-    // x,y en % del viewBox 100x100. Sobre la parte central-alta del pollo.
-    pos: { x: 48, y: 42 },
+    // Posición en el espacio exploded (x,y en % del contenedor, relativo al centro)
+    exploded: { x: 0, y: -38, rotate: -4, scale: 0.65 },
     searchTerm: 'pechuga'
   },
   {
     id: 'alas',
     n: 2,
     label: 'Alas',
+    image: '/ai-pollo-ala.webp',
     short: 'Para picar en grande',
     desc: 'Sabor intenso, piel crujiente al freír u hornear. Clásico BBQ, snack con salsa o aperitivo compartido.',
-    protein: '18g',
-    fat: '7g',
-    kcal: '203',
+    protein: '18g', fat: '7g', kcal: '203',
     tips: ['Marinar con soja, miel y ajo', 'Hornear a 200°C 25 min + broil final', 'Acompañar con salsa ranch o blue cheese'],
-    pos: { x: 22, y: 46 },
+    exploded: { x: -40, y: -5, rotate: -18, scale: 0.55 },
     searchTerm: 'alas'
   },
   {
     id: 'muslos',
     n: 3,
     label: 'Muslos',
+    image: '/ai-pollo-muslo.webp',
     short: 'Jugosos y con sabor',
     desc: 'Carne oscura con más sabor y menos riesgo de secarse. Perfecto para guisos, sudado, asado lento.',
-    protein: '19g',
-    fat: '10g',
-    kcal: '209',
+    protein: '19g', fat: '10g', kcal: '209',
     tips: ['Dorar piel primero en sartén', 'Terminar al horno 25 min a 180°C', 'Va bien con papas y cebolla caramelizada'],
-    pos: { x: 38, y: 70 },
+    exploded: { x: -28, y: 32, rotate: 8, scale: 0.62 },
     searchTerm: 'muslo'
   },
   {
     id: 'piernas',
     n: 4,
     label: 'Piernas (pernil)',
+    image: '/ai-pollo-pierna.webp',
     short: 'Favorito de los niños',
     desc: 'Hueso grande, cocción pareja, fácil de sujetar. Estrella de las parrillas y almuerzos familiares.',
-    protein: '16g',
-    fat: '9g',
-    kcal: '172',
+    protein: '16g', fat: '9g', kcal: '172',
     tips: ['Marinar 4h con paprika y ajo', 'Parrilla a fuego indirecto 35 min', 'Rotar 2 veces para dorado uniforme'],
-    pos: { x: 72, y: 70 },
+    exploded: { x: 30, y: 30, rotate: -8, scale: 0.6 },
     searchTerm: 'pierna'
   },
   {
     id: 'rabadilla',
     n: 5,
     label: 'Rabadilla / espalda',
+    image: '/ai-pollo-rabadilla.webp',
     short: 'La base de un buen caldo',
     desc: 'Menos carne pero más sabor. Ideal para caldos, fondos y sudados tradicionales colombianos.',
-    protein: '12g',
-    fat: '14g',
-    kcal: '180',
+    protein: '12g', fat: '14g', kcal: '180',
     tips: ['Tostar 10 min al horno antes de hervir', 'Caldo con puerro, zanahoria y apio', 'Colar antes de usar de base'],
-    pos: { x: 58, y: 26 },
+    exploded: { x: 38, y: -18, rotate: 16, scale: 0.55 },
     searchTerm: 'rabadilla'
   }
 ]
 
-function Hotspot({ cut, active, onSelect }) {
-  const isActive = cut.id === active
-  return (
-    <motion.button
-      type="button"
-      onClick={() => onSelect(cut.id)}
-      className="absolute -translate-x-1/2 -translate-y-1/2 group"
-      style={{ left: `${cut.pos.x}%`, top: `${cut.pos.y}%` }}
-      aria-label={cut.label}
-      whileHover={{ scale: 1.12 }}
-      whileTap={{ scale: 0.94 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-    >
-      {/* Pulso suave cuando está activo */}
-      {isActive && (
-        <motion.span
-          className="absolute inset-0 rounded-full bg-primary/40"
-          initial={{ scale: 1, opacity: 0.6 }}
-          animate={{ scale: 2, opacity: 0 }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeOut' }}
-          aria-hidden="true"
-        />
-      )}
-      <span
-        className={`relative flex items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-full text-sm md:text-base font-bold transition-all shadow-lg ${
-          isActive
-            ? 'bg-primary text-white ring-4 ring-primary/30'
-            : 'bg-white/95 text-charcoal ring-2 ring-white/80 group-hover:bg-primary group-hover:text-white'
-        }`}
-      >
-        {cut.n}
-      </span>
-      {/* Etiqueta flotante (solo al hover o active) */}
-      <span
-        className={`pointer-events-none absolute left-1/2 -translate-x-1/2 mt-2 top-full whitespace-nowrap text-[11px] md:text-xs font-semibold px-2 py-0.5 rounded-full bg-charcoal/85 backdrop-blur-sm text-white transition-opacity ${
-          isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        }`}
-      >
-        {cut.label}
-      </span>
-    </motion.button>
-  )
-}
+// Tres estados de la vista:
+//   'assembled': pollo entero visible, piezas ocultas
+//   'exploded':  pollo oculto, 5 piezas en formación explotada
+//   'focused':   una pieza en el centro grande, las demás mini en los bordes
+const springy = { type: 'spring', stiffness: 180, damping: 22, mass: 0.9 }
 
 function ChickenCutsExplorer() {
-  const [active, setActive] = useState(CUTS[0].id)
+  const [view, setView] = useState('assembled')
+  const [focusedId, setFocusedId] = useState(null)
   const [products, setProducts] = useState({})
 
   useEffect(() => {
@@ -143,132 +100,258 @@ function ChickenCutsExplorer() {
         }
         setProducts(byCut)
       })
-      .catch(() => { /* sin red, seguimos sin links */ })
+      .catch(() => {})
     return () => { cancelled = true }
   }, [])
 
-  const current = CUTS.find((c) => c.id === active) || CUTS[0]
-  const product = products[current.id]
+  const focused = CUTS.find((c) => c.id === focusedId)
+  const product = focused ? products[focused.id] : null
+
+  const handleAssemble = () => { setView('assembled'); setFocusedId(null) }
+  const handleExplode = () => { setView('exploded'); setFocusedId(null) }
+  const handleFocus = (id) => { setView('focused'); setFocusedId(id) }
 
   return (
-    <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6 lg:gap-10">
-      {/* Imagen + hotspots */}
-      <div className="relative rounded-3xl overflow-hidden bg-charcoal shadow-2xl aspect-[4/3]">
-        <img
-          src="/ai-despiece-pollo.webp"
-          alt="Pollo entero con cortes identificados"
-          className="absolute inset-0 w-full h-full object-cover"
-          loading="eager"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" aria-hidden="true" />
+    <div className="grid lg:grid-cols-[1.25fr_1fr] gap-6 lg:gap-10">
+      {/* Escenario visual */}
+      <div className="relative rounded-3xl overflow-hidden bg-[#1a1410] shadow-2xl aspect-square lg:aspect-[4/3]">
+        {/* Glow ambiental */}
+        <div className="absolute inset-0 bg-gradient-radial from-amber-900/15 via-transparent to-transparent" aria-hidden="true" />
 
-        {CUTS.map((cut) => (
-          <Hotspot key={cut.id} cut={cut} active={active} onSelect={setActive} />
-        ))}
-
-        {/* Label flotante abajo con el corte activo */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={current.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
-            className="absolute left-4 bottom-4 md:left-6 md:bottom-6 bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg"
-          >
-            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
-              #{current.n} · Corte
-            </p>
-            <p className="font-display text-lg md:text-xl font-bold text-charcoal">{current.label}</p>
-          </motion.div>
+        {/* Pollo entero — visible solo en 'assembled' */}
+        <AnimatePresence>
+          {view === 'assembled' && (
+            <motion.img
+              key="whole"
+              src="/ai-pollo-entero.webp"
+              alt="Pollo entero"
+              className="absolute top-1/2 left-1/2 w-[78%] max-w-[520px]"
+              initial={{ opacity: 0, scale: 0.9, x: '-50%', y: '-50%' }}
+              animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }}
+              exit={{ opacity: 0, scale: 1.05, x: '-50%', y: '-50%' }}
+              transition={springy}
+            />
+          )}
         </AnimatePresence>
+
+        {/* Piezas — visibles en 'exploded' y 'focused' */}
+        {CUTS.map((cut) => {
+          let target
+          if (view === 'assembled') {
+            target = { opacity: 0, x: '-50%', y: '-50%', scale: 0.4, rotate: 0 }
+          } else if (view === 'exploded') {
+            target = {
+              opacity: 1,
+              x: `calc(-50% + ${cut.exploded.x}%)`,
+              y: `calc(-50% + ${cut.exploded.y}%)`,
+              scale: cut.exploded.scale,
+              rotate: cut.exploded.rotate
+            }
+          } else {
+            // focused: la pieza seleccionada al centro grande, el resto mini en bordes
+            if (cut.id === focusedId) {
+              target = { opacity: 1, x: '-50%', y: '-50%', scale: 1.1, rotate: 0 }
+            } else {
+              // calcular posición en borde según el ángulo original de la pieza
+              const angle = Math.atan2(cut.exploded.y, cut.exploded.x || 0.001)
+              const radius = 42
+              const ex = Math.cos(angle) * radius
+              const ey = Math.sin(angle) * radius
+              target = {
+                opacity: 0.6,
+                x: `calc(-50% + ${ex}%)`,
+                y: `calc(-50% + ${ey}%)`,
+                scale: 0.32,
+                rotate: 0
+              }
+            }
+          }
+          const isFocused = view === 'focused' && cut.id === focusedId
+          return (
+            <motion.button
+              key={cut.id}
+              type="button"
+              onClick={() => handleFocus(cut.id)}
+              aria-label={cut.label}
+              className="absolute top-1/2 left-1/2 w-[42%] max-w-[280px] cursor-pointer will-change-transform focus:outline-none"
+              style={{ originX: 0.5, originY: 0.5 }}
+              animate={target}
+              transition={springy}
+              whileHover={view !== 'assembled' && !isFocused ? { scale: (target.scale || 0.6) * 1.08 } : undefined}
+            >
+              <div className="relative">
+                <img
+                  src={cut.image}
+                  alt={cut.label}
+                  className="w-full h-auto select-none"
+                  draggable="false"
+                />
+                {/* Etiqueta con número, solo en exploded o sobre la focused */}
+                {(view === 'exploded' || isFocused) && (
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3, duration: 0.3 }}
+                    className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-primary text-white text-xs md:text-sm font-bold px-2.5 py-0.5 rounded-full shadow-lg whitespace-nowrap"
+                  >
+                    {cut.n}
+                  </motion.span>
+                )}
+              </div>
+            </motion.button>
+          )
+        })}
+
+        {/* Controles del escenario */}
+        <div className="absolute left-4 bottom-4 md:left-6 md:bottom-6 flex gap-2">
+          {view === 'assembled' ? (
+            <motion.button
+              type="button"
+              onClick={handleExplode}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold px-4 py-2 md:px-5 md:py-2.5 rounded-full shadow-xl text-sm"
+            >
+              <Maximize2 size={14} /> Diseccionar
+            </motion.button>
+          ) : (
+            <motion.button
+              type="button"
+              onClick={handleAssemble}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-2 bg-white/95 hover:bg-white text-charcoal font-semibold px-4 py-2 md:px-5 md:py-2.5 rounded-full shadow-xl text-sm backdrop-blur-sm"
+            >
+              {view === 'focused' ? <><RotateCcw size={14} /> Ver todas</> : <><Minimize2 size={14} /> Unir</>}
+            </motion.button>
+          )}
+          {view === 'focused' && (
+            <motion.button
+              type="button"
+              onClick={handleAssemble}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-2 bg-white/95 hover:bg-white text-charcoal font-semibold px-4 py-2 rounded-full shadow-xl text-sm backdrop-blur-sm"
+            >
+              <Minimize2 size={14} /> Unir
+            </motion.button>
+          )}
+        </div>
+
+        {/* Hint inicial */}
+        {view === 'assembled' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="absolute right-4 top-4 md:right-6 md:top-6 bg-black/40 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full"
+          >
+            Pulsa <span className="font-bold text-primary">Diseccionar</span> ↓
+          </motion.div>
+        )}
       </div>
 
       {/* Panel info */}
       <div className="flex flex-col gap-4">
         <AnimatePresence mode="wait">
-          <motion.article
-            key={current.id}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="bg-white rounded-3xl shadow-lg border border-gray-100 p-5 md:p-7"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Drumstick size={18} className="text-primary" />
-              <span className="text-xs uppercase tracking-[0.15em] text-gray-500 font-semibold">
-                {current.short}
-              </span>
-            </div>
-            <h3 className="font-display text-2xl md:text-3xl font-bold text-charcoal mb-3">
-              {current.label}
-            </h3>
-            <p className="text-gray-700 leading-relaxed mb-5 text-sm md:text-base">
-              {current.desc}
-            </p>
-
-            <div className="grid grid-cols-3 gap-2 mb-5">
-              <Metric label="Proteína" value={current.protein} />
-              <Metric label="Grasa" value={current.fat} />
-              <Metric label="Kcal" value={current.kcal} />
-            </div>
-
-            <div className="mb-5">
-              <div className="flex items-center gap-2 mb-2">
-                <Utensils size={14} className="text-primary" />
-                <span className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Cocción</span>
-              </div>
-              <ul className="space-y-1.5">
-                {current.tips.map((t, i) => (
-                  <li key={i} className="text-sm text-gray-700 flex gap-2">
-                    <span className="text-primary mt-0.5">·</span>
-                    <span>{t}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {product ? (
-              <Link
-                to={`/producto/${product.id}`}
-                className="inline-flex items-center justify-center gap-2 w-full bg-primary hover:bg-primary/90 text-white font-semibold px-5 py-3 rounded-xl transition-colors shadow-md"
-              >
-                Ver {product.name}
-                <ArrowRight size={16} />
-              </Link>
-            ) : (
-              <Link
-                to="/productos?category=pollo"
-                className="inline-flex items-center justify-center gap-2 w-full border border-gray-300 hover:border-primary hover:text-primary text-gray-700 font-semibold px-5 py-3 rounded-xl transition-colors"
-              >
-                Ver todos los cortes de pollo
-                <ArrowRight size={16} />
-              </Link>
-            )}
-          </motion.article>
-        </AnimatePresence>
-
-        <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
-          {CUTS.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setActive(c.id)}
-              className={`px-3.5 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all border flex-shrink-0 inline-flex items-center gap-1.5 ${
-                c.id === active
-                  ? 'bg-primary text-white border-primary shadow-md'
-                  : 'bg-white text-gray-700 border-gray-200 hover:border-primary hover:text-primary'
-              }`}
+          {view === 'focused' && focused ? (
+            <motion.article
+              key={focused.id}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="bg-white rounded-3xl shadow-lg border border-gray-100 p-5 md:p-7"
             >
-              <span className={`w-5 h-5 rounded-full inline-flex items-center justify-center text-[10px] font-bold ${
-                c.id === active ? 'bg-white/25' : 'bg-primary/10 text-primary'
-              }`}>
-                {c.n}
-              </span>
-              {c.label}
-            </button>
-          ))}
-        </div>
+              <div className="flex items-center gap-2 mb-2">
+                <Drumstick size={18} className="text-primary" />
+                <span className="text-xs uppercase tracking-[0.15em] text-gray-500 font-semibold">
+                  #{focused.n} · {focused.short}
+                </span>
+              </div>
+              <h3 className="font-display text-2xl md:text-3xl font-bold text-charcoal mb-3">
+                {focused.label}
+              </h3>
+              <p className="text-gray-700 leading-relaxed mb-5 text-sm md:text-base">
+                {focused.desc}
+              </p>
+              <div className="grid grid-cols-3 gap-2 mb-5">
+                <Metric label="Proteína" value={focused.protein} />
+                <Metric label="Grasa" value={focused.fat} />
+                <Metric label="Kcal" value={focused.kcal} />
+              </div>
+              <div className="mb-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <Utensils size={14} className="text-primary" />
+                  <span className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Cocción</span>
+                </div>
+                <ul className="space-y-1.5">
+                  {focused.tips.map((t, i) => (
+                    <li key={i} className="text-sm text-gray-700 flex gap-2">
+                      <span className="text-primary mt-0.5">·</span>
+                      <span>{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {product ? (
+                <Link
+                  to={`/producto/${product.id}`}
+                  className="inline-flex items-center justify-center gap-2 w-full bg-primary hover:bg-primary/90 text-white font-semibold px-5 py-3 rounded-xl transition-colors shadow-md"
+                >
+                  Ver {product.name}
+                  <ArrowRight size={16} />
+                </Link>
+              ) : (
+                <Link
+                  to="/productos?category=pollo"
+                  className="inline-flex items-center justify-center gap-2 w-full border border-gray-300 hover:border-primary hover:text-primary text-gray-700 font-semibold px-5 py-3 rounded-xl transition-colors"
+                >
+                  Ver todos los cortes de pollo
+                  <ArrowRight size={16} />
+                </Link>
+              )}
+            </motion.article>
+          ) : (
+            <motion.div
+              key="help"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.25 }}
+              className="bg-white rounded-3xl shadow-lg border border-gray-100 p-5 md:p-7"
+            >
+              <p className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-primary font-semibold mb-3">
+                <Drumstick size={14} /> Guía del corte
+              </p>
+              <h3 className="font-display text-2xl md:text-3xl font-bold text-charcoal mb-2">
+                {view === 'assembled' ? 'Explora el pollo pieza por pieza' : 'Elige un corte'}
+              </h3>
+              <p className="text-gray-600 leading-relaxed text-sm md:text-base mb-4">
+                {view === 'assembled'
+                  ? 'Pulsa "Diseccionar" para separar las 5 piezas del pollo. Después toca cualquiera para descubrir sus usos culinarios, valor nutricional y el producto del catálogo.'
+                  : 'Toca la pieza que te interesa para ver descripción, macros, tips de cocción y llevarla directo al carrito.'}
+              </p>
+              <div className="grid grid-cols-5 gap-2">
+                {CUTS.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => handleFocus(c.id)}
+                    className="group flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-cream transition-colors"
+                    aria-label={c.label}
+                  >
+                    <span className="w-7 h-7 rounded-full bg-primary/10 text-primary font-bold text-sm flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                      {c.n}
+                    </span>
+                    <span className="text-[10px] md:text-[11px] text-center text-gray-600 leading-tight">
+                      {c.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
