@@ -24,7 +24,10 @@ RUN npm ci --omit=dev --no-audit --no-fund
 FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache tini
+ENV TZ=America/Bogota
+RUN apk add --no-cache tini tzdata \
+ && cp /usr/share/zoneinfo/America/Bogota /etc/localtime \
+ && echo "America/Bogota" > /etc/timezone
 COPY backend/ /app/backend/
 COPY --from=backend-deps /backend/node_modules /app/backend/node_modules
 COPY --from=frontend-builder /frontend/dist /app/frontend/dist

@@ -23,6 +23,7 @@ primary_region = 'dfw'
   FRONTEND_URL = 'https://distribuidoraavisander.com,https://www.distribuidoraavisander.com'
   NODE_ENV = 'production'
   PORT = '3000'
+  TZ = 'America/Bogota'
   UPLOADS_PATH = '/data/uploads'
 
 [[mounts]]
