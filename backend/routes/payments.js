@@ -8,6 +8,7 @@ const bold = require('../lib/bold')
 const logger = require('../lib/logger')
 const inventory = require('../lib/inventory')
 const stockReservation = require('../lib/stockReservation')
+const { clientIp } = require('../lib/client-ip')
 
 const router = express.Router()
 
@@ -16,6 +17,7 @@ const reconcileLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
   message: { error: 'Demasiadas reconciliaciones. Esperá un minuto.' }
 })
 
@@ -23,7 +25,8 @@ const transactionLimiter = rateLimit({
   windowMs: 60_000,
   max: 30,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  keyGenerator: clientIp
 })
 
 // Config pública: el frontend consulta esto para saber si mostrar el botón Bold

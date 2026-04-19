@@ -8,6 +8,7 @@ const pinoHttp = require('pino-http')
 const path = require('path')
 
 const logger = require('./lib/logger')
+const { clientIp } = require('./lib/client-ip')
 
 const authRoutes = require('./routes/auth')
 const productRoutes = require('./routes/products')
@@ -33,7 +34,10 @@ function createApp({ enableRateLimit = true } = {}) {
   const app = express()
   const isProd = process.env.NODE_ENV === 'production'
 
-  app.set('trust proxy', 1)
+  // Cadena real en prod: Cliente → Cloudflare → Fly proxy → Express (2 hops).
+  // Con trust proxy=1 Express veía la IP del edge de Fly y todos los visitantes
+  // compartían "IP", lo que reventaba rate limits entre sí.
+  app.set('trust proxy', 2)
 
   if (process.env.NODE_ENV !== 'test') {
     app.use(
@@ -102,13 +106,14 @@ function createApp({ enableRateLimit = true } = {}) {
 
   if (enableRateLimit) {
     // En desarrollo subimos el máximo; tests E2E y HMR pueden disparar cientos de requests legítimas.
-    const globalMax = process.env.NODE_ENV === 'production' ? 300 : 3000
+    const globalMax = process.env.NODE_ENV === 'production' ? 1500 : 3000
     app.use(
       rateLimit({
         windowMs: 15 * 60 * 1000,
         max: globalMax,
         standardHeaders: true,
         legacyHeaders: false,
+        keyGenerator: clientIp,
         message: { error: 'Demasiadas solicitudes, intenta más tarde.' }
       })
     )
@@ -117,10 +122,11 @@ function createApp({ enableRateLimit = true } = {}) {
   const authLimiter = enableRateLimit
     ? rateLimit({
         windowMs: 15 * 60 * 1000,
-        max: 5,
+        max: 10,
         standardHeaders: true,
         legacyHeaders: false,
         skipSuccessfulRequests: true,
+        keyGenerator: clientIp,
         message: { error: 'Demasiados intentos. Intenta de nuevo en 15 minutos.' }
       })
     : (_req, _res, next) => next()

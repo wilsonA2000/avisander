@@ -15,6 +15,7 @@ const loyalty = require('../lib/loyalty')
 const { sendMail, orderAdminEmail, orderCustomerEmail } = require('../lib/mailer')
 const { whatsappAdminLink } = require('../lib/whatsapp')
 const logger = require('../lib/logger')
+const { clientIp } = require('../lib/client-ip')
 
 const router = express.Router()
 
@@ -23,6 +24,7 @@ const publicOrderLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
   message: { error: 'Demasiadas consultas, intenta en un momento.' }
 })
 

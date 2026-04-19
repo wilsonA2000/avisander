@@ -4,6 +4,7 @@ const { db } = require('../db/database')
 const { authenticateToken, requireAdmin, optionalAuth } = require('../middleware/auth')
 const { validate } = require('../middleware/validate')
 const { trackSchema } = require('../schemas/analytics')
+const { clientIp } = require('../lib/client-ip')
 
 const router = express.Router()
 
@@ -12,7 +13,8 @@ const trackLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  skipFailedRequests: true
+  skipFailedRequests: true,
+  keyGenerator: clientIp
 })
 
 // Heurística de bots: lo suficientemente amplia para bloquear crawlers conocidos

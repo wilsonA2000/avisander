@@ -9,6 +9,7 @@ const { validate } = require('../middleware/validate')
 const { pqrsCreateSchema, pqrsUpdateSchema } = require('../schemas/pqrs')
 const { sendMail } = require('../lib/mailer')
 const logger = require('../lib/logger')
+const { clientIp } = require('../lib/client-ip')
 
 const router = express.Router()
 
@@ -18,6 +19,7 @@ const publicLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: clientIp,
   message: { error: 'Demasiadas solicitudes. Intenta en unos minutos.' }
 })
 
