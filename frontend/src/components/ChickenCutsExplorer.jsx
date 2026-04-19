@@ -118,66 +118,63 @@ function ChickenCutsExplorer() {
         {/* Glow ambiental */}
         <div className="absolute inset-0 bg-gradient-radial from-amber-900/15 via-transparent to-transparent" aria-hidden="true" />
 
-        {/* Pollo entero — visible solo en 'assembled' */}
-        <AnimatePresence>
-          {view === 'assembled' && (
-            <motion.img
-              key="whole"
-              src="/ai-pollo-entero.webp"
-              alt="Pollo entero"
-              className="absolute top-1/2 left-1/2 w-[78%] max-w-[520px]"
-              initial={{ opacity: 0, scale: 0.9, x: '-50%', y: '-50%' }}
-              animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }}
-              exit={{ opacity: 0, scale: 1.05, x: '-50%', y: '-50%' }}
-              transition={springy}
-            />
-          )}
-        </AnimatePresence>
+        {/* Pollo entero — fade completo fuera cuando se disecciona */}
+        <motion.img
+          src="/ai-pollo-entero.webp"
+          alt="Pollo entero"
+          className="absolute w-[72%] max-w-[500px] pointer-events-none"
+          style={{ top: '50%', left: '50%', x: '-50%', y: '-50%' }}
+          animate={{
+            opacity: view === 'assembled' ? 1 : 0,
+            scale: view === 'assembled' ? 1 : 1.08
+          }}
+          transition={springy}
+        />
 
-        {/* Piezas — visibles en 'exploded' y 'focused' */}
+        {/* Piezas — posicionadas con left/top en % del contenedor y x/y en %
+            del elemento para centrar. Separar ambos evita el conflicto de
+            calc(-50% + N%) que antes dejaba las piezas apiladas. */}
         {CUTS.map((cut) => {
-          let target
-          if (view === 'assembled') {
-            target = { opacity: 0, x: '-50%', y: '-50%', scale: 0.4, rotate: 0 }
-          } else if (view === 'exploded') {
-            target = {
-              opacity: 1,
-              x: `calc(-50% + ${cut.exploded.x}%)`,
-              y: `calc(-50% + ${cut.exploded.y}%)`,
-              scale: cut.exploded.scale,
-              rotate: cut.exploded.rotate
-            }
-          } else {
-            // focused: la pieza seleccionada al centro grande, el resto mini en bordes
-            if (cut.id === focusedId) {
-              target = { opacity: 1, x: '-50%', y: '-50%', scale: 1.1, rotate: 0 }
-            } else {
-              // calcular posición en borde según el ángulo original de la pieza
-              const angle = Math.atan2(cut.exploded.y, cut.exploded.x || 0.001)
-              const radius = 42
-              const ex = Math.cos(angle) * radius
-              const ey = Math.sin(angle) * radius
-              target = {
-                opacity: 0.6,
-                x: `calc(-50% + ${ex}%)`,
-                y: `calc(-50% + ${ey}%)`,
-                scale: 0.32,
-                rotate: 0
-              }
-            }
-          }
           const isFocused = view === 'focused' && cut.id === focusedId
+          let leftPct, topPct, scale, rotate, opacity
+          if (view === 'assembled') {
+            leftPct = 50; topPct = 50
+            scale = 0.5; rotate = 0; opacity = 0
+          } else if (view === 'exploded') {
+            leftPct = 50 + cut.exploded.x
+            topPct = 50 + cut.exploded.y
+            scale = cut.exploded.scale
+            rotate = cut.exploded.rotate
+            opacity = 1
+          } else if (isFocused) {
+            leftPct = 50; topPct = 50
+            scale = 1.1; rotate = 0; opacity = 1
+          } else {
+            // piezas no enfocadas: al borde según el ángulo original
+            const angle = Math.atan2(cut.exploded.y || 0.001, cut.exploded.x || 0.001)
+            const radius = 40
+            leftPct = 50 + Math.cos(angle) * radius
+            topPct = 50 + Math.sin(angle) * radius
+            scale = 0.3; rotate = 0; opacity = 0.55
+          }
           return (
             <motion.button
               key={cut.id}
               type="button"
               onClick={() => handleFocus(cut.id)}
               aria-label={cut.label}
-              className="absolute top-1/2 left-1/2 w-[42%] max-w-[280px] cursor-pointer will-change-transform focus:outline-none"
-              style={{ originX: 0.5, originY: 0.5 }}
-              animate={target}
+              className="absolute w-[36%] max-w-[240px] cursor-pointer will-change-transform focus:outline-none"
+              animate={{
+                left: `${leftPct}%`,
+                top: `${topPct}%`,
+                x: '-50%',
+                y: '-50%',
+                scale,
+                rotate,
+                opacity
+              }}
               transition={springy}
-              whileHover={view !== 'assembled' && !isFocused ? { scale: (target.scale || 0.6) * 1.08 } : undefined}
+              whileHover={view !== 'assembled' && !isFocused ? { scale: scale * 1.08 } : undefined}
             >
               <div className="relative">
                 <img
@@ -186,7 +183,6 @@ function ChickenCutsExplorer() {
                   className="w-full h-auto select-none"
                   draggable="false"
                 />
-                {/* Etiqueta con número, solo en exploded o sobre la focused */}
                 {(view === 'exploded' || isFocused) && (
                   <motion.span
                     initial={{ opacity: 0 }}
