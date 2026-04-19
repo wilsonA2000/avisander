@@ -62,10 +62,17 @@ function createApp({ enableRateLimit = true } = {}) {
         ? {
             directives: {
               defaultSrc: ["'self'"],
-              imgSrc: ["'self'", 'data:', 'blob:'],
+              imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
               connectSrc: ["'self'", 'https://wa.me'],
               scriptSrc: ["'self'"],
-              styleSrc: ["'self'", "'unsafe-inline'"]
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              mediaSrc: ["'self'", 'data:', 'blob:', 'https:'],
+              frameSrc: [
+                "'self'",
+                'https://www.youtube.com',
+                'https://www.youtube-nocookie.com',
+                'https://player.vimeo.com'
+              ]
             }
           }
         : false,
