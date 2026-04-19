@@ -23,6 +23,7 @@ import { useRecentlyViewed } from '../hooks/useRecentlyViewed'
 import RecipeImage from '../components/RecipeImage'
 import CategoryIcon from '../components/CategoryIcon'
 import SEO from '../components/SEO'
+import AnimatedSection from '../components/AnimatedSection'
 
 const BANNER_CANDIDATES = [
   { src: '/media/publicidad/banners/banner-1.webp', alt: 'Promoción Avisander', link: '/productos?on_sale=1' },
@@ -36,6 +37,13 @@ function Hero({ settings }) {
   const [heroVideoOk, setHeroVideoOk] = useState(false)
 
   useEffect(() => {
+    // En mobile y conexiones lentas, el video es el cuello de botella del LCP.
+    // Mostramos solo el poster estático: mismo look cinemático, 0 descarga extra.
+    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+    const conn = typeof navigator !== 'undefined' ? navigator.connection || navigator.mozConnection : null
+    const saveData = conn?.saveData === true
+    const slow = conn && /2g|slow-2g/.test(conn.effectiveType || '')
+    if (isMobile || saveData || slow) return
     let cancelled = false
     const probe = document.createElement('video')
     probe.muted = true
@@ -87,7 +95,7 @@ function Hero({ settings }) {
             ? undefined
             : {
                 backgroundImage:
-                  "linear-gradient(95deg, rgba(26,26,26,0.85) 0%, rgba(90,20,26,0.75) 55%, rgba(26,26,26,0.35) 100%), url('https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=1200&q=70&fm=webp&auto=format&fit=crop')",
+                  "linear-gradient(95deg, rgba(26,26,26,0.85) 0%, rgba(90,20,26,0.75) 55%, rgba(26,26,26,0.35) 100%), url('/hero-poster.webp')",
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
               }
@@ -117,6 +125,16 @@ function Hero({ settings }) {
             />
           </>
         )}
+
+        {/* Logo integrado (watermark): no pegado como sticker, se funde con el
+            fondo usando mix-blend-soft-light + baja opacidad. Estilo Aldelis. */}
+        <img
+          src="/logo-transparent.webp"
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute right-4 bottom-4 md:right-10 md:bottom-8 w-24 md:w-36 opacity-60"
+          style={{ mixBlendMode: 'soft-light' }}
+        />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -259,7 +277,7 @@ function Home() {
       <Hero settings={settings} />
 
       {categories.length > 0 && (
-        <section>
+        <AnimatedSection>
           <div className="flex items-end justify-between mb-5">
             <div>
               <h2 className="font-display text-2xl md:text-3xl font-bold text-charcoal">Explora por categoría</h2>
@@ -399,12 +417,12 @@ function Home() {
               </>
             )
           })()}
-        </section>
+        </AnimatedSection>
       )}
 
       {/* Destacados — carrusel para soportar cualquier cantidad >= 1 */}
       {featured.length > 0 && (
-        <section>
+        <AnimatedSection>
           <div className="flex items-end justify-between mb-5">
             <div>
               <h2 className="font-display text-2xl md:text-3xl font-bold text-charcoal">Destacados</h2>
@@ -418,7 +436,7 @@ function Home() {
             </Link>
           </div>
           <ProductCarousel items={featured} />
-        </section>
+        </AnimatedSection>
       )}
 
       {recentlyViewed.length > 0 && (

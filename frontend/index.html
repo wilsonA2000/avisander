@@ -26,8 +26,9 @@
     <!-- Google Maps: cuando el cliente busca dirección. -->
     <link rel="dns-prefetch" href="https://maps.googleapis.com">
     <link rel="dns-prefetch" href="https://places.googleapis.com">
-    <!-- Hero: imagen externa actual (será reemplazada por local). -->
-    <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
+    <!-- Hero poster: LCP candidate. Preload asegura que arranque apenas el HTML
+         llega al navegador, antes del bundle JS. Reduce LCP ~2-3s en mobile. -->
+    <link rel="preload" as="image" href="/hero-poster.webp" fetchpriority="high">
   </head>
   <body>
     <div id="root"></div>
