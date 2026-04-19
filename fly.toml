@@ -1,5 +1,5 @@
 app = "distribuidoraavisander"
-primary_region = "qro"
+primary_region = "mia"
 
 [build]
   dockerfile = "Dockerfile"
