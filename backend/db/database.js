@@ -232,6 +232,9 @@ function initialize() {
   addColumnIfMissing('users', 'must_change_password', 'must_change_password INTEGER DEFAULT 0')
   // Sprint 7A: avatar del usuario
   addColumnIfMissing('users', 'avatar_url', 'avatar_url TEXT')
+  // Audit 2026-04-19: lockout de cuenta tras N logins fallidos.
+  addColumnIfMissing('users', 'failed_login_count', 'failed_login_count INTEGER NOT NULL DEFAULT 0')
+  addColumnIfMissing('users', 'locked_until', 'locked_until DATETIME')
   addColumnIfMissing('products', 'sale_type', "sale_type TEXT NOT NULL DEFAULT 'fixed'")
   addColumnIfMissing('products', 'price_per_kg', 'price_per_kg REAL')
   addColumnIfMissing('products', 'brand', 'brand TEXT')

@@ -25,8 +25,21 @@ const {
 } = require('../lib/tokens')
 const { sendMail, passwordResetEmail } = require('../lib/mailer')
 const logger = require('../lib/logger')
+const rateLimit = require('express-rate-limit')
+const { clientIp } = require('../lib/client-ip')
 
 const router = express.Router()
+
+// Anti-abuso: forgot-password dispara envío de email. Limitamos 3/hora por
+// IP real para frenar enumeración + inundación de inbox.
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: clientIp,
+  message: { error: 'Demasiadas solicitudes. Intenta en una hora.' }
+})
 
 const BCRYPT_ROUNDS = 12
 
@@ -90,15 +103,53 @@ router.post('/register', validate(registerSchema), (req, res, next) => {
   }
 })
 
-// Login
+// Login con lockout por usuario tras 5 fallos consecutivos (15 min).
+// Independiente del rate limit por IP, cierra el vector de ataque cuando
+// un atacante rota IPs para forzar la pass.
+const MAX_FAILED_LOGINS = 5
+const LOCKOUT_MINUTES = 15
+
 router.post('/login', validate(loginSchema), (req, res, next) => {
   try {
     const { email, password } = req.body
 
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email)
 
-    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+    // Si no existe, respuesta genérica (no enumerar).
+    if (!user) {
       return res.status(401).json({ error: 'Credenciales inválidas' })
+    }
+
+    // Cuenta bloqueada: rechazamos antes de siquiera comparar la pass.
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const minsLeft = Math.ceil((new Date(user.locked_until) - new Date()) / 60000)
+      return res.status(429).json({
+        error: `Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intenta en ${minsLeft} minuto(s) o usa "Olvidé mi contraseña".`,
+        code: 'account_locked'
+      })
+    }
+
+    if (!bcrypt.compareSync(password, user.password_hash)) {
+      const newCount = (user.failed_login_count || 0) + 1
+      if (newCount >= MAX_FAILED_LOGINS) {
+        const lockUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString()
+        db.prepare(
+          'UPDATE users SET failed_login_count = ?, locked_until = ? WHERE id = ?'
+        ).run(newCount, lockUntil, user.id)
+        logger.warn({ userId: user.id }, 'Cuenta bloqueada por intentos fallidos')
+      } else {
+        db.prepare(
+          'UPDATE users SET failed_login_count = ? WHERE id = ?'
+        ).run(newCount, user.id)
+      }
+      return res.status(401).json({ error: 'Credenciales inválidas' })
+    }
+
+    // Login OK: reset contador.
+    if (user.failed_login_count > 0 || user.locked_until) {
+      db.prepare(
+        'UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE id = ?'
+      ).run(user.id)
     }
 
     const tokens = setAuthCookies(res, user.id)
@@ -181,7 +232,7 @@ router.put('/me', authenticateToken, validate(profileUpdateSchema), (req, res, n
 
 // Solicitar recuperación de contraseña.
 // Siempre responde 200 para no filtrar existencia del email.
-router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res, next) => {
+router.post('/forgot-password', forgotPasswordLimiter, validate(forgotPasswordSchema), async (req, res, next) => {
   try {
     const { email } = req.body
     const user = db.prepare('SELECT id, email, name FROM users WHERE email = ?').get(email)
