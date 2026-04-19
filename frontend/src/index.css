@@ -85,6 +85,10 @@
     from { opacity: 0; transform: translateY(-8px); }
     to { opacity: 1; transform: translateY(0); }
   }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translate(-50%, -40%) scale(0.8); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
   .animate-cart-bounce { animation: cart-bounce 0.7s ease-in-out; }
   .animate-badge-pop { animation: badge-pop 0.5s ease-out; }
   .animate-fade-in { animation: fade-in 0.25s ease-out; }

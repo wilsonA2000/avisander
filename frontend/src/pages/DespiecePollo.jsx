@@ -27,10 +27,10 @@ function DespiecePollo() {
           <Info size={12} /> Guía del corte
         </p>
         <h1 className="font-display text-3xl md:text-5xl font-bold text-charcoal leading-[1.05] mb-3">
-          El pollo, corte por corte
+          Cortes del pollo
         </h1>
         <p className="text-gray-600 md:text-lg leading-relaxed max-w-2xl">
-          Haz clic sobre cada parte del pollo para descubrir sus usos culinarios, valor nutricional y qué producto lleva a tu mesa.
+          Explora el pollo presa por presa. Toca cualquier corte para descubrir sus usos culinarios, valor nutricional y qué producto lleva a tu mesa.
         </p>
       </motion.header>
 
