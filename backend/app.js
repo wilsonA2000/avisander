@@ -67,15 +67,19 @@ function createApp({ enableRateLimit = true } = {}) {
                 "'self'",
                 'https://wa.me',
                 'https://maps.googleapis.com',
+                'https://places.googleapis.com',
                 'https://nominatim.openstreetmap.org',
                 'https://checkout.bold.co',
-                'https://integrations.api.bold.co'
+                'https://integrations.api.bold.co',
+                'https://cloudflareinsights.com',
+                'https://static.cloudflareinsights.com'
               ],
               scriptSrc: [
                 "'self'",
                 'https://maps.googleapis.com',
                 'https://maps.gstatic.com',
-                'https://checkout.bold.co'
+                'https://checkout.bold.co',
+                'https://static.cloudflareinsights.com'
               ],
               styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
               mediaSrc: ["'self'", 'data:', 'blob:', 'https:'],
