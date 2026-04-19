@@ -14,7 +14,7 @@ const CUTS = [
     id: 'pechuga',
     n: 1,
     label: 'Pechuga',
-    image: '/ai-pollo-pechuga.webp',
+    image: '/real-pollo-pechuga.webp',
     short: 'El corte magro por excelencia',
     desc: 'Alta proteína, baja grasa. Ideal para plancha, horno o ensaladas. Cocción rápida — 6 a 8 min por lado.',
     protein: '23g', fat: '1.2g', kcal: '165',
@@ -27,7 +27,7 @@ const CUTS = [
     id: 'alas',
     n: 2,
     label: 'Alas',
-    image: '/ai-pollo-ala.webp',
+    image: '/real-pollo-ala.webp',
     short: 'Para picar en grande',
     desc: 'Sabor intenso, piel crujiente al freír u hornear. Clásico BBQ, snack con salsa o aperitivo compartido.',
     protein: '18g', fat: '7g', kcal: '203',
@@ -39,7 +39,7 @@ const CUTS = [
     id: 'muslos',
     n: 3,
     label: 'Muslos',
-    image: '/ai-pollo-muslo.webp',
+    image: '/real-pollo-muslo.webp',
     short: 'Jugosos y con sabor',
     desc: 'Carne oscura con más sabor y menos riesgo de secarse. Perfecto para guisos, sudado, asado lento.',
     protein: '19g', fat: '10g', kcal: '209',
@@ -51,7 +51,7 @@ const CUTS = [
     id: 'piernas',
     n: 4,
     label: 'Piernas (pernil)',
-    image: '/ai-pollo-pierna.webp',
+    image: '/real-pollo-pierna.webp',
     short: 'Favorito de los niños',
     desc: 'Hueso grande, cocción pareja, fácil de sujetar. Estrella de las parrillas y almuerzos familiares.',
     protein: '16g', fat: '9g', kcal: '172',
@@ -63,7 +63,7 @@ const CUTS = [
     id: 'rabadilla',
     n: 5,
     label: 'Rabadilla / espalda',
-    image: '/ai-pollo-rabadilla.webp',
+    image: '/real-pollo-rabadilla.webp',
     short: 'La base de un buen caldo',
     desc: 'Menos carne pero más sabor. Ideal para caldos, fondos y sudados tradicionales colombianos.',
     protein: '12g', fat: '14g', kcal: '180',
@@ -123,7 +123,7 @@ function ChickenCutsExplorer() {
             en el DOM. Transición CSS handle el fade-in al volver a assembled. */}
         {view === 'assembled' && (
           <img
-            src="/ai-pollo-entero.webp"
+            src="/real-pollo-entero.webp"
             alt="Pollo entero"
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[72%] max-w-[500px] pointer-events-none animate-fade-in"
           />
