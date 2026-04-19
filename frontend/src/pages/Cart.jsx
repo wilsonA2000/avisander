@@ -119,6 +119,7 @@ function Cart() {
     items,
     updateLine,
     removeLine,
+    applyPriceUpdates,
     clearCart,
     subtotal,
     getWhatsAppUrl,
@@ -512,6 +513,15 @@ function Cart() {
         redeem_points: redeemPoints || 0
       })
     } catch (err) {
+      // Precio del producto cambió mientras el cliente tenía el carrito:
+      // backend responde 409 con los precios reales. Actualizamos carrito y
+      // NO redirigimos a Bold: el cliente debe confirmar el nuevo total.
+      if (err.status === 409 && err.code === 'price_changed' && Array.isArray(err.body?.items)) {
+        applyPriceUpdates(err.body.items)
+        toast.warn('Los precios cambiaron. Revisa tu carrito antes de pagar.')
+        setSubmitting(false)
+        return
+      }
       // No abrimos WhatsApp ni limpiamos el carrito si la orden no se creó:
       // el cliente debe corregir (stock insuficiente, dirección fuera de cobertura, etc.).
       toast.error(err.message || 'No pudimos guardar tu pedido. Revisa stock o vuelve a intentar.')

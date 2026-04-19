@@ -30,9 +30,11 @@ async function parseOrThrow(res) {
   const isJson = contentType.includes('application/json')
   const body = isJson ? await res.json().catch(() => ({})) : await res.text()
   if (!res.ok) {
-    const err = new Error(body?.error || `Error ${res.status}`)
+    const err = new Error(body?.error || body?.details?.message || `Error ${res.status}`)
     err.status = res.status
     err.details = body?.details
+    err.code = body?.code
+    err.body = body
     throw err
   }
   return body

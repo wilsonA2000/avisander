@@ -58,7 +58,7 @@ const orderCreateSchema = z.object({
   // pasarela. Orden queda pending hasta que la cajera valida el comprobante
   // desde el admin.
   payment_method: z.enum(['whatsapp', 'bold', 'manual']).optional().default('whatsapp'),
-  redeem_points: z.number().int().min(0).optional().default(0)
+  redeem_points: z.number().int().min(0).max(100000).optional().default(0)
 })
 
 // 'abandoned' NO está en el enum: es un estado terminal solo del sistema,

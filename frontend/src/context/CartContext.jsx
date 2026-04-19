@@ -124,6 +124,21 @@ export function CartProvider({ children }) {
     )
   }, [])
 
+  // Actualiza precio de items fixed según respuesta 409 price_changed del backend.
+  // Recibe array [{ product_id, current_price }].
+  const applyPriceUpdates = useCallback((updates) => {
+    if (!Array.isArray(updates) || updates.length === 0) return
+    const byId = new Map(updates.map((u) => [u.product_id, Number(u.current_price) || 0]))
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.sale_type !== 'fixed') return it
+        const newPrice = byId.get(it.product.id)
+        if (newPrice == null) return it
+        return { ...it, product: { ...it.product, price: newPrice } }
+      })
+    )
+  }, [])
+
   const removeLine = useCallback((lineId) => {
     setItems((prev) => prev.filter((it) => it.id !== lineId))
   }, [])
@@ -241,6 +256,7 @@ export function CartProvider({ children }) {
     items,
     addItem,
     updateLine,
+    applyPriceUpdates,
     removeLine,
     clearCart,
     subtotal,

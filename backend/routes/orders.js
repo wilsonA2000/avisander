@@ -222,6 +222,40 @@ router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => 
       throw e
     }
 
+    // Anti-fraude: si el cliente envió precios distintos a los de BD para items
+    // 'fixed', devolvemos 409 con los precios reales para que el frontend
+    // actualice el carrito y el cliente confirme el nuevo total antes de pagar.
+    const priceChanges = []
+    for (const it of items) {
+      const saleType = it.sale_type || 'fixed'
+      if (saleType !== 'fixed') continue
+      if (!it.product_id) {
+        const e = new Error(`El item "${it.name}" no tiene product_id; productos off-catálogo no se permiten.`)
+        e.status = 400
+        e.code = 'off_catalog_item'
+        throw e
+      }
+      const prod = db.prepare('SELECT price FROM products WHERE id = ?').get(it.product_id)
+      if (!prod) continue
+      const realPrice = Number(prod.price) || 0
+      const sentPrice = Number(it.price) || 0
+      if (Math.abs(realPrice - sentPrice) > 0.01) {
+        priceChanges.push({
+          product_id: it.product_id,
+          name: it.name,
+          sent_price: sentPrice,
+          current_price: realPrice
+        })
+      }
+    }
+    if (priceChanges.length > 0) {
+      return res.status(409).json({
+        error: 'El precio de algunos productos cambió. Revisa tu carrito antes de pagar.',
+        code: 'price_changed',
+        items: priceChanges
+      })
+    }
+
     let subtotal = 0
     const orderItems = items.map((item) => {
       const saleType = item.sale_type || 'fixed'
@@ -243,12 +277,14 @@ router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => 
           throw e
         }
         weightGrams = item.weight_grams
-        qty = weightGrams / 1000 // en kg para registro
+        qty = weightGrams / 1000
         unitPrice = pricePerKg
         itemSubtotal = (pricePerKg * weightGrams) / 1000
       } else {
+        // Anti-fraude: siempre leer precio actual de BD, ignorar item.price.
+        const prod = db.prepare('SELECT price FROM products WHERE id = ?').get(item.product_id)
         qty = item.quantity
-        unitPrice = item.price
+        unitPrice = Number(prod?.price) || 0
         itemSubtotal = unitPrice * qty
       }
 
