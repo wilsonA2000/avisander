@@ -106,7 +106,10 @@ function DeliveryPicker({ subtotal, value, onChange }) {
   // Reemplaza al viejo AutocompleteService que Google bloqueó para nuevos proyectos.
   const googleFetch = async (q) => {
     const google = window.google
-    if (!google?.maps?.places?.AutocompleteSuggestion) return []
+    if (!google?.maps?.places?.AutocompleteSuggestion) {
+      console.warn('[DeliveryPicker] Google Places no cargó. Probable: Places API (New) no habilitada o API key inválida.')
+      return []
+    }
     try {
       const { suggestions } = await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
         input: q,
@@ -126,10 +129,11 @@ function DeliveryPicker({ subtotal, value, onChange }) {
         .map((s) => ({
           display_name: s.placePrediction.text?.toString() || '',
           place_id: s.placePrediction.placeId,
-          placePrediction: s.placePrediction, // guardamos para toPlace() al seleccionar
+          placePrediction: s.placePrediction,
           source: 'google'
         }))
-    } catch (_e) {
+    } catch (e) {
+      console.error('[DeliveryPicker] Google Places error:', e?.message || e, e)
       return []
     }
   }
