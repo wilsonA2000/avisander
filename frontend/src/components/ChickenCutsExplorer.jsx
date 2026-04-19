@@ -20,7 +20,7 @@ const CUTS = [
     protein: '23g', fat: '1.2g', kcal: '165',
     tips: ['Marinar 30 min en limón y hierbas', 'Plancha a fuego medio-alto', 'No sobrecocinar: queda seca'],
     // Posición en el espacio exploded (x,y en % del contenedor, relativo al centro)
-    exploded: { x: 0, y: -44, rotate: -4, scale: 0.5 },
+    exploded: { x: 0, y: -38, rotate: -4, scale: 0.5 },
     searchTerm: 'pechuga'
   },
   {
@@ -32,7 +32,7 @@ const CUTS = [
     desc: 'Sabor intenso, piel crujiente al freír u hornear. Clásico BBQ, snack con salsa o aperitivo compartido.',
     protein: '18g', fat: '7g', kcal: '203',
     tips: ['Marinar con soja, miel y ajo', 'Hornear a 200°C 25 min + broil final', 'Acompañar con salsa ranch o blue cheese'],
-    exploded: { x: -48, y: -8, rotate: -18, scale: 0.45 },
+    exploded: { x: -38, y: -5, rotate: -12, scale: 0.45 },
     searchTerm: 'alas'
   },
   {
@@ -44,7 +44,7 @@ const CUTS = [
     desc: 'Carne oscura con más sabor y menos riesgo de secarse. Perfecto para guisos, sudado, asado lento.',
     protein: '19g', fat: '10g', kcal: '209',
     tips: ['Dorar piel primero en sartén', 'Terminar al horno 25 min a 180°C', 'Va bien con papas y cebolla caramelizada'],
-    exploded: { x: -34, y: 38, rotate: 8, scale: 0.48 },
+    exploded: { x: -30, y: 32, rotate: 8, scale: 0.48 },
     searchTerm: 'muslo'
   },
   {
@@ -56,7 +56,7 @@ const CUTS = [
     desc: 'Hueso grande, cocción pareja, fácil de sujetar. Estrella de las parrillas y almuerzos familiares.',
     protein: '16g', fat: '9g', kcal: '172',
     tips: ['Marinar 4h con paprika y ajo', 'Parrilla a fuego indirecto 35 min', 'Rotar 2 veces para dorado uniforme'],
-    exploded: { x: 36, y: 38, rotate: -8, scale: 0.48 },
+    exploded: { x: 30, y: 32, rotate: -8, scale: 0.48 },
     searchTerm: 'pierna'
   },
   {
@@ -68,7 +68,7 @@ const CUTS = [
     desc: 'Menos carne pero más sabor. Ideal para caldos, fondos y sudados tradicionales colombianos.',
     protein: '12g', fat: '14g', kcal: '180',
     tips: ['Tostar 10 min al horno antes de hervir', 'Caldo con puerro, zanahoria y apio', 'Colar antes de usar de base'],
-    exploded: { x: 46, y: -22, rotate: 16, scale: 0.45 },
+    exploded: { x: 38, y: -18, rotate: 14, scale: 0.45 },
     searchTerm: 'rabadilla'
   }
 ]
