@@ -98,9 +98,23 @@ function expireStalePending() {
       // timeout de una cancelación explícita hecha por la cajera desde el admin.
       // Además forzamos payment_status='cancelled' para que la columna PAGO
       // del admin no siga mostrando "Pendiente" en una venta ya muerta.
+      const before = db.prepare('SELECT status, payment_status FROM orders WHERE id = ?').get(o.id)
       db.prepare(
         "UPDATE orders SET status = 'abandoned', payment_status = 'cancelled' WHERE id = ?"
       ).run(o.id)
+      try {
+        const orderEvents = require('./orderEvents')
+        orderEvents.log(o.id, 'expired_by_system', {
+          fromStatus: before?.status || 'pending',
+          toStatus: 'abandoned',
+          fromPaymentStatus: before?.payment_status || 'pending',
+          toPaymentStatus: 'cancelled',
+          actorType: 'system',
+          metadata: { reason: `Reserva de stock expirada (TTL ${RESERVATION_TTL_MINUTES} min)` }
+        })
+      } catch (err) {
+        logger.error({ err, orderId: o.id }, 'Fallo registrando evento de expiración')
+      }
       // Revertir loyalty: si el cliente había canjeado puntos al crear la
       // orden, debemos devolvérselos antes de darla por muerta.
       try {

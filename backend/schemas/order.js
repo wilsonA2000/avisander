@@ -61,11 +61,11 @@ const orderCreateSchema = z.object({
   redeem_points: z.number().int().min(0).optional().default(0)
 })
 
+// 'abandoned' NO está en el enum: es un estado terminal solo del sistema,
+// se asigna por el scheduler al expirar la reserva o cuando el cliente
+// cancela su pago Bold. Ni cajera ni admin pueden asignarlo o sacarlo.
 const orderStatusSchema = z.object({
-  // 'abandoned' se asigna automáticamente por el scheduler al expirar stock
-  // reservado; 'cancelled' lo usa la cajera explícitamente. Ambos permitidos
-  // aquí porque el admin puede re-enviar cualquier estado desde el dropdown.
-  status: z.enum(['pending', 'processing', 'shipped', 'completed', 'cancelled', 'abandoned'])
+  status: z.enum(['pending', 'processing', 'shipped', 'completed', 'cancelled'])
 })
 
 module.exports = { orderCreateSchema, orderStatusSchema }

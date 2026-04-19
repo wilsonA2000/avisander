@@ -9,6 +9,7 @@ const logger = require('../lib/logger')
 const inventory = require('../lib/inventory')
 const stockReservation = require('../lib/stockReservation')
 const { clientIp } = require('../lib/client-ip')
+const orderEvents = require('../lib/orderEvents')
 
 const router = express.Router()
 
@@ -99,6 +100,15 @@ router.post('/reconcile/:reference', reconcileLimiter, async (req, res) => {
       try { stockReservation.releaseReservation(order.id) } catch (_e) {}
     }
 
+    if (boldStatus.status !== order.payment_status) {
+      orderEvents.log(order.id, 'bold_reconcile', {
+        fromPaymentStatus: order.payment_status,
+        toPaymentStatus: boldStatus.status,
+        actorType: 'bold_reconcile',
+        metadata: { transactionId: boldStatus.transactionId || null }
+      })
+    }
+
     res.json({ ok: true, status: boldStatus.status, order_id: order.id, source: 'bold-api' })
   } catch (error) {
     logger.error({ err: error }, 'Reconcile Bold error')
@@ -154,6 +164,17 @@ router.post(
         logger.warn({ reference }, 'Bold webhook para referencia no encontrada')
       } else {
         logger.info({ reference, newStatus, type }, 'Pedido actualizado por webhook Bold')
+
+        const orderRow = db
+          .prepare('SELECT id FROM orders WHERE payment_reference = ?')
+          .get(reference)
+        if (orderRow) {
+          orderEvents.log(orderRow.id, 'bold_webhook', {
+            toPaymentStatus: newStatus,
+            actorType: 'bold_webhook',
+            metadata: { bold_event_type: type, payment_id: txId }
+          })
+        }
 
         // Al aprobar el pago: descontar stock una sola vez (idempotente).
         if (newStatus === 'approved') {

@@ -12,7 +12,8 @@ import {
   XCircle,
   Clock,
   MessageCircle,
-  PackageCheck
+  PackageCheck,
+  History
 } from 'lucide-react'
 import { api } from '../../lib/apiClient'
 import { fmtCOP, fmtDateTime } from '../../lib/format'
@@ -235,6 +236,9 @@ function Orders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [timelineOrder, setTimelineOrder] = useState(null)
+  const [timelineEvents, setTimelineEvents] = useState(null)
+  const [timelineLoading, setTimelineLoading] = useState(false)
   const [q, setQ] = useState('')
 
   // Filtros
@@ -249,6 +253,17 @@ function Orders() {
   useEffect(() => {
     fetchOrders()
   }, [])
+
+  useEffect(() => {
+    if (!timelineOrder) { setTimelineEvents(null); return }
+    let cancelled = false
+    setTimelineLoading(true)
+    api.get(`/api/orders/${timelineOrder.id}/events`)
+      .then((data) => { if (!cancelled) setTimelineEvents(Array.isArray(data) ? data : []) })
+      .catch(() => { if (!cancelled) setTimelineEvents([]) })
+      .finally(() => { if (!cancelled) setTimelineLoading(false) })
+    return () => { cancelled = true }
+  }, [timelineOrder])
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -545,17 +560,26 @@ function Orders() {
                       {order.source || 'web'}
                     </td>
                     <td className="px-4 py-3">
-                      <select
-                        value={order.status}
-                        onChange={(e) => updateStatus(order.id, e.target.value)}
-                        className={`badge cursor-pointer ${STATUS_COLORS[order.status] || STATUS_COLORS.pending}`}
-                      >
-                        <option value="pending">Pendiente</option>
-                        <option value="processing">En proceso</option>
-                        <option value="shipped">En camino</option>
-                        <option value="completed">Completado</option>
-                        <option value="cancelled">Cancelado</option>
-                      </select>
+                      {order.status === 'abandoned' ? (
+                        <span
+                          className={`badge ${STATUS_COLORS.abandoned}`}
+                          title="Asignado automáticamente por el sistema. No se puede modificar."
+                        >
+                          Abandonado
+                        </span>
+                      ) : (
+                        <select
+                          value={order.status}
+                          onChange={(e) => updateStatus(order.id, e.target.value)}
+                          className={`badge cursor-pointer ${STATUS_COLORS[order.status] || STATUS_COLORS.pending}`}
+                        >
+                          <option value="pending">Pendiente</option>
+                          <option value="processing">En proceso</option>
+                          <option value="shipped">En camino</option>
+                          <option value="completed">Completado</option>
+                          <option value="cancelled">Cancelado</option>
+                        </select>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">{fmtDateTime(order.created_at)}</td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -576,6 +600,13 @@ function Orders() {
                         title="Imprimir"
                       >
                         <Printer size={16} />
+                      </button>
+                      <button
+                        onClick={() => setTimelineOrder(order)}
+                        className="p-1.5 text-gray-400 hover:text-indigo-600"
+                        title="Trazabilidad (timestamps)"
+                      >
+                        <History size={14} />
                       </button>
                       <button
                         onClick={() => setSelectedOrder(order)}
@@ -724,8 +755,90 @@ function Orders() {
           </div>
         </div>
       )}
+
+      {timelineOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div>
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <History size={18} className="text-indigo-600" />
+                  Trazabilidad pedido #{timelineOrder.id}
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Cada cambio de estado con fecha, hora y quién lo hizo.
+                </p>
+              </div>
+              <button onClick={() => setTimelineOrder(null)} className="text-gray-500 hover:text-gray-700">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5">
+              {timelineLoading && <p className="text-sm text-gray-500">Cargando eventos…</p>}
+              {!timelineLoading && timelineEvents?.length === 0 && (
+                <p className="text-sm text-gray-500">
+                  No hay eventos registrados para este pedido. Los eventos se registran
+                  a partir de la versión actual del sistema; pedidos anteriores pueden no tener historial.
+                </p>
+              )}
+              {!timelineLoading && timelineEvents?.length > 0 && (
+                <ol className="relative border-l-2 border-gray-200 ml-2 space-y-4">
+                  {timelineEvents.map((ev) => (
+                    <li key={ev.id} className="ml-4">
+                      <span className={`absolute -left-[7px] w-3 h-3 rounded-full border-2 border-white ${eventDotColor(ev)}`} />
+                      <p className="text-xs text-gray-500">{fmtDateTime(ev.created_at)}</p>
+                      <p className="text-sm font-medium text-gray-800">{eventLabel(ev)}</p>
+                      <p className="text-xs text-gray-600 mt-0.5">{eventDescription(ev)}</p>
+                      {ev.metadata && (
+                        <pre className="mt-1 bg-gray-50 border border-gray-100 rounded p-2 text-[10px] text-gray-600 overflow-x-auto">
+                          {JSON.stringify(ev.metadata, null, 2)}
+                        </pre>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+const ACTOR_LABEL = {
+  admin: 'Admin/cajera',
+  customer: 'Cliente',
+  guest: 'Cliente (invitado)',
+  system: 'Sistema (automático)',
+  bold_webhook: 'Bold (webhook)',
+  bold_reconcile: 'Bold (reconciliación)'
+}
+
+function eventLabel(ev) {
+  switch (ev.event_type) {
+    case 'created': return 'Pedido creado'
+    case 'status_change': return `Estado: ${STATUS_LABEL[ev.from_status] || ev.from_status} → ${STATUS_LABEL[ev.to_status] || ev.to_status}`
+    case 'abandoned_by_customer': return 'Cliente canceló su pago Bold'
+    case 'expired_by_system': return 'Sistema marcó como abandonado (timeout)'
+    case 'bold_webhook': return `Bold notificó: ${PAYMENT_STATUS[ev.to_payment_status]?.label || ev.to_payment_status}`
+    case 'bold_reconcile': return `Reconciliación Bold: ${PAYMENT_STATUS[ev.to_payment_status]?.label || ev.to_payment_status}`
+    default: return ev.event_type
+  }
+}
+
+function eventDescription(ev) {
+  const actor = ACTOR_LABEL[ev.actor_type] || ev.actor_type
+  const name = ev.actor_name ? ` (${ev.actor_name})` : ''
+  return `Por ${actor}${name}`
+}
+
+function eventDotColor(ev) {
+  if (ev.to_status === 'completed' || ev.to_payment_status === 'approved') return 'bg-emerald-500'
+  if (ev.to_status === 'abandoned' || ev.to_payment_status === 'cancelled') return 'bg-gray-400'
+  if (ev.to_status === 'cancelled' || ev.to_payment_status === 'declined' || ev.to_payment_status === 'rejected') return 'bg-rose-500'
+  if (ev.event_type === 'created') return 'bg-indigo-500'
+  return 'bg-amber-500'
 }
 
 export default Orders

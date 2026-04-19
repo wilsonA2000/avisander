@@ -351,6 +351,25 @@ function initialize() {
     );
     CREATE INDEX IF NOT EXISTS idx_page_visits_created_at ON page_visits(created_at);
     CREATE INDEX IF NOT EXISTS idx_page_visits_session_id ON page_visits(session_id);
+
+    -- Auditoría de órdenes: cada cambio de estado o evento relevante queda
+    -- registrado aquí para poder responder reclamos de clientes con timestamps
+    -- precisos. actor_type: system | admin | customer | bold_webhook | bold_reconcile
+    CREATE TABLE IF NOT EXISTS order_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      event_type TEXT NOT NULL,
+      from_status TEXT,
+      to_status TEXT,
+      from_payment_status TEXT,
+      to_payment_status TEXT,
+      actor_type TEXT NOT NULL DEFAULT 'system',
+      actor_id INTEGER REFERENCES users(id),
+      metadata TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_order_events_order ON order_events(order_id);
+    CREATE INDEX IF NOT EXISTS idx_order_events_created ON order_events(created_at);
   `)
 
   // Seed admin SOLO en entornos no-producción. En prod hay que crearlo manualmente.

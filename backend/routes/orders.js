@@ -16,6 +16,7 @@ const { sendMail, orderAdminEmail, orderCustomerEmail } = require('../lib/mailer
 const { whatsappAdminLink } = require('../lib/whatsapp')
 const logger = require('../lib/logger')
 const { clientIp } = require('../lib/client-ip')
+const orderEvents = require('../lib/orderEvents')
 
 const router = express.Router()
 
@@ -119,9 +120,31 @@ router.post('/public/:reference/abandon', publicOrderLimiter, (req, res, next) =
     try { loyalty.revertOrderLoyalty(order.id, 'Pago abandonado por el cliente') } catch (err) {
       logger.error({ err, orderId: order.id }, 'Fallo revirtiendo loyalty al abandonar')
     }
+    orderEvents.log(order.id, 'abandoned_by_customer', {
+      fromStatus: order.status,
+      toStatus: 'abandoned',
+      fromPaymentStatus: order.payment_status,
+      toPaymentStatus: 'cancelled',
+      actorType: 'customer',
+      metadata: { reason: 'Cliente pulsó "Cancelar pago y elegir otro método"' }
+    })
     logger.info({ orderId: order.id, reference: req.params.reference }, 'Pedido abandonado por cliente')
 
     res.json({ ok: true, status: 'abandoned' })
+  } catch (error) {
+    next(error)
+  }
+})
+
+// Timeline de eventos de una orden (solo admin). Usa order_events, que
+// acumula cada cambio de estado con actor y timestamp para dar trazabilidad
+// cuando un cliente reclama.
+router.get('/:id/events', authenticateToken, requireAdmin, (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    const exists = db.prepare('SELECT 1 FROM orders WHERE id = ?').get(id)
+    if (!exists) return res.status(404).json({ error: 'Pedido no encontrado' })
+    res.json(orderEvents.listByOrder(id))
   } catch (error) {
     next(error)
   }
@@ -337,6 +360,14 @@ router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => 
       'UPDATE orders SET payment_method = ?, payment_reference = ? WHERE id = ?'
     ).run(payment_method, paymentReference, orderId)
 
+    orderEvents.log(orderId, 'created', {
+      toStatus: 'pending',
+      toPaymentStatus: 'pending',
+      actorType: req.user ? 'customer' : 'guest',
+      actorId: req.user?.id || null,
+      metadata: { payment_method, delivery_method, total, items_count: orderItems.length }
+    })
+
     // Canjear puntos reales si aplica.
     if (loyaltyDiscount > 0 && req.user?.id) {
       const actualRedeemed = loyalty.redeemPoints(req.user.id, orderId, redeemPoints)
@@ -461,6 +492,14 @@ router.put(
         .get(req.params.id)
       if (!existing) return res.status(404).json({ error: 'Pedido no encontrado' })
 
+      // 'abandoned' es estado terminal del sistema: ni admin ni cajera pueden
+      // sacar una orden de ahí (y el schema impide entrar a ese estado).
+      if (existing.status === 'abandoned') {
+        return res.status(409).json({
+          error: 'Este pedido fue abandonado por el sistema y no se puede modificar.'
+        })
+      }
+
       const newStatus = req.body.status
       const confirmStatuses = ['processing', 'shipped', 'completed']
 
@@ -512,14 +551,15 @@ router.put(
 
       db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(newStatus, req.params.id)
 
-      // Si la orden queda cancelled/abandoned y el pago estaba pending,
-      // cerramos también el payment_status para que la columna PAGO no siga
-      // mostrando "Pendiente" en una venta ya descartada.
-      if (
-        (newStatus === 'cancelled' || newStatus === 'abandoned') &&
-        existing.payment_status === 'pending'
-      ) {
+      let paymentStatusBefore = existing.payment_status
+      let paymentStatusAfter = existing.payment_status
+
+      // Si la orden queda cancelled y el pago estaba pending, cerramos también
+      // el payment_status para que la columna PAGO no siga mostrando
+      // "Pendiente" en una venta ya descartada.
+      if (newStatus === 'cancelled' && existing.payment_status === 'pending') {
         db.prepare("UPDATE orders SET payment_status = 'cancelled' WHERE id = ?").run(req.params.id)
+        paymentStatusAfter = 'cancelled'
       }
 
       // Al avanzar el estado a processing/shipped/completed en órdenes no-Bold
@@ -534,7 +574,17 @@ router.put(
         db.prepare(
           "UPDATE orders SET payment_status = 'approved', payment_paid_at = CURRENT_TIMESTAMP WHERE id = ?"
         ).run(req.params.id)
+        paymentStatusAfter = 'approved'
       }
+
+      orderEvents.log(Number(req.params.id), 'status_change', {
+        fromStatus: existing.status,
+        toStatus: newStatus,
+        fromPaymentStatus: paymentStatusBefore,
+        toPaymentStatus: paymentStatusAfter,
+        actorType: 'admin',
+        actorId: req.user.id
+      })
 
       // Acumular puntos de fidelización al completar un pedido.
       if (newStatus === 'completed' && existing.user_id) {
