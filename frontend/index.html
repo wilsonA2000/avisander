@@ -27,8 +27,13 @@
     <link rel="dns-prefetch" href="https://maps.googleapis.com">
     <link rel="dns-prefetch" href="https://places.googleapis.com">
     <!-- Hero poster: LCP candidate. Preload asegura que arranque apenas el HTML
-         llega al navegador, antes del bundle JS. Reduce LCP ~2-3s en mobile. -->
-    <link rel="preload" as="image" href="/hero-poster.webp" fetchpriority="high">
+         llega al navegador, antes del bundle JS. Variante mobile 800x450 (27KB)
+         se sirve con media query responsive; desktop usa la 1200x675 (58KB). -->
+    <link rel="preload" as="image"
+          imagesrcset="/hero-poster-mobile.webp 800w, /hero-poster.webp 1200w"
+          imagesizes="100vw"
+          href="/hero-poster.webp"
+          fetchpriority="high">
   </head>
   <body>
     <div id="root"></div>

@@ -95,7 +95,7 @@ function Hero({ settings }) {
             ? undefined
             : {
                 backgroundImage:
-                  "linear-gradient(95deg, rgba(26,26,26,0.85) 0%, rgba(90,20,26,0.75) 55%, rgba(26,26,26,0.35) 100%), url('/hero-poster.webp')",
+                  "linear-gradient(95deg, rgba(26,26,26,0.85) 0%, rgba(90,20,26,0.75) 55%, rgba(26,26,26,0.35) 100%), image-set(url('/hero-poster-mobile.webp') 1x, url('/hero-poster.webp') 2x)",
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
               }
