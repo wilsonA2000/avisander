@@ -76,7 +76,13 @@ function createApp({ enableRateLimit = true } = {}) {
             }
           }
         : false,
-      crossOriginResourcePolicy: { policy: 'cross-origin' }
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      // YouTube/Vimeo verifican el dominio de incrustación vía referrer. Con
+      // no-referrer (default de Helmet) rechazan con "Error 153".
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+      // COOP=same-origin aísla la ventana y rompe la comunicación postMessage
+      // con el iframe del reproductor.
+      crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
     })
   )
 
