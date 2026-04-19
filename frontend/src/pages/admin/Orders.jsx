@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/apiClient'
 import { fmtCOP, fmtDateTime } from '../../lib/format'
+import ConfirmDialog from '../../components/ConfirmDialog'
+import { useToast } from '../../context/ToastContext'
 
 const STATUS_COLORS = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -239,6 +241,9 @@ function Orders() {
   const [timelineOrder, setTimelineOrder] = useState(null)
   const [timelineEvents, setTimelineEvents] = useState(null)
   const [timelineLoading, setTimelineLoading] = useState(false)
+  const [pendingStatusChange, setPendingStatusChange] = useState(null) // { orderId, from, to }
+  const [savingStatus, setSavingStatus] = useState(false)
+  const toast = useToast()
   const [q, setQ] = useState('')
 
   // Filtros
@@ -296,14 +301,48 @@ function Orders() {
     })
   }, [orders, q, statusFilter, paymentFilter, paymentStatusFilter, deliveryFilter, fromDate, toDate])
 
-  const updateStatus = async (orderId, status) => {
+  // Antes de cambiar el estado pedimos confirmación con un diff claro. La
+  // cajera suele hacerlo rápido desde el dropdown y con pedidos reales un
+  // click incorrecto descuenta stock o libera reservas.
+  const requestStatusChange = (orderId, newStatus) => {
+    const order = orders.find((o) => o.id === orderId)
+    if (!order || order.status === newStatus) return
+    setPendingStatusChange({ orderId, from: order.status, to: newStatus })
+  }
+
+  const confirmStatusChange = async () => {
+    if (!pendingStatusChange) return
+    setSavingStatus(true)
     try {
-      await api.put(`/api/orders/${orderId}/status`, { status })
+      await api.put(`/api/orders/${pendingStatusChange.orderId}/status`, { status: pendingStatusChange.to })
       fetchOrders()
-      if (selectedOrder?.id === orderId) setSelectedOrder({ ...selectedOrder, status })
+      if (selectedOrder?.id === pendingStatusChange.orderId) {
+        setSelectedOrder({ ...selectedOrder, status: pendingStatusChange.to })
+      }
+      setPendingStatusChange(null)
+      toast.success('Estado actualizado')
     } catch (error) {
-      alert(error.message || 'Error al actualizar estado')
+      toast.error(error.message || 'Error al actualizar estado')
+    } finally {
+      setSavingStatus(false)
     }
+  }
+
+  // Consecuencias que se ejecutarán en el backend según la transición.
+  const statusConsequence = (from, to) => {
+    if (to === 'cancelled') {
+      return 'Se liberará stock reservado y se revertirán puntos de fidelización si aplicaban.'
+    }
+    if (to === 'processing' && from === 'pending') {
+      return 'Se descontará stock del inventario (para pagos manuales/WhatsApp). No se podrá volver a "pendiente".'
+    }
+    if (to === 'completed') {
+      return 'Se marcará como entregado y se acreditarán puntos de fidelización al cliente.'
+    }
+    if (to === 'shipped') {
+      return 'Se marcará como en camino.'
+    }
+    return null
   }
 
   const exportCSV = () => {
@@ -570,7 +609,7 @@ function Orders() {
                       ) : (
                         <select
                           value={order.status}
-                          onChange={(e) => updateStatus(order.id, e.target.value)}
+                          onChange={(e) => requestStatusChange(order.id, e.target.value)}
                           className={`badge cursor-pointer ${STATUS_COLORS[order.status] || STATUS_COLORS.pending}`}
                         >
                           <option value="pending">Pendiente</option>
@@ -729,7 +768,7 @@ function Orders() {
                 <span className="text-gray-600 text-sm">Estado pedido:</span>
                 <select
                   value={selectedOrder.status}
-                  onChange={(e) => updateStatus(selectedOrder.id, e.target.value)}
+                  onChange={(e) => requestStatusChange(selectedOrder.id, e.target.value)}
                   className={`badge cursor-pointer ${STATUS_COLORS[selectedOrder.status] || STATUS_COLORS.pending}`}
                 >
                   <option value="pending">Pendiente</option>
@@ -755,6 +794,24 @@ function Orders() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingStatusChange}
+        title={`Cambiar estado del pedido #${pendingStatusChange?.orderId || ''}`}
+        danger={pendingStatusChange?.to === 'cancelled'}
+        confirmLabel="Sí, cambiar estado"
+        loading={savingStatus}
+        changes={pendingStatusChange ? [
+          {
+            label: 'Estado',
+            from: STATUS_LABEL[pendingStatusChange.from] || pendingStatusChange.from,
+            to: STATUS_LABEL[pendingStatusChange.to] || pendingStatusChange.to
+          }
+        ] : []}
+        message={pendingStatusChange ? statusConsequence(pendingStatusChange.from, pendingStatusChange.to) : null}
+        onConfirm={confirmStatusChange}
+        onCancel={() => setPendingStatusChange(null)}
+      />
 
       {timelineOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

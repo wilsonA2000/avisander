@@ -3,6 +3,7 @@ import { Boxes, AlertTriangle, History, Edit3, X, Search, EyeOff, Power } from '
 import { api } from '../../lib/apiClient'
 import { useToast } from '../../context/ToastContext'
 import { fmtDateTime } from '../../lib/format'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 function fmt(n, unit = '') {
   const v = Number(n) || 0
@@ -69,24 +70,43 @@ function Inventario() {
     }
   }
 
-  const submitAdjust = async (e) => {
+  // Estado del modal de confirmación. Pasa por validación y recién abrimos el
+  // confirm. El submit real sucede en confirmAdjust.
+  const [pendingAdjust, setPendingAdjust] = useState(null) // {qty, type, notes, newStock}
+  const [savingAdjust, setSavingAdjust] = useState(false)
+
+  const submitAdjust = (e) => {
     e.preventDefault()
     const qty = Number(form.quantity)
     if (!qty || isNaN(qty)) return toast.warn('Cantidad requerida (positivo o negativo)')
     if (Math.abs(qty) > 20000) return toast.warn('Cantidad fuera de rango (máx. ±20.000)')
     if (!form.notes.trim()) return toast.warn('Razón del ajuste requerida')
+    const current = Number(adjusting.stock) || 0
+    const newStock = current + qty
+    if (newStock < 0) {
+      return toast.warn(`El ajuste dejaría stock negativo (${newStock}). Cancelado.`)
+    }
+    setPendingAdjust({ qty, type: form.type, notes: form.notes.trim(), current, newStock })
+  }
+
+  const confirmAdjust = async () => {
+    if (!pendingAdjust) return
+    setSavingAdjust(true)
     try {
       await api.post('/api/inventory/adjust', {
         product_id: adjusting.id,
-        quantity: qty,
-        type: form.type,
-        notes: form.notes.trim()
+        quantity: pendingAdjust.qty,
+        type: pendingAdjust.type,
+        notes: pendingAdjust.notes
       })
       toast.success('Ajuste registrado')
+      setPendingAdjust(null)
       setAdjusting(null)
       load()
     } catch (err) {
       toast.error(err.message || 'Error al ajustar')
+    } finally {
+      setSavingAdjust(false)
     }
   }
 
@@ -358,6 +378,22 @@ function Inventario() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingAdjust}
+        title={`Ajustar inventario — ${adjusting?.name || ''}`}
+        confirmLabel="Aplicar ajuste"
+        loading={savingAdjust}
+        danger={pendingAdjust?.qty < 0}
+        changes={pendingAdjust ? [
+          { label: 'Tipo', from: '', to: TYPE_LABEL[pendingAdjust.type] || pendingAdjust.type },
+          { label: 'Cantidad', from: '', to: `${pendingAdjust.qty > 0 ? '+' : ''}${pendingAdjust.qty}` },
+          { label: 'Stock', from: fmt(pendingAdjust.current), to: fmt(pendingAdjust.newStock) }
+        ] : []}
+        message={pendingAdjust ? `Razón: "${pendingAdjust.notes}". Quedará registrado en el kardex con tu usuario y fecha actual.` : null}
+        onConfirm={confirmAdjust}
+        onCancel={() => setPendingAdjust(null)}
+      />
     </div>
   )
 }

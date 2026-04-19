@@ -5,6 +5,7 @@ import Pagination from '../../components/Pagination'
 import { CULINARY_USES, CULINARY_USE_SLUGS } from '../../components/CulinaryIcon'
 import { api, apiFetchFormData } from '../../lib/apiClient'
 import { useToast } from '../../context/ToastContext'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 const PER_PAGE = 25
 
@@ -231,6 +232,41 @@ function Products() {
     }
   }
 
+  // Estado del modal de confirmación al editar producto existente. Al crear
+  // no se pide confirmación: es menos crítico. Al editar sí: un error de
+  // precio en prod puede afectar ventas en curso.
+  const [pendingProductSave, setPendingProductSave] = useState(null)
+
+  const fmtMoney = (v) => (v == null || v === '' ? '—' : `$${Number(v).toLocaleString('es-CO')}`)
+
+  // Devuelve lista de cambios relevantes entre editingProduct y formData.
+  const computeProductChanges = () => {
+    if (!editingProduct) return []
+    const diffs = []
+    const price = formData.price ? parseFloat(formData.price) : 0
+    const ppk = formData.price_per_kg ? parseFloat(formData.price_per_kg) : 0
+    if (formData.sale_type === 'by_weight') {
+      if (Number(editingProduct.price_per_kg || 0) !== ppk) {
+        diffs.push({ label: 'Precio/kg', from: fmtMoney(editingProduct.price_per_kg), to: fmtMoney(ppk) })
+      }
+    } else {
+      if (Number(editingProduct.price || 0) !== price) {
+        diffs.push({ label: 'Precio', from: fmtMoney(editingProduct.price), to: fmtMoney(price) })
+      }
+    }
+    const origNew = formData.original_price ? parseFloat(formData.original_price) : null
+    if (Number(editingProduct.original_price || 0) !== Number(origNew || 0)) {
+      diffs.push({ label: 'Precio original', from: fmtMoney(editingProduct.original_price), to: fmtMoney(origNew) })
+    }
+    if (!!editingProduct.is_available !== !!formData.is_available) {
+      diffs.push({ label: 'Disponible', from: editingProduct.is_available ? 'Sí' : 'No', to: formData.is_available ? 'Sí' : 'No' })
+    }
+    if ((editingProduct.name || '').trim() !== formData.name.trim()) {
+      diffs.push({ label: 'Nombre', from: editingProduct.name, to: formData.name })
+    }
+    return diffs
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
 
@@ -249,6 +285,22 @@ function Products() {
       return
     }
 
+    // Si es edición, mostramos diff y confirmamos. Si es creación, saltamos
+    // directo al guardado (menos fricción para la cajera agregando stock).
+    if (editingProduct) {
+      const diffs = computeProductChanges()
+      if (diffs.length === 0) {
+        // Nada cambió visiblemente; guardamos en silencio (puede haber cambios
+        // en gallery, descripción, etc. que no mostramos en el diff).
+        return doSave()
+      }
+      setPendingProductSave({ diffs })
+      return
+    }
+    await doSave()
+  }
+
+  const doSave = async () => {
     setSaving(true)
 
     try {
@@ -284,6 +336,7 @@ function Products() {
       if (editingProduct) await api.put(url, payload)
       else await api.post(url, payload)
       setShowModal(false)
+      setPendingProductSave(null)
       setMessage({
         type: 'success',
         text: editingProduct ? 'Producto actualizado correctamente' : 'Producto creado correctamente'
@@ -1035,6 +1088,19 @@ function Products() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingProductSave}
+        title={`Confirmar cambios — ${editingProduct?.name || ''}`}
+        confirmLabel="Sí, guardar cambios"
+        loading={saving}
+        changes={pendingProductSave?.diffs || []}
+        message={pendingProductSave?.diffs?.some((d) => d.label === 'Precio' || d.label === 'Precio/kg')
+          ? 'Los clientes con el producto ya en su carrito verán un aviso y el carrito se actualizará al intentar pagar.'
+          : null}
+        onConfirm={doSave}
+        onCancel={() => setPendingProductSave(null)}
+      />
     </div>
   )
 }

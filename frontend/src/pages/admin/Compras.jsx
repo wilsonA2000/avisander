@@ -3,6 +3,7 @@ import { ShoppingBag, Plus, X, Package, CheckCircle2, DollarSign, Trash2, Eye } 
 import { api } from '../../lib/apiClient'
 import { useToast } from '../../context/ToastContext'
 import { fmtDate } from '../../lib/format'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 function fmtCOP(n) {
   return `$${Math.round(Number(n) || 0).toLocaleString('es-CO')}`
@@ -98,18 +99,29 @@ function Compras() {
     }
   }
 
-  const receive = async (id) => {
-    if (!confirm('¿Marcar como recibida? Esto aumentará el stock de los productos.')) return
+  const [pendingReceive, setPendingReceive] = useState(null) // purchase completa
+  const [savingReceive, setSavingReceive] = useState(false)
+
+  const requestReceive = (purchase) => {
+    setPendingReceive(purchase)
+  }
+
+  const confirmReceive = async () => {
+    if (!pendingReceive) return
+    setSavingReceive(true)
     try {
-      await api.post(`/api/purchases/${id}/receive`)
+      await api.post(`/api/purchases/${pendingReceive.id}/receive`)
       toast.success('Compra recibida, stock actualizado')
       load()
-      if (viewing?.id === id) {
-        const d = await api.get(`/api/purchases/${id}`)
+      if (viewing?.id === pendingReceive.id) {
+        const d = await api.get(`/api/purchases/${pendingReceive.id}`)
         setViewing(d)
       }
+      setPendingReceive(null)
     } catch (err) {
       toast.error(err.message || 'Error')
+    } finally {
+      setSavingReceive(false)
     }
   }
 
@@ -200,7 +212,7 @@ function Compras() {
                       </button>
                       {p.status === 'draft' && (
                         <button
-                          onClick={() => receive(p.id)}
+                          onClick={() => requestReceive(p)}
                           className="p-1.5 text-gray-500 hover:text-emerald-600"
                           title="Marcar recibida"
                         >
@@ -422,7 +434,7 @@ function Compras() {
             </div>
             {viewing.status === 'draft' && (
               <div className="p-4 border-t flex justify-end gap-2">
-                <button onClick={() => receive(viewing.id)} className="btn-primary inline-flex items-center gap-2">
+                <button onClick={() => requestReceive(viewing)} className="btn-primary inline-flex items-center gap-2">
                   <CheckCircle2 size={16} /> Marcar recibida
                 </button>
               </div>
@@ -440,6 +452,21 @@ function Compras() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingReceive}
+        title={`Recibir compra #${pendingReceive?.id || ''}`}
+        confirmLabel="Sí, recibir y sumar al stock"
+        loading={savingReceive}
+        changes={pendingReceive ? [
+          { label: 'Proveedor', from: '', to: pendingReceive.supplier_name || '—' },
+          { label: 'Items', from: '', to: String(pendingReceive.items_count ?? '—') },
+          { label: 'Total', from: '', to: fmtCOP(pendingReceive.total) }
+        ] : []}
+        message="Al confirmar se sumará al stock de cada producto la cantidad de esta compra y se registrará en el kardex. No es reversible."
+        onConfirm={confirmReceive}
+        onCancel={() => setPendingReceive(null)}
+      />
     </div>
   )
 }
