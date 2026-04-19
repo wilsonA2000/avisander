@@ -15,6 +15,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import ChangePassword from './pages/ChangePassword'
 import MyAccount from './pages/MyAccount'
 import Recipes from './pages/Recipes'
 import RecipeDetail from './pages/RecipeDetail'
@@ -61,6 +62,14 @@ function App() {
         <Route path="registro" element={<Register />} />
         <Route path="recuperar-password" element={<ForgotPassword />} />
         <Route path="reset-password/:token" element={<ResetPassword />} />
+        <Route
+          path="cambiar-password"
+          element={
+            <ProtectedRoute>
+              <ChangePassword />
+            </ProtectedRoute>
+          }
+        />
         <Route path="recetas" element={<Recipes />} />
         <Route path="recetas/:slug" element={<RecipeDetail />} />
         <Route path="pago/:reference" element={<PaymentResult />} />

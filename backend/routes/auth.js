@@ -10,7 +10,8 @@ const {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
-  refreshSchema
+  refreshSchema,
+  changePasswordSchema
 } = require('../schemas/auth')
 const { profileUpdateSchema } = require('../schemas/user')
 const {
@@ -247,6 +248,46 @@ router.post('/reset-password', validate(resetPasswordSchema), (req, res, next) =
     next(error)
   }
 })
+
+// Cambio de contraseña por usuario autenticado. Distinto a /reset-password,
+// que usa token por email. Aquí se exige la contraseña actual. Al éxito:
+// baja must_change_password, hashea la nueva y revoca todas las sesiones
+// (fuerza re-login en otros dispositivos).
+router.post(
+  '/change-password',
+  authenticateToken,
+  validate(changePasswordSchema),
+  (req, res, next) => {
+    try {
+      const { current_password, new_password } = req.body
+      const row = db
+        .prepare('SELECT id, password_hash FROM users WHERE id = ?')
+        .get(req.user.id)
+      if (!row) return res.status(404).json({ error: 'Usuario no encontrado' })
+      if (!bcrypt.compareSync(current_password, row.password_hash)) {
+        return res.status(401).json({ error: 'Contraseña actual incorrecta' })
+      }
+      if (bcrypt.compareSync(new_password, row.password_hash)) {
+        return res.status(400).json({ error: 'La nueva contraseña debe ser distinta a la actual' })
+      }
+      const newHash = bcrypt.hashSync(new_password, BCRYPT_ROUNDS)
+      const tx = db.transaction(() => {
+        db.prepare(
+          'UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+        ).run(newHash, row.id)
+        db.prepare(
+          'UPDATE refresh_tokens SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND revoked_at IS NULL'
+        ).run(row.id)
+      })
+      tx()
+      clearAuthCookies(res)
+      const cookies = setAuthCookies(res, row.id)
+      res.json({ message: 'Contraseña actualizada.', ...cookies })
+    } catch (error) {
+      next(error)
+    }
+  }
+)
 
 module.exports = router
 // Export utilidades internas para tests
