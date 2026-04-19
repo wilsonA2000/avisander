@@ -467,6 +467,25 @@ function Cart() {
 
   const closeBoldModal = () => setBoldPayload(null)
 
+  // Cancelar voluntariamente un pago Bold en curso. Libera la reserva de stock
+  // en backend para que el inventario no quede bloqueado 15 min y marca la
+  // orden como 'abandoned' para que no llene el panel de la cajera.
+  const abandonBoldPayment = async () => {
+    const ref = pendingOrder?.payment_reference
+      || boldPayload?.order_id
+      || (() => { try { return JSON.parse(localStorage.getItem('avisander:pending_bold_order') || 'null')?.reference } catch { return null } })()
+    try {
+      if (ref) {
+        await api.post(`/api/orders/public/${ref}/abandon`, {}, { skipAuth: true })
+      }
+    } catch (_e) { /* el scheduler lo limpia igual a los 15 min */ }
+    try { localStorage.removeItem('avisander:pending_bold_order') } catch (_e) {}
+    setValidating(false)
+    setPendingOrder(null)
+    setBoldPayload(null)
+    toast.info('Pago cancelado. Puedes elegir otro método.')
+  }
+
   const handleSubmitOrder = async () => {
     if (!canCheckout) {
       toast.error('Completa los datos de entrega antes de continuar.')
@@ -970,6 +989,13 @@ function Cart() {
               <MessageSquare size={18} />
               Enviar comprobante por WhatsApp
             </a>
+            <button
+              type="button"
+              onClick={abandonBoldPayment}
+              className="w-full py-2.5 border border-gray-300 hover:border-gray-400 text-gray-700 font-medium rounded-lg transition-colors text-sm"
+            >
+              Cancelar pago y elegir otro método
+            </button>
             <button
               type="button"
               onClick={() => setValidating(false)}

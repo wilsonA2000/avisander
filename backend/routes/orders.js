@@ -88,6 +88,45 @@ router.get('/public/:reference', publicOrderLimiter, (req, res, next) => {
   }
 })
 
+// Cliente abandona voluntariamente un pago Bold sin completarlo.
+// Evita que la orden quede "pending" en el admin hasta que expire el TTL.
+router.post('/public/:reference/abandon', publicOrderLimiter, (req, res, next) => {
+  try {
+    const order = db
+      .prepare(
+        `SELECT id, status, payment_method, payment_status, stock_deducted
+         FROM orders WHERE payment_reference = ?`
+      )
+      .get(req.params.reference)
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' })
+
+    // Solo abandonables: pending de Bold sin pago confirmado.
+    // Si ya fue aprobado o está en otro estado terminal, no tocamos.
+    if (order.payment_method !== 'bold') {
+      return res.status(400).json({ error: 'Solo se pueden abandonar pagos Bold' })
+    }
+    if (order.status !== 'pending' || order.stock_deducted) {
+      return res.json({ ok: true, already: true, status: order.status })
+    }
+    if (order.payment_status === 'approved') {
+      return res.status(400).json({ error: 'El pago ya fue aprobado' })
+    }
+
+    try { stockReservation.releaseReservation(order.id) } catch (_e) { /* idempotente */ }
+    db.prepare(
+      "UPDATE orders SET status = 'abandoned', payment_status = 'cancelled' WHERE id = ?"
+    ).run(order.id)
+    try { loyalty.revertOrderLoyalty(order.id, 'Pago abandonado por el cliente') } catch (err) {
+      logger.error({ err, orderId: order.id }, 'Fallo revirtiendo loyalty al abandonar')
+    }
+    logger.info({ orderId: order.id, reference: req.params.reference }, 'Pedido abandonado por cliente')
+
+    res.json({ ok: true, status: 'abandoned' })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.get('/:id', authenticateToken, (req, res, next) => {
   try {
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id)
