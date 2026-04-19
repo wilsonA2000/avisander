@@ -150,6 +150,22 @@ router.post(
       const paidAt = newStatus === 'approved' ? new Date().toISOString() : null
       const txId = data.payment_id || event.subject || null
 
+      // Dedupe: si Bold reintenta el mismo evento (payment_id + type), no lo
+      // procesamos otra vez. El descuento de stock ya es idempotente por la
+      // columna stock_deducted, pero el log de eventos no lo era.
+      const eventKey = `${txId || reference}::${type}`
+      try {
+        const ins = db
+          .prepare('INSERT OR IGNORE INTO bold_webhook_events (event_key, order_id, event_type) VALUES (?, (SELECT id FROM orders WHERE payment_reference = ?), ?)')
+          .run(eventKey, reference, type)
+        if (ins.changes === 0) {
+          logger.info({ eventKey }, 'Bold webhook duplicado ignorado')
+          return res.json({ ok: true, deduped: true })
+        }
+      } catch (err) {
+        logger.error({ err }, 'Error en dedupe Bold webhook (continuando)')
+      }
+
       const upd = db
         .prepare(
           `UPDATE orders SET

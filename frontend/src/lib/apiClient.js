@@ -30,9 +30,23 @@ async function parseOrThrow(res) {
   const isJson = contentType.includes('application/json')
   const body = isJson ? await res.json().catch(() => ({})) : await res.text()
   if (!res.ok) {
-    const err = new Error(body?.error || `Error ${res.status}`)
+    // Si el backend exige cambio de contraseña (must_change_password=1),
+    // redirigimos globalmente a la pantalla de cambio para que el usuario
+    // no reciba 403 en cada request.
+    if (
+      res.status === 403 &&
+      body?.code === 'must_change_password' &&
+      typeof window !== 'undefined' &&
+      window.location &&
+      !window.location.pathname.startsWith('/cambiar-password')
+    ) {
+      window.location.href = '/cambiar-password'
+    }
+    const err = new Error(body?.error || body?.details?.message || `Error ${res.status}`)
     err.status = res.status
     err.details = body?.details
+    err.code = body?.code
+    err.body = body
     throw err
   }
   return body

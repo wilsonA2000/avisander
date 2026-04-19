@@ -22,11 +22,25 @@ function authenticateToken(req, res, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET)
     const user = db
-      .prepare('SELECT id, email, name, role, phone, address, avatar_url FROM users WHERE id = ?')
+      .prepare('SELECT id, email, name, role, phone, address, avatar_url, must_change_password FROM users WHERE id = ?')
       .get(decoded.userId)
 
     if (!user) {
       return res.status(401).json({ error: 'Usuario no encontrado' })
+    }
+
+    // Si el usuario tiene must_change_password=1 (admin recién creado, o tras
+    // reset admin), solo puede llamar a /change-password y /logout. Cualquier
+    // otra ruta devuelve 403 para forzar el cambio antes de operar.
+    if (user.must_change_password === 1) {
+      const path = req.originalUrl.split('?')[0]
+      const allowed = ['/api/auth/change-password', '/api/auth/logout', '/api/auth/me']
+      if (!allowed.includes(path)) {
+        return res.status(403).json({
+          error: 'Debes cambiar tu contraseña antes de continuar.',
+          code: 'must_change_password'
+        })
+      }
     }
 
     req.user = user
@@ -53,7 +67,7 @@ function optionalAuth(req, res, next) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET)
       const user = db
-        .prepare('SELECT id, email, name, role, phone, address, avatar_url FROM users WHERE id = ?')
+        .prepare('SELECT id, email, name, role, phone, address, avatar_url, must_change_password FROM users WHERE id = ?')
         .get(decoded.userId)
       req.user = user
     } catch (_error) {

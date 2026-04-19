@@ -10,7 +10,8 @@ const {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
-  refreshSchema
+  refreshSchema,
+  changePasswordSchema
 } = require('../schemas/auth')
 const { profileUpdateSchema } = require('../schemas/user')
 const {
@@ -24,8 +25,21 @@ const {
 } = require('../lib/tokens')
 const { sendMail, passwordResetEmail } = require('../lib/mailer')
 const logger = require('../lib/logger')
+const rateLimit = require('express-rate-limit')
+const { clientIp } = require('../lib/client-ip')
 
 const router = express.Router()
+
+// Anti-abuso: forgot-password dispara envío de email. Limitamos 3/hora por
+// IP real para frenar enumeración + inundación de inbox.
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: clientIp,
+  message: { error: 'Demasiadas solicitudes. Intenta en una hora.' }
+})
 
 const BCRYPT_ROUNDS = 12
 
@@ -89,15 +103,53 @@ router.post('/register', validate(registerSchema), (req, res, next) => {
   }
 })
 
-// Login
+// Login con lockout por usuario tras 5 fallos consecutivos (15 min).
+// Independiente del rate limit por IP, cierra el vector de ataque cuando
+// un atacante rota IPs para forzar la pass.
+const MAX_FAILED_LOGINS = 5
+const LOCKOUT_MINUTES = 15
+
 router.post('/login', validate(loginSchema), (req, res, next) => {
   try {
     const { email, password } = req.body
 
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email)
 
-    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+    // Si no existe, respuesta genérica (no enumerar).
+    if (!user) {
       return res.status(401).json({ error: 'Credenciales inválidas' })
+    }
+
+    // Cuenta bloqueada: rechazamos antes de siquiera comparar la pass.
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const minsLeft = Math.ceil((new Date(user.locked_until) - new Date()) / 60000)
+      return res.status(429).json({
+        error: `Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intenta en ${minsLeft} minuto(s) o usa "Olvidé mi contraseña".`,
+        code: 'account_locked'
+      })
+    }
+
+    if (!bcrypt.compareSync(password, user.password_hash)) {
+      const newCount = (user.failed_login_count || 0) + 1
+      if (newCount >= MAX_FAILED_LOGINS) {
+        const lockUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString()
+        db.prepare(
+          'UPDATE users SET failed_login_count = ?, locked_until = ? WHERE id = ?'
+        ).run(newCount, lockUntil, user.id)
+        logger.warn({ userId: user.id }, 'Cuenta bloqueada por intentos fallidos')
+      } else {
+        db.prepare(
+          'UPDATE users SET failed_login_count = ? WHERE id = ?'
+        ).run(newCount, user.id)
+      }
+      return res.status(401).json({ error: 'Credenciales inválidas' })
+    }
+
+    // Login OK: reset contador.
+    if (user.failed_login_count > 0 || user.locked_until) {
+      db.prepare(
+        'UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE id = ?'
+      ).run(user.id)
     }
 
     const tokens = setAuthCookies(res, user.id)
@@ -180,7 +232,7 @@ router.put('/me', authenticateToken, validate(profileUpdateSchema), (req, res, n
 
 // Solicitar recuperación de contraseña.
 // Siempre responde 200 para no filtrar existencia del email.
-router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res, next) => {
+router.post('/forgot-password', forgotPasswordLimiter, validate(forgotPasswordSchema), async (req, res, next) => {
   try {
     const { email } = req.body
     const user = db.prepare('SELECT id, email, name FROM users WHERE email = ?').get(email)
@@ -247,6 +299,46 @@ router.post('/reset-password', validate(resetPasswordSchema), (req, res, next) =
     next(error)
   }
 })
+
+// Cambio de contraseña por usuario autenticado. Distinto a /reset-password,
+// que usa token por email. Aquí se exige la contraseña actual. Al éxito:
+// baja must_change_password, hashea la nueva y revoca todas las sesiones
+// (fuerza re-login en otros dispositivos).
+router.post(
+  '/change-password',
+  authenticateToken,
+  validate(changePasswordSchema),
+  (req, res, next) => {
+    try {
+      const { current_password, new_password } = req.body
+      const row = db
+        .prepare('SELECT id, password_hash FROM users WHERE id = ?')
+        .get(req.user.id)
+      if (!row) return res.status(404).json({ error: 'Usuario no encontrado' })
+      if (!bcrypt.compareSync(current_password, row.password_hash)) {
+        return res.status(401).json({ error: 'Contraseña actual incorrecta' })
+      }
+      if (bcrypt.compareSync(new_password, row.password_hash)) {
+        return res.status(400).json({ error: 'La nueva contraseña debe ser distinta a la actual' })
+      }
+      const newHash = bcrypt.hashSync(new_password, BCRYPT_ROUNDS)
+      const tx = db.transaction(() => {
+        db.prepare(
+          'UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+        ).run(newHash, row.id)
+        db.prepare(
+          'UPDATE refresh_tokens SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND revoked_at IS NULL'
+        ).run(row.id)
+      })
+      tx()
+      clearAuthCookies(res)
+      const cookies = setAuthCookies(res, row.id)
+      res.json({ message: 'Contraseña actualizada.', ...cookies })
+    } catch (error) {
+      next(error)
+    }
+  }
+)
 
 module.exports = router
 // Export utilidades internas para tests

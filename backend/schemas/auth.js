@@ -33,11 +33,17 @@ const refreshSchema = z.object({
   refreshToken: z.string().min(10).max(500)
 })
 
+const changePasswordSchema = z.object({
+  current_password: z.string().min(1).max(128),
+  new_password: passwordPolicy
+})
+
 module.exports = {
   registerSchema,
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
   refreshSchema,
+  changePasswordSchema,
   passwordPolicy
 }

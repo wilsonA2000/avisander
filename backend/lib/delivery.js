@@ -22,6 +22,11 @@ const CITY_FLAT_RATE = {
   piedecuesta: 18000
 }
 
+// Whitelist de cobertura: ciudades donde SÍ entregamos. Si el cliente declara
+// otra ciudad (ej. "Medellín"), cortamos antes del cálculo por distancia — la
+// línea recta podría ser < 15 km aunque operativamente no despachemos allá.
+const SERVED_CITIES = new Set(['bucaramanga', 'giron', 'floridablanca', 'piedecuesta'])
+
 // Anillos para Bucaramanga ciudad. Tarifa mínima $4.000 hasta 1km desde San Alonso.
 // Cacique (CC) y sectores cercanos quedan en ~3.5–4 km → $8.000.
 function bucaramangaTier(km) {
@@ -78,6 +83,19 @@ function quoteDelivery({ lat, lng, city, subtotal = 0 }) {
 
   const km = haversineKm(STORE.lat, STORE.lng, lat, lng)
   const norm = normalizeCity(city)
+
+  // Whitelist: si el cliente declara una ciudad y NO está en la lista,
+  // cortamos antes del cálculo. Si norm es null, caemos al tier por distancia.
+  if (norm && !SERVED_CITIES.has(norm)) {
+    return {
+      cost: null,
+      distance_km: km,
+      in_coverage: false,
+      reason: `Por ahora solo entregamos en Bucaramanga, Floridablanca, Girón y Piedecuesta. Ciudad detectada: ${norm}.`,
+      free: false,
+      city: norm
+    }
+  }
 
   // Bloqueo duro por distancia
   if (km > MAX_DISTANCE_KM) {

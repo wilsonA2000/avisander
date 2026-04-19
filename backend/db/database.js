@@ -232,6 +232,9 @@ function initialize() {
   addColumnIfMissing('users', 'must_change_password', 'must_change_password INTEGER DEFAULT 0')
   // Sprint 7A: avatar del usuario
   addColumnIfMissing('users', 'avatar_url', 'avatar_url TEXT')
+  // Audit 2026-04-19: lockout de cuenta tras N logins fallidos.
+  addColumnIfMissing('users', 'failed_login_count', 'failed_login_count INTEGER NOT NULL DEFAULT 0')
+  addColumnIfMissing('users', 'locked_until', 'locked_until DATETIME')
   addColumnIfMissing('products', 'sale_type', "sale_type TEXT NOT NULL DEFAULT 'fixed'")
   addColumnIfMissing('products', 'price_per_kg', 'price_per_kg REAL')
   addColumnIfMissing('products', 'brand', 'brand TEXT')
@@ -370,6 +373,15 @@ function initialize() {
     );
     CREATE INDEX IF NOT EXISTS idx_order_events_order ON order_events(order_id);
     CREATE INDEX IF NOT EXISTS idx_order_events_created ON order_events(created_at);
+
+    -- Audit 2026-04-19: dedupe de webhooks Bold. Si Bold reintenta el mismo
+    -- evento (payment_id + type), evitamos reprocesar y duplicar logs.
+    CREATE TABLE IF NOT EXISTS bold_webhook_events (
+      event_key TEXT PRIMARY KEY,
+      order_id INTEGER REFERENCES orders(id),
+      event_type TEXT,
+      processed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `)
 
   // Seed admin SOLO en entornos no-producción. En prod hay que crearlo manualmente.

@@ -4,10 +4,12 @@ import { Plus, Pencil, Trash2, X, Upload, Eye, Search, Download, CheckSquare, Sq
 import Pagination from '../../components/Pagination'
 import { CULINARY_USES, CULINARY_USE_SLUGS } from '../../components/CulinaryIcon'
 import { api, apiFetchFormData } from '../../lib/apiClient'
+import { useToast } from '../../context/ToastContext'
 
 const PER_PAGE = 25
 
 function Products() {
+  const toast = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const [products, setProducts] = useState([])
   const [total, setTotal] = useState(0)
@@ -223,7 +225,7 @@ function Products() {
       const data = await apiFetchFormData('/api/upload/image', formDataUpload)
       setFormData(prev => ({ ...prev, image_url: data.url }))
     } catch (error) {
-      alert(error.message || 'Error al subir imagen')
+      toast.error(error.message || 'Error al subir imagen')
     } finally {
       setUploading(false)
     }
@@ -234,16 +236,16 @@ function Products() {
 
     // Validate whitespace-only input
     if (!formData.name.trim()) {
-      alert('El nombre del producto es requerido')
+      toast.warn('El nombre del producto es requerido')
       return
     }
     if (formData.sale_type === 'by_weight') {
       if (!formData.price_per_kg || parseFloat(formData.price_per_kg) <= 0) {
-        alert('El precio por kg debe ser mayor a 0')
+        toast.warn('El precio por kg debe ser mayor a 0')
         return
       }
     } else if (!formData.price || parseFloat(formData.price) <= 0) {
-      alert('El precio debe ser mayor a 0')
+      toast.warn('El precio debe ser mayor a 0')
       return
     }
 
@@ -301,7 +303,7 @@ function Products() {
       setDeleteConfirm(null)
       fetchData()
     } catch (error) {
-      alert(error.message || 'Error al eliminar')
+      toast.error(error.message || 'Error al eliminar')
     }
   }
 
@@ -733,7 +735,8 @@ function Products() {
                       onChange={(e) => setFormData({ ...formData, price_per_kg: e.target.value })}
                       className="input"
                       required
-                      min="0"
+                      min="100"
+                      max="10000000"
                       step="100"
                       placeholder="Ej: 35000"
                     />
@@ -751,7 +754,9 @@ function Products() {
                         onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                         className="input"
                         required
-                        min="0"
+                        min="100"
+                        max="10000000"
+                        step="100"
                       />
                     </div>
                     <div>
@@ -762,6 +767,8 @@ function Products() {
                         onChange={(e) => setFormData({ ...formData, original_price: e.target.value })}
                         className="input"
                         min="0"
+                        max="10000000"
+                        step="100"
                       />
                     </div>
                   </>

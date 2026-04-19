@@ -146,12 +146,24 @@ router.get('/history', (_req, res, next) => {
 // Recibe un archivo via multipart/form-data, lo persiste en media/ia/ y
 // registra en ai_assets con kind='edited'.
 const multer = require('multer')
-const editUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
+const AI_ALLOWED_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp'])
+const EXT_BY_MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }
+const editUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!AI_ALLOWED_MIMES.has(file.mimetype)) {
+      return cb(new Error('Solo imágenes PNG, JPEG o WEBP'))
+    }
+    cb(null, true)
+  }
+})
 
 router.post('/save-edited', editUpload.single('image'), (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No se envió archivo' })
-    const ext = req.file.originalname?.split('.').pop() || 'png'
+    // Extensión derivada del mimetype (no del originalname que el cliente controla).
+    const ext = EXT_BY_MIME[req.file.mimetype] || 'png'
     const filename = `edited-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`
     fs.writeFileSync(path.join(AI_DIR, filename), req.file.buffer)
     const localUrl = `/media/ia/${filename}`
