@@ -118,20 +118,25 @@ function ChickenCutsExplorer() {
         {/* Glow ambiental */}
         <div className="absolute inset-0 bg-gradient-radial from-amber-900/15 via-transparent to-transparent" aria-hidden="true" />
 
-        {/* Pollo entero — fade completo fuera cuando se disecciona. Tween
-            rápido (no spring) para que la opacidad llegue a 0 sin overshoot
-            y no quede una silueta fantasma detrás de las piezas. */}
-        <motion.img
-          src="/ai-pollo-entero.webp"
-          alt="Pollo entero"
-          className="absolute w-[72%] max-w-[500px] pointer-events-none"
-          style={{ top: '50%', left: '50%', x: '-50%', y: '-50%' }}
-          animate={{
-            opacity: view === 'assembled' ? 1 : 0,
-            scale: view === 'assembled' ? 1 : 1.08
-          }}
-          transition={{ duration: 0.35, ease: 'easeOut' }}
-        />
+        {/* Pollo entero — render condicional con AnimatePresence: al cambiar
+            a exploded, el img se DESMONTA tras el exit animation. Garantiza
+            que no quede silueta fantasma (algo con el animate={{opacity:0}}
+            no funcionaba bien con cache del cliente). */}
+        <AnimatePresence>
+          {view === 'assembled' && (
+            <motion.img
+              key="chicken-whole"
+              src="/ai-pollo-entero.webp"
+              alt="Pollo entero"
+              className="absolute w-[72%] max-w-[500px] pointer-events-none"
+              style={{ top: '50%', left: '50%', x: '-50%', y: '-50%' }}
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.08 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            />
+          )}
+        </AnimatePresence>
 
         {/* Piezas — posicionadas con left/top en % del contenedor y x/y en %
             del elemento para centrar. Separar ambos evita el conflicto de
