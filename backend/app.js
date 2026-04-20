@@ -229,14 +229,27 @@ function createApp({ enableRateLimit = true } = {}) {
   // En dev, Vite corre aparte en :5173 y proxea /api a este backend.
   const frontendDist = path.resolve(__dirname, '..', 'frontend', 'dist')
   if (isProd && require('fs').existsSync(frontendDist)) {
+    // Cache agresivo para assets con hash (/assets/*) — el contenido nunca cambia
+    // porque cada deploy genera nuevos hashes. Pero index.html debe revalidarse
+    // siempre para que los clientes ya cacheados no queden apuntando a chunks
+    // que ya no existen tras un deploy (causa pantallas en blanco en rutas lazy).
     app.use(
       express.static(frontendDist, {
         index: 'index.html',
-        maxAge: '1h'
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, must-revalidate')
+          } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+          } else {
+            res.setHeader('Cache-Control', 'public, max-age=3600')
+          }
+        }
       })
     )
     // SPA fallback: rutas del cliente (carrito, producto/:id, admin/*) devuelven el index.
     app.get(/^(?!\/api\/|\/uploads\/|\/media\/).*/, (_req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate')
       res.sendFile(path.join(frontendDist, 'index.html'))
     })
   }
