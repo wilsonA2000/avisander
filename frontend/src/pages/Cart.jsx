@@ -269,35 +269,41 @@ function Cart() {
   }
 
   const launchBoldCheckout = (payload) => {
-    // Persistimos la referencia de la orden Bold lanzada para que, si el cliente
-    // vuelve al carrito sin los query params que Bold debería añadir, aún podamos
-    // consultar el estado de esa orden y mostrar la vista de éxito.
+    // Marca que el widget oficial de Bold esta siendo montado. Si el cliente
+    // vuelve al carrito con query params de Bold activamos la vista
+    // "Validando pago". Si vuelve sin query params (cerró pestaña antes de
+    // pagar), solo queda un pending_order reutilizable por handleSubmitOrder.
     try {
-      localStorage.setItem('avisander:pending_bold_order', JSON.stringify({
-        reference: payload.order_id,
-        launched_at: Date.now()
-      }))
+      const stored = JSON.parse(localStorage.getItem('avisander:pending_order') || 'null')
+      if (stored?.reference === payload.order_id) {
+        localStorage.setItem('avisander:pending_order', JSON.stringify({
+          ...stored,
+          bold_launched_at: Date.now()
+        }))
+      }
     } catch (_e) { /* noop */ }
     setBoldPayload(payload)
     return Promise.resolve(true)
   }
 
-  // Al volver desde Bold: detectamos la referencia por 3 vías en orden de fiabilidad:
-  //   1) Query params ?bold-order-id=X&bold-tx-status=Y (Bold los añade a veces)
-  //   2) localStorage 'avisander:pending_bold_order' (persistido al lanzar)
-  // Consultamos el backend con polling hasta 20s para dar tiempo al webhook.
+  // Al volver desde Bold activamos la vista "Validando pago" SOLO si:
+  //   1) Bold redirigió con query params ?bold-order-id=X (pago terminó en Bold), o
+  //   2) El cliente pulsó el widget oficial de Bold (bold_launched_at en
+  //      localStorage) y volvió después.
+  // Si solo hay pending_order sin bold_launched_at, el cliente cerró el modal
+  // sin iniciar checkout: lo dejamos en el carrito normal para editar/reintentar
+  // (handleSubmitOrder hará PUT /refresh al reintentar).
   useEffect(() => {
     const queryOrderId = searchParams.get('bold-order-id')
     const queryStatus = searchParams.get('bold-tx-status')
 
     let pendingRef = queryOrderId
-    let launchedAt = null
     if (!pendingRef) {
       try {
-        const stored = JSON.parse(localStorage.getItem('avisander:pending_bold_order') || 'null')
-        if (stored && stored.reference && (Date.now() - stored.launched_at) < 30 * 60 * 1000) {
+        const stored = JSON.parse(localStorage.getItem('avisander:pending_order') || 'null')
+        const withinWindow = stored?.bold_launched_at && (Date.now() - stored.bold_launched_at) < 30 * 60 * 1000
+        if (stored?.reference && withinWindow) {
           pendingRef = stored.reference
-          launchedAt = stored.launched_at
         }
       } catch (_e) { /* noop */ }
     }
@@ -313,7 +319,7 @@ function Cart() {
 
     if (queryStatus === 'rejected') {
       toast.error('El pago fue rechazado. Intenta de nuevo o usa WhatsApp.')
-      try { localStorage.removeItem('avisander:pending_bold_order') } catch (_e) {}
+      try { localStorage.removeItem('avisander:pending_order') } catch (_e) {}
       return
     }
 
@@ -346,13 +352,13 @@ function Cart() {
           setPaidOrder(order)
           setValidating(false)
           clearCart()
-          try { localStorage.removeItem('avisander:pending_bold_order') } catch (_e) {}
+          try { localStorage.removeItem('avisander:pending_order') } catch (_e) {}
           return
         }
         if (['declined', 'voided', 'error', 'rejected'].includes(order.payment_status)) {
           setValidating(false)
           toast.error('El pago no se completó. Puedes intentar de nuevo o usar WhatsApp.')
-          try { localStorage.removeItem('avisander:pending_bold_order') } catch (_e) {}
+          try { localStorage.removeItem('avisander:pending_order') } catch (_e) {}
           return
         }
         if (attempts < maxAttempts) {
@@ -466,10 +472,13 @@ function Cart() {
     document.body.appendChild(lib)
   }, [boldPayload?.order_id])
 
-  const closeBoldModal = async () => {
-    await abandonBoldPayment()
-    setBoldPayload(null)
-  }
+  // Cerrar el modal Bold NO abandona la orden: se mantiene pending para
+  // reutilizarla si el cliente reintenta pagar (handleSubmitOrder hace PUT
+  // /refresh si hay una pending_order vigente). El scheduler de 15 min la
+  // limpia si el cliente no vuelve. Abandon real solo ocurre con click
+  // explícito en "Cancelar pago y elegir otro método" desde la vista
+  // "Validando tu pago" o cuando se vacía el carrito.
+  const closeBoldModal = () => setBoldPayload(null)
 
   // Cancelar voluntariamente un pago Bold en curso. Libera la reserva de stock
   // en backend para que el inventario no quede bloqueado 15 min y marca la
@@ -477,13 +486,13 @@ function Cart() {
   const abandonBoldPayment = async () => {
     const ref = pendingOrder?.payment_reference
       || boldPayload?.order_id
-      || (() => { try { return JSON.parse(localStorage.getItem('avisander:pending_bold_order') || 'null')?.reference } catch { return null } })()
+      || (() => { try { return JSON.parse(localStorage.getItem('avisander:pending_order') || 'null')?.reference } catch { return null } })()
     try {
       if (ref) {
         await api.post(`/api/orders/public/${ref}/abandon`, {}, { skipAuth: true })
       }
     } catch (_e) { /* el scheduler lo limpia igual a los 15 min */ }
-    try { localStorage.removeItem('avisander:pending_bold_order') } catch (_e) {}
+    try { localStorage.removeItem('avisander:pending_order') } catch (_e) {}
     setValidating(false)
     setPendingOrder(null)
     setBoldPayload(null)
@@ -501,47 +510,87 @@ function Cart() {
       phone: contact.phone.trim(),
       address: delivery.method === 'delivery' ? delivery.address : 'Recoge en tienda'
     }
-    let res
+    const orderBody = {
+      items: toOrderItems(),
+      customer_name: customer.name,
+      customer_phone: customer.phone,
+      customer_address: customer.address,
+      delivery_method: delivery.method,
+      delivery_lat: delivery.lat,
+      delivery_lng: delivery.lng,
+      delivery_city: delivery.city,
+      payment_method: paymentMethod,
+      redeem_points: redeemPoints || 0
+    }
+
+    // Si hay un pedido pendiente de esta sesión, intentamos refrescarlo en vez de
+    // crear uno nuevo. Así el cliente conserva el mismo #142 aunque edite el
+    // carrito y reintente pagar varias veces.
+    let existingRef = null
     try {
-      res = await api.post('/api/orders', {
-        items: toOrderItems(),
-        customer_name: customer.name,
-        customer_phone: customer.phone,
-        customer_address: customer.address,
-        delivery_method: delivery.method,
-        delivery_lat: delivery.lat,
-        delivery_lng: delivery.lng,
-        delivery_city: delivery.city,
-        payment_method: paymentMethod,
-        redeem_points: redeemPoints || 0
-      })
-    } catch (err) {
-      // Precio del producto cambió mientras el cliente tenía el carrito:
-      // backend responde 409 con los precios reales. Actualizamos carrito y
-      // NO redirigimos a Bold: el cliente debe confirmar el nuevo total.
+      const stored = JSON.parse(localStorage.getItem('avisander:pending_order') || 'null')
+      if (stored?.reference && (Date.now() - (stored.created_at || 0)) < 15 * 60 * 1000) {
+        existingRef = stored.reference
+      }
+    } catch (_e) { /* noop */ }
+
+    let res
+    const handleOrderError = (err) => {
       if (err.status === 409 && err.code === 'price_changed' && Array.isArray(err.body?.items)) {
         applyPriceUpdates(err.body.items)
         toast.warn('Los precios cambiaron. Revisa tu carrito antes de pagar.')
-        setSubmitting(false)
-        return
+        return 'price_changed'
       }
-      // No abrimos WhatsApp ni limpiamos el carrito si la orden no se creó:
-      // el cliente debe corregir (stock insuficiente, dirección fuera de cobertura, etc.).
       toast.error(err.message || 'No pudimos guardar tu pedido. Revisa stock o vuelve a intentar.')
+      return 'fatal'
+    }
+
+    try {
+      if (existingRef) {
+        try {
+          res = await api.put(`/api/orders/public/${existingRef}/refresh`, orderBody, { skipAuth: true })
+        } catch (err) {
+          // Orden ya aprobada / expirada / desconocida → limpiar y crear nueva.
+          if (err.status === 409 || err.status === 404) {
+            try { localStorage.removeItem('avisander:pending_order') } catch (_e) {}
+            existingRef = null
+          } else {
+            const kind = handleOrderError(err)
+            setSubmitting(false)
+            return
+          }
+        }
+      }
+      if (!res) {
+        res = await api.post('/api/orders', orderBody)
+      }
+    } catch (err) {
+      handleOrderError(err)
       setSubmitting(false)
       return
     }
 
+    // Persistir la referencia del pedido en curso para reutilizarla en próximos
+    // reintentos (evita crear N pedidos si el cliente cancela y reintenta).
+    if (res?.payment_reference && (paymentMethod === 'bold' || paymentMethod === 'manual')) {
+      try {
+        localStorage.setItem('avisander:pending_order', JSON.stringify({
+          reference: res.payment_reference,
+          order_id: res.id,
+          method: paymentMethod,
+          created_at: Date.now()
+        }))
+      } catch (_e) { /* noop */ }
+    }
+
     try {
       if (paymentMethod === 'manual') {
-        // Pago manual: orden creada, stock reservado. Mostramos la vista con
-        // QRs y llaves. NO vaciamos el carrito aún: si el cliente cambia de
-        // método, mantiene sus productos. Solo limpiamos cuando envíe el
-        // comprobante por WhatsApp (ahí asumimos que sí pagó).
-        // La orden pending expira sola en 15 min si el cliente abandona
-        // (scheduler en backend/lib/stockReservation.js).
+        // Pago manual: orden creada (o refrescada), stock reservado. Mostramos
+        // la vista con QRs y llaves. NO vaciamos el carrito aún: si el cliente
+        // vuelve al carrito a cambiar algo, reutilizamos la misma orden via
+        // PUT /refresh. La orden pending expira sola en 15 min si el cliente
+        // abandona (scheduler en backend/lib/stockReservation.js).
         setManualOrder(res)
-        toast.success(`¡Pedido #${res.id} reservado! Sigue las instrucciones para pagar.`)
         return
       }
       if (paymentMethod === 'bold' && res.bold) {
@@ -565,7 +614,7 @@ function Cart() {
         })
         window.open(waUrl, '_blank')
         clearCart()
-        try { localStorage.removeItem('avisander:pending_bold_order') } catch (_e) {}
+        try { localStorage.removeItem('avisander:pending_order') } catch (_e) {}
         toast.success(`¡Pedido #${res.id} recibido! Te contactamos por WhatsApp.`)
         if (res.payment_reference) {
           navigate(`/pedido/${res.payment_reference}`)
@@ -905,7 +954,7 @@ function Cart() {
               onClick={() => { setManualOrder(null); setPaymentMethod('whatsapp') }}
               className="text-gray-500 hover:text-gray-800 underline"
             >
-              ← Cambiar método de pago
+              ← Volver al carrito
             </button>
             <span className="font-mono text-gray-400">{manualOrder.payment_reference}</span>
           </div>
@@ -923,7 +972,7 @@ function Cart() {
     const secs = validationElapsed % 60
     const elapsedLabel = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
     const pendingRef = pendingOrder?.payment_reference
-      || (() => { try { return JSON.parse(localStorage.getItem('avisander:pending_bold_order') || 'null')?.reference } catch { return null } })()
+      || (() => { try { return JSON.parse(localStorage.getItem('avisander:pending_order') || 'null')?.reference } catch { return null } })()
 
     const waFallbackMsg = [
       '⏳ *PAGO EN VALIDACIÓN - AVISANDER*',

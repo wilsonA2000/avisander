@@ -44,13 +44,12 @@ function MyAccount() {
 
   const handleRepeatOrder = async (order) => {
     for (const item of order.items || []) {
-      const r = addItem({
+      addItem({
         id: item.product_id,
         name: item.product_name,
         price: item.unit_price,
         unit: 'kg'
       }, item.quantity)
-      if (r?.blocked) return
     }
     toast.success('Productos agregados al carrito')
   }

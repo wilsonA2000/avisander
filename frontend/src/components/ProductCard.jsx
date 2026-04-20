@@ -35,7 +35,6 @@ function ProductCard({ product, variant = 'grid' }) {
   // Maneja el resultado del add: si stock limitó la cantidad, avisa al cliente.
   const reportAddResult = (result, requestedDetail) => {
     if (!result) return
-    if (result.blocked) return
     if (result.added <= 0) {
       toast.error(`${product.name} sin stock disponible.`)
       return

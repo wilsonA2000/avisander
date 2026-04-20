@@ -136,6 +136,128 @@ router.post('/public/:reference/abandon', publicOrderLimiter, (req, res, next) =
   }
 })
 
+// Actualiza una orden pending existente con nuevos items/totales. Permite
+// reutilizar la misma orden (mismo id, mismo payment_reference) cuando el
+// cliente cambia de opinion o edita el carrito en medio del checkout, sin
+// crear duplicados en BD ni confundir a la cajera con pedidos abandonados.
+router.put('/public/:reference/refresh', publicOrderLimiter, validate(orderCreateSchema), (req, res, next) => {
+  try {
+    const order = db
+      .prepare(
+        `SELECT id, status, payment_method, payment_status, stock_deducted, expires_at
+         FROM orders WHERE payment_reference = ?`
+      )
+      .get(req.params.reference)
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' })
+
+    if (order.status !== 'pending' || order.payment_status === 'approved' || order.stock_deducted) {
+      // La orden ya no es refrescable — el frontend tiene que crear una nueva.
+      return res.status(409).json({
+        error: 'La orden ya no puede actualizarse.',
+        code: 'order_not_refreshable',
+        status: order.status,
+        payment_status: order.payment_status
+      })
+    }
+    if (order.expires_at && new Date(order.expires_at).getTime() < Date.now()) {
+      return res.status(409).json({
+        error: 'La reserva de esta orden expiró. Intenta de nuevo.',
+        code: 'order_expired'
+      })
+    }
+
+    // Computa nuevos items/totales aplicando las mismas reglas que POST /orders.
+    let draft
+    try {
+      draft = computeOrderDraft(req.body, req.user)
+    } catch (err) {
+      if (err.code === 'price_changed') {
+        return res.status(409).json({ error: err.message, code: err.code, items: err.items })
+      }
+      throw err
+    }
+
+    const { customer_name, customer_phone, customer_address, notes, delivery_method = 'delivery', delivery_lat, delivery_lng, payment_method = order.payment_method } = req.body
+
+    const tx = db.transaction(() => {
+      // Liberar reserva previa antes de reemplazar items (sino restamos stock equivocado).
+      try { stockReservation.releaseReservation(order.id) } catch (_e) { /* idempotente */ }
+
+      db.prepare('DELETE FROM order_items WHERE order_id = ?').run(order.id)
+      const insertItem = db.prepare(
+        `INSERT INTO order_items (order_id, product_id, product_name, sale_type, quantity, weight_grams, unit_price, subtotal, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      for (const item of draft.orderItems) {
+        insertItem.run(
+          order.id, item.product_id, item.product_name, item.sale_type,
+          item.quantity, item.weight_grams, item.unit_price, item.subtotal, item.notes
+        )
+      }
+
+      db.prepare(
+        `UPDATE orders SET
+           total = ?, delivery_cost = ?, customer_name = ?, customer_phone = ?,
+           customer_address = ?, notes = ?, delivery_method = ?, delivery_lat = ?,
+           delivery_lng = ?, delivery_city = ?, delivery_distance_km = ?,
+           discount_amount = ?, discount_reason = ?, payment_method = ?
+         WHERE id = ?`
+      ).run(
+        draft.total,
+        draft.delivery_cost,
+        customer_name || req.user?.name || null,
+        customer_phone || req.user?.phone || null,
+        customer_address || req.user?.address || null,
+        notes || null,
+        delivery_method,
+        delivery_method === 'delivery' ? delivery_lat : null,
+        delivery_method === 'delivery' ? delivery_lng : null,
+        draft.resolved_city,
+        draft.distance_km,
+        draft.discountAmount,
+        draft.discountReason,
+        payment_method,
+        order.id
+      )
+
+      // Re-reservar stock con TTL extendido (resetea expires_at a now+15min).
+      try { stockReservation.reserveForOrder(order.id) } catch (err) {
+        logger.error({ err, orderId: order.id }, 'Fallo re-reservando stock en refresh')
+      }
+    })
+    tx()
+
+    orderEvents.log(order.id, 'refreshed', {
+      toStatus: 'pending',
+      toPaymentStatus: 'pending',
+      actorType: req.user ? 'customer' : 'guest',
+      actorId: req.user?.id || null,
+      metadata: { total: draft.total, items_count: draft.orderItems.length }
+    })
+
+    const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id)
+    updated.items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(order.id)
+
+    let boldPayload = null
+    if (payment_method === 'bold' && bold.isEnabled()) {
+      const amount = Math.round(draft.total)
+      boldPayload = {
+        order_id: updated.payment_reference,
+        amount,
+        currency: 'COP',
+        signature: bold.signIntegrity({ orderId: updated.payment_reference, amount, currency: 'COP' }),
+        identity_key: bold.config().identityKey,
+        widget_url: bold.config().widgetUrl,
+        description: `Pedido Avisander #${order.id}`
+      }
+    }
+
+    res.json({ ...updated, bold: boldPayload })
+  } catch (error) {
+    next(error)
+  }
+})
+
 // Timeline de eventos de una orden (solo admin). Usa order_events, que
 // acumula cada cambio de estado con actor y timestamp para dar trazabilidad
 // cuando un cliente reclama.
@@ -164,10 +286,154 @@ router.get('/:id', authenticateToken, (req, res, next) => {
   }
 })
 
+// Valida items + recalcula precios/descuentos/delivery/total a partir del body.
+// Usado por POST /api/orders (creacion) y PUT /api/orders/public/:ref/refresh
+// (actualizacion de orden pending) para compartir la misma logica de computo.
+// Throws con err.status / err.code si hay problemas de validacion.
+function computeOrderDraft(body, reqUser) {
+  const {
+    items,
+    delivery_method = 'delivery',
+    delivery_lat,
+    delivery_lng,
+    delivery_city,
+    payment_method = 'whatsapp'
+  } = body
+
+  const hasByWeight = items.some((it) => (it.sale_type || 'fixed') === 'by_weight')
+  if (hasByWeight && payment_method !== 'whatsapp') {
+    const e = new Error(
+      'Los productos por peso solo se pueden coordinar por WhatsApp (el peso real puede variar). Cambia el método de pago a WhatsApp o quita los productos por peso.'
+    )
+    e.status = 400
+    throw e
+  }
+
+  const stockErrors = []
+  for (const it of items) {
+    if (!it.product_id) continue
+    if ((it.sale_type || 'fixed') === 'by_weight') continue
+    const prod = db
+      .prepare('SELECT id, name, stock, reserved_stock, is_available FROM products WHERE id = ?')
+      .get(it.product_id)
+    if (!prod) { stockErrors.push(`Producto ${it.product_id} no existe`); continue }
+    if (prod.is_available === 0) { stockErrors.push(`"${prod.name}" no está disponible`); continue }
+    const available = (Number(prod.stock) || 0) - (Number(prod.reserved_stock) || 0)
+    if (available <= 0) stockErrors.push(`"${prod.name}" sin stock`)
+    else if (it.quantity > available) stockErrors.push(`"${prod.name}" solo tiene ${available} disponibles (pediste ${it.quantity})`)
+  }
+  if (stockErrors.length > 0) {
+    const e = new Error(stockErrors.join(' · '))
+    e.status = 400
+    e.code = 'insufficient_stock'
+    throw e
+  }
+
+  const priceChanges = []
+  for (const it of items) {
+    const saleType = it.sale_type || 'fixed'
+    if (saleType !== 'fixed') continue
+    if (!it.product_id) {
+      const e = new Error(`El item "${it.name}" no tiene product_id; productos off-catálogo no se permiten.`)
+      e.status = 400
+      e.code = 'off_catalog_item'
+      throw e
+    }
+    const prod = db.prepare('SELECT price FROM products WHERE id = ?').get(it.product_id)
+    if (!prod) continue
+    const realPrice = Number(prod.price) || 0
+    const sentPrice = Number(it.price) || 0
+    if (Math.abs(realPrice - sentPrice) > 0.01) {
+      priceChanges.push({ product_id: it.product_id, name: it.name, sent_price: sentPrice, current_price: realPrice })
+    }
+  }
+  if (priceChanges.length > 0) {
+    const e = new Error('El precio de algunos productos cambió. Revisa tu carrito antes de pagar.')
+    e.status = 409
+    e.code = 'price_changed'
+    e.items = priceChanges
+    throw e
+  }
+
+  let subtotal = 0
+  const orderItems = items.map((item) => {
+    const saleType = item.sale_type || 'fixed'
+    let unitPrice, qty, weightGrams = null, itemSubtotal
+    if (saleType === 'by_weight') {
+      const product = item.product_id
+        ? db.prepare('SELECT price_per_kg FROM products WHERE id = ?').get(item.product_id)
+        : null
+      const pricePerKg = product?.price_per_kg
+      if (!pricePerKg) {
+        const e = new Error(`Producto "${item.name}" no tiene price_per_kg configurado`)
+        e.status = 400
+        throw e
+      }
+      weightGrams = item.weight_grams
+      qty = weightGrams / 1000
+      unitPrice = pricePerKg
+      itemSubtotal = (pricePerKg * weightGrams) / 1000
+    } else {
+      const prod = db.prepare('SELECT price FROM products WHERE id = ?').get(item.product_id)
+      qty = item.quantity
+      unitPrice = Number(prod?.price) || 0
+      itemSubtotal = unitPrice * qty
+    }
+    subtotal += itemSubtotal
+    return {
+      product_id: item.product_id || null,
+      product_name: item.name,
+      sale_type: saleType,
+      quantity: qty,
+      weight_grams: weightGrams,
+      unit_price: unitPrice,
+      subtotal: itemSubtotal,
+      notes: item.notes || null
+    }
+  })
+
+  let delivery_cost = 0
+  let distance_km = null
+  let resolved_city = delivery_city || null
+  if (delivery_method === 'delivery') {
+    if (typeof delivery_lat !== 'number' || typeof delivery_lng !== 'number') {
+      const e = new Error('Para domicilio se requiere ubicación (lat/lng).')
+      e.status = 400
+      throw e
+    }
+    const quote = quoteDelivery({ lat: delivery_lat, lng: delivery_lng, city: delivery_city, subtotal })
+    if (!quote.in_coverage) {
+      const e = new Error(quote.reason || 'Dirección fuera del área de cobertura.')
+      e.status = 400
+      throw e
+    }
+    delivery_cost = quote.cost
+    distance_km = quote.distance_km
+    resolved_city = quote.city
+  }
+
+  const discount = computeFirstPurchaseDiscount(reqUser?.id || null, subtotal)
+  const discountAmount = discount.amount || 0
+  const discountReason = discount.reason || null
+
+  const redeemPoints = body.redeem_points || 0
+  let loyaltyDiscount = 0
+  if (redeemPoints > 0 && reqUser?.id && loyalty.isEnabled()) {
+    const balance = loyalty.getBalance(reqUser.id)
+    const actual = Math.min(redeemPoints, balance)
+    loyaltyDiscount = actual * loyalty.pointValue()
+  }
+
+  const total = Math.max(0, subtotal - discountAmount - loyaltyDiscount) + delivery_cost
+  return {
+    orderItems, subtotal, delivery_cost, distance_km, resolved_city,
+    discountAmount, discountReason, loyaltyDiscount, redeemPoints, total
+  }
+}
+
 router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => {
   try {
     const {
-      items,
       customer_name,
       customer_phone,
       customer_address,
@@ -175,176 +441,19 @@ router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => 
       delivery_method = 'delivery',
       delivery_lat,
       delivery_lng,
-      delivery_city,
       payment_method = 'whatsapp'
     } = req.body
 
-    // Defensa en profundidad: productos por peso solo se cobran por WhatsApp.
-    // El frontend ya lo bloquea, pero un cliente con DevTools podría intentar saltárselo.
-    const hasByWeight = items.some((it) => (it.sale_type || 'fixed') === 'by_weight')
-    if (hasByWeight && payment_method !== 'whatsapp') {
-      const e = new Error(
-        'Los productos por peso solo se pueden coordinar por WhatsApp (el peso real puede variar). Cambia el método de pago a WhatsApp o quita los productos por peso.'
-      )
-      e.status = 400
-      throw e
+    let draft
+    try {
+      draft = computeOrderDraft(req.body, req.user)
+    } catch (err) {
+      if (err.code === 'price_changed') {
+        return res.status(409).json({ error: err.message, code: err.code, items: err.items })
+      }
+      throw err
     }
-
-    // Defensa en profundidad: validar stock antes de crear la orden.
-    // Productos by_weight no aplican (stock se descuenta en kg al cortar).
-    const stockErrors = []
-    for (const it of items) {
-      if (!it.product_id) continue
-      if ((it.sale_type || 'fixed') === 'by_weight') continue
-      const prod = db
-        .prepare('SELECT id, name, stock, reserved_stock, is_available FROM products WHERE id = ?')
-        .get(it.product_id)
-      if (!prod) {
-        stockErrors.push(`Producto ${it.product_id} no existe`)
-        continue
-      }
-      if (prod.is_available === 0) {
-        stockErrors.push(`"${prod.name}" no está disponible`)
-        continue
-      }
-      // Stock disponible = stock físico - reservado por otros pedidos pendientes.
-      const available = (Number(prod.stock) || 0) - (Number(prod.reserved_stock) || 0)
-      if (available <= 0) {
-        stockErrors.push(`"${prod.name}" sin stock`)
-      } else if (it.quantity > available) {
-        stockErrors.push(`"${prod.name}" solo tiene ${available} disponibles (pediste ${it.quantity})`)
-      }
-    }
-    if (stockErrors.length > 0) {
-      const e = new Error(stockErrors.join(' · '))
-      e.status = 400
-      e.code = 'insufficient_stock'
-      throw e
-    }
-
-    // Anti-fraude: si el cliente envió precios distintos a los de BD para items
-    // 'fixed', devolvemos 409 con los precios reales para que el frontend
-    // actualice el carrito y el cliente confirme el nuevo total antes de pagar.
-    const priceChanges = []
-    for (const it of items) {
-      const saleType = it.sale_type || 'fixed'
-      if (saleType !== 'fixed') continue
-      if (!it.product_id) {
-        const e = new Error(`El item "${it.name}" no tiene product_id; productos off-catálogo no se permiten.`)
-        e.status = 400
-        e.code = 'off_catalog_item'
-        throw e
-      }
-      const prod = db.prepare('SELECT price FROM products WHERE id = ?').get(it.product_id)
-      if (!prod) continue
-      const realPrice = Number(prod.price) || 0
-      const sentPrice = Number(it.price) || 0
-      if (Math.abs(realPrice - sentPrice) > 0.01) {
-        priceChanges.push({
-          product_id: it.product_id,
-          name: it.name,
-          sent_price: sentPrice,
-          current_price: realPrice
-        })
-      }
-    }
-    if (priceChanges.length > 0) {
-      return res.status(409).json({
-        error: 'El precio de algunos productos cambió. Revisa tu carrito antes de pagar.',
-        code: 'price_changed',
-        items: priceChanges
-      })
-    }
-
-    let subtotal = 0
-    const orderItems = items.map((item) => {
-      const saleType = item.sale_type || 'fixed'
-      let unitPrice
-      let qty
-      let weightGrams = null
-      let itemSubtotal
-
-      if (saleType === 'by_weight') {
-        // Para peso variable, el precio NO se confía al cliente.
-        // Recalculamos a partir del price_per_kg actual del producto en BD.
-        const product = item.product_id
-          ? db.prepare('SELECT price_per_kg FROM products WHERE id = ?').get(item.product_id)
-          : null
-        const pricePerKg = product?.price_per_kg
-        if (!pricePerKg) {
-          const e = new Error(`Producto "${item.name}" no tiene price_per_kg configurado`)
-          e.status = 400
-          throw e
-        }
-        weightGrams = item.weight_grams
-        qty = weightGrams / 1000
-        unitPrice = pricePerKg
-        itemSubtotal = (pricePerKg * weightGrams) / 1000
-      } else {
-        // Anti-fraude: siempre leer precio actual de BD, ignorar item.price.
-        const prod = db.prepare('SELECT price FROM products WHERE id = ?').get(item.product_id)
-        qty = item.quantity
-        unitPrice = Number(prod?.price) || 0
-        itemSubtotal = unitPrice * qty
-      }
-
-      subtotal += itemSubtotal
-      return {
-        product_id: item.product_id || null,
-        product_name: item.name,
-        sale_type: saleType,
-        quantity: qty,
-        weight_grams: weightGrams,
-        unit_price: unitPrice,
-        subtotal: itemSubtotal,
-        notes: item.notes || null
-      }
-    })
-
-    // Calcular costo de domicilio en backend (autoridad).
-    // - pickup: 0
-    // - delivery: requiere lat/lng; usa quoteDelivery; bloquea si está fuera de cobertura
-    let delivery_cost = 0
-    let distance_km = null
-    let resolved_city = delivery_city || null
-
-    if (delivery_method === 'delivery') {
-      if (typeof delivery_lat !== 'number' || typeof delivery_lng !== 'number') {
-        const e = new Error('Para domicilio se requiere ubicación (lat/lng).')
-        e.status = 400
-        throw e
-      }
-      const quote = quoteDelivery({
-        lat: delivery_lat,
-        lng: delivery_lng,
-        city: delivery_city,
-        subtotal
-      })
-      if (!quote.in_coverage) {
-        const e = new Error(quote.reason || 'Dirección fuera del área de cobertura.')
-        e.status = 400
-        throw e
-      }
-      delivery_cost = quote.cost
-      distance_km = quote.distance_km
-      resolved_city = quote.city
-    }
-
-    // Descuento aplicable (solo clientes registrados en su primera compra).
-    const discount = computeFirstPurchaseDiscount(req.user?.id || null, subtotal)
-    const discountAmount = discount.amount || 0
-    const discountReason = discount.reason || null
-
-    // Canje de puntos de fidelización (opcional).
-    const redeemPoints = req.body.redeem_points || 0
-    let loyaltyDiscount = 0
-    if (redeemPoints > 0 && req.user?.id && loyalty.isEnabled()) {
-      const balance = loyalty.getBalance(req.user.id)
-      const actual = Math.min(redeemPoints, balance)
-      loyaltyDiscount = actual * loyalty.pointValue()
-    }
-
-    const total = Math.max(0, subtotal - discountAmount - loyaltyDiscount) + delivery_cost
+    const { orderItems, delivery_cost, distance_km, resolved_city, discountAmount, discountReason, loyaltyDiscount, redeemPoints, total } = draft
 
     const result = db
       .prepare(

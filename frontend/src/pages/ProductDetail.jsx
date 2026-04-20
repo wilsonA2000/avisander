@@ -148,8 +148,7 @@ function ProductDetail() {
         toast.error('Cantidad entre 50 y 20.000 gramos')
         return
       }
-      const wResult = addItem(product, { weight_grams: g, notes: notes.trim() })
-      if (wResult?.blocked) return
+      addItem(product, { weight_grams: g, notes: notes.trim() })
       toast.success(`✓ ${product.name} (${g} g) agregado al carrito`)
       window.dispatchEvent(new CustomEvent('avisander:cart-bump'))
       return
@@ -168,7 +167,6 @@ function ProductDetail() {
       return
     }
     const result = addItem(product, { quantity: q, notes: notes.trim() })
-    if (result?.blocked) return
     if (result?.added <= 0) {
       toast.error(`${product.name} sin stock disponible.`)
       return
