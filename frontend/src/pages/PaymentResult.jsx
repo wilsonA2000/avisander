@@ -3,10 +3,11 @@
 
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { CheckCircle2, XCircle, Loader2, Clock } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import { api } from '../lib/apiClient'
 import { useCart } from '../context/CartContext'
 import { useToast } from '../context/ToastContext'
+import LottieIcon from '../components/LottieIcon'
 
 const POLL_INTERVAL = 3000
 const MAX_ATTEMPTS = 40 // 2 min max
@@ -57,31 +58,31 @@ function PaymentResult() {
 
   const statusView = {
     approved: {
-      icon: <CheckCircle2 size={80} className="text-green-500" />,
+      icon: <LottieIcon name="payment-success" size="3xl" loop={false} autoplay fallbackIcon="check" />,
       title: '¡Pago aprobado!',
       msg: 'Tu pedido fue confirmado. Te contactamos por WhatsApp para coordinar la entrega.',
       color: 'text-green-700'
     },
     declined: {
-      icon: <XCircle size={80} className="text-red-500" />,
+      icon: <LottieIcon name="error" size="3xl" loop={false} autoplay fallbackIcon="alert-circle" />,
       title: 'Pago rechazado',
       msg: 'La pasarela rechazó el pago. Puedes intentar con otro método o contactarnos por WhatsApp.',
       color: 'text-red-700'
     },
     voided: {
-      icon: <XCircle size={80} className="text-gray-500" />,
+      icon: <LottieIcon name="error" size="3xl" loop={false} autoplay fallbackIcon="alert-circle" />,
       title: 'Pago cancelado',
       msg: 'La transacción fue cancelada.',
       color: 'text-gray-700'
     },
     error: {
-      icon: <XCircle size={80} className="text-amber-500" />,
+      icon: <LottieIcon name="error" size="3xl" loop={false} autoplay fallbackIcon="alert-circle" />,
       title: 'Error en el pago',
       msg: 'Ocurrió un problema con el pago. Contáctanos por WhatsApp para ayudarte.',
       color: 'text-amber-700'
     },
     pending: {
-      icon: <Loader2 size={80} className="text-primary animate-spin" />,
+      icon: <LottieIcon name="payment-processing" size="3xl" loop autoplay fallbackIcon="loader" />,
       title: 'Verificando pago…',
       msg: 'Esto puede tardar unos segundos. No cierres esta ventana.',
       color: 'text-primary'

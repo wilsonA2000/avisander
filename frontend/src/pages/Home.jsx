@@ -304,15 +304,6 @@ function Home() {
                           </span>
                         )}
 
-                        <div className="absolute top-3 left-3">
-                          <CategoryIcon
-                            category={c.name}
-                            variant="circle"
-                            className="w-12 h-12 sm:w-14 sm:h-14 drop-shadow-xl transition-transform duration-300
-                                       group-hover:scale-110 group-hover:-rotate-6"
-                          />
-                        </div>
-
                         <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                           <h3 className="font-display font-bold text-lg sm:text-xl leading-tight drop-shadow-md">
                             {c.name}
@@ -388,29 +379,31 @@ function Home() {
       {/* Banda descubrimiento: despiece interactivo */}
       <AnimatedSection className="relative rounded-3xl overflow-hidden bg-charcoal text-white p-6 md:p-10">
         <img
-          src="/ai-despiece-pollo.webp"
+          src="/ai-hero-parrilla.webp"
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover opacity-40"
+          className="absolute inset-0 w-full h-full object-cover opacity-55"
+          style={{ objectPosition: 'right center' }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-charcoal via-charcoal/85 to-transparent" aria-hidden="true" />
+        <div className="absolute inset-0 bg-gradient-to-r from-charcoal via-charcoal/85 to-charcoal/20" aria-hidden="true" />
         <div className="relative grid md:grid-cols-2 gap-4 items-center">
           <div>
             <p className="inline-block text-[10px] uppercase tracking-[0.25em] text-primary font-semibold mb-2">
               Guía del corte
             </p>
             <h2 className="font-display text-2xl md:text-3xl font-bold leading-tight mb-3">
-              Descubre cada parte del pollo
+              Domina cada corte del pollo
             </h2>
-            <p className="text-white/75 mb-5 max-w-md leading-relaxed">
-              Pechuga, muslos, alas, piernas, rabadilla. Explora en qué receta
-              brilla cada corte, cuánta proteína aporta y cómo prepararlo.
+            <p className="text-white/80 mb-5 max-w-md leading-relaxed">
+              Pechuga, muslos, alas, contramuslos, perniles y rabadilla.
+              Aprende qué corte usar en cada receta, cuánta proteína aporta y
+              los trucos de cocción que marcan la diferencia.
             </p>
             <Link
               to="/despiece/pollo"
               className="inline-flex items-center gap-2 bg-white text-charcoal hover:bg-cream font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-lg"
             >
-              Explorar el pollo <ArrowRight size={16} />
+              Descubrir los cortes <ArrowRight size={16} />
             </Link>
           </div>
           <div className="hidden md:block" />

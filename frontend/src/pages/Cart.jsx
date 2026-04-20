@@ -939,7 +939,7 @@ function Cart() {
         <div className="bg-white rounded-2xl shadow-xl border-t-4 border-primary overflow-hidden">
           <div className="p-8 text-center bg-orange-50">
             <div className="mx-auto mb-3 flex justify-center">
-              <LottieIcon name="payment-processing" size="xl" loop autoplay fallbackIcon="loader" />
+              <LottieIcon name="payment-processing" size="3xl" loop autoplay fallbackIcon="loader" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Validando tu pago…</h1>
             {pendingOrder?.id && (
@@ -1030,7 +1030,7 @@ function Cart() {
         <div className="bg-white rounded-2xl shadow-md border-t-4 border-green-500 overflow-hidden">
           <div className="p-8 text-center bg-green-50">
             <div className="mx-auto mb-3 flex justify-center">
-              <LottieIcon name="payment-success" size="xl" loop={false} autoplay fallbackIcon="check" />
+              <LottieIcon name="payment-success" size="3xl" loop={false} autoplay fallbackIcon="check" />
             </div>
             <h1 className="text-3xl font-bold text-gray-800">¡Pago aprobado!</h1>
             <p className="text-lg font-mono text-green-700 font-bold mt-2">Pedido #{paidOrder.id}</p>
