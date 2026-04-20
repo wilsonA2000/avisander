@@ -602,8 +602,13 @@ function Cart() {
         // Bold abre su UI. Al terminar redirige a /pago/:reference.
         // No limpiamos carrito aún: lo hace PaymentResult cuando el pago está aprobado.
       } else {
-        // WhatsApp: orden ya creada en BD; abrimos WhatsApp con el N° de pedido,
-        // limpiamos carrito y llevamos al cliente a la vista de tracking.
+        // WhatsApp: orden ya creada en BD. Orden crítica:
+        //   1) Limpiar carrito y navegar a la vista de tracking
+        //   2) Recién entonces abrir WhatsApp
+        // Si invertimos el orden, en móvil el navegador puede pausar la ejecución
+        // al saltar al app de WhatsApp antes de que clearCart/navigate se apliquen.
+        // Resultado: el carrito conserva los ítems y la URL no cambia, y al volver
+        // la pestaña queda en estado inconsistente.
         const waUrl = getWhatsAppUrl({
           ...customer,
           deliveryInfo: delivery,
@@ -612,13 +617,15 @@ function Cart() {
           discountReason: res.discount_reason || null,
           finalTotal: res.total
         })
-        window.open(waUrl, '_blank')
         clearCart()
         try { localStorage.removeItem('avisander:pending_order') } catch (_e) {}
         toast.success(`¡Pedido #${res.id} recibido! Te contactamos por WhatsApp.`)
         if (res.payment_reference) {
-          navigate(`/pedido/${res.payment_reference}`)
+          navigate(`/pedido/${res.payment_reference}`, { replace: true })
         }
+        // Pequeño delay para que React flushee el render del route change antes
+        // de ceder el foco al app de WhatsApp en móvil.
+        setTimeout(() => { window.open(waUrl, '_blank') }, 50)
       }
     } finally {
       setSubmitting(false)

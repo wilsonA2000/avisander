@@ -143,7 +143,13 @@ export function CartProvider({ children }) {
     setItems((prev) => prev.filter((it) => it.id !== lineId))
   }, [])
 
-  const clearCart = useCallback(() => setItems([]), [])
+  // Persistimos a localStorage síncrono además del setState. El useEffect de
+  // persistencia puede no correr si el navegador congela la pestaña justo
+  // después (p. ej. cuando el usuario sale al app de WhatsApp en móvil).
+  const clearCart = useCallback(() => {
+    setItems([])
+    try { localStorage.setItem(CART_STORAGE_KEY, '[]') } catch (_e) { /* noop */ }
+  }, [])
 
   const subtotal = items.reduce((sum, it) => sum + lineTotal(it), 0)
   const total = subtotal + (items.length > 0 ? deliveryCost : 0)

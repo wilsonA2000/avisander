@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { CheckCircle2, Clock, Package, XCircle, MessageSquare, Truck, Store } from 'lucide-react'
+import { CheckCircle2, Clock, Package, XCircle, MessageSquare, Truck, Store, ShoppingBag } from 'lucide-react'
 import { api } from '../lib/apiClient'
 import LottieIcon from '../components/LottieIcon'
 
@@ -190,8 +190,9 @@ function OrderTracking() {
               <div className="text-sm text-amber-900">
                 <p className="font-semibold mb-1">¿Qué sigue?</p>
                 <p>
-                  Esta página se actualiza sola. Puedes cerrarla cuando quieras; al recibir tu WhatsApp,
-                  confirmamos stock, método de pago y entrega.
+                  Nuestra cajera está validando tu pedido por WhatsApp. Te confirmará stock,
+                  pago y entrega por ahí mismo. Puedes cerrar esta página sin problema —
+                  cuando tu pedido cambie de estado lo verás reflejado aquí al regresar.
                 </p>
               </div>
             </div>
@@ -199,9 +200,13 @@ function OrderTracking() {
         )}
       </div>
 
-      <div className="mt-6 text-center">
-        <Link to="/productos" className="text-primary hover:underline text-sm">
-          ← Seguir comprando
+      <div className="mt-6 flex justify-center">
+        <Link
+          to="/productos"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl shadow-sm transition-colors"
+        >
+          <ShoppingBag size={18} />
+          Seguir comprando
         </Link>
       </div>
     </div>
