@@ -8,18 +8,34 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth')
 const router = express.Router()
 router.use(authenticateToken, requireAdmin)
 
-// Parsea rangos de fechas. Por defecto: últimos 30 días (incluye hoy).
-function parseRange(query) {
-  const today = new Date()
-  const defaultFrom = new Date(today.getTime() - 29 * 86400_000)
-  const from = query.from ? new Date(query.from) : defaultFrom
-  const to = query.to ? new Date(query.to) : today
-  // Normalizamos a inicio/fin del día (sistema local → ISO)
-  const fromStr = from.toISOString().slice(0, 10) + ' 00:00:00'
-  const toStr = to.toISOString().slice(0, 10) + ' 23:59:59'
-  const granularity = ['day', 'week', 'month'].includes(query.granularity) ? query.granularity : 'day'
-  return { from: fromStr, to: toStr, granularity, fromISO: from.toISOString().slice(0, 10), toISO: to.toISOString().slice(0, 10) }
+// Parsea rangos de fechas. Las fechas del query son en zona Bogotá (UTC-5)
+// pero created_at se guarda en UTC, así que convertimos el rango a UTC para
+// que los índices sobre created_at sigan siendo usables.
+const BOGOTA_OFFSET_HOURS = -5
+
+function todayBogotaISO() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date())
 }
+
+function daysAgoBogotaISO(days) {
+  const base = todayBogotaISO() + 'T12:00:00Z'
+  const d = new Date(base)
+  d.setUTCDate(d.getUTCDate() - days)
+  return d.toISOString().slice(0, 10)
+}
+
+function parseRange(query) {
+  const toISO = query.to || todayBogotaISO()
+  const fromISO = query.from || daysAgoBogotaISO(29)
+  // Bogotá [from 00:00 → to 23:59] ≡ UTC [from+5h → to+1d+4h:59m:59s]
+  const fromUTC = new Date(fromISO + 'T00:00:00-05:00').toISOString().slice(0, 19).replace('T', ' ')
+  const toUTC = new Date(toISO + 'T23:59:59-05:00').toISOString().slice(0, 19).replace('T', ' ')
+  const granularity = ['day', 'week', 'month'].includes(query.granularity) ? query.granularity : 'day'
+  return { from: fromUTC, to: toUTC, granularity, fromISO, toISO }
+}
+
+// Helper SQL: convierte created_at (UTC) a local Bogotá antes de formatear.
+const TZ_SHIFT = `'${BOGOTA_OFFSET_HOURS} hours'`
 
 // Tarifa estimada Bold tarjeta: 2.69% + $300 por orden aprobada.
 // Hasta que podamos distinguir tarjeta vs PSE desde el webhook.
@@ -37,7 +53,7 @@ router.get('/summary', (req, res, next) => {
     const range = parseRange(req.query)
 
     // Todas las órdenes del período (en memoria para calcular agregaciones flexibles).
-    const orders = db
+    const allOrders = db
       .prepare(
         `SELECT id, total, delivery_cost, status, payment_method, payment_status,
                 delivery_method, created_at, user_id, customer_phone
@@ -46,35 +62,60 @@ router.get('/summary', (req, res, next) => {
       )
       .all(range.from, range.to)
 
+    // Los ingresos y ticket promedio se calculan SOLO sobre pedidos no cancelados.
+    // Un pedido cancelado nunca fue dinero real en caja.
+    const orders = allOrders.filter((o) => o.status !== 'cancelled')
+    const cancelledOrders = allOrders.filter((o) => o.status === 'cancelled')
+
     const ordersCount = orders.length
     const revenueGross = orders.reduce((a, o) => a + (o.total || 0), 0)
     const revenueDelivery = orders.reduce((a, o) => a + (o.delivery_cost || 0), 0)
     const revenueProducts = revenueGross - revenueDelivery
     const avgTicket = ordersCount > 0 ? revenueGross / ordersCount : 0
 
-    // Clientes nuevos vs recurrentes (basado en si el user_id tenía órdenes anteriores al período).
-    const userIds = [...new Set(orders.map((o) => o.user_id).filter(Boolean))]
+    // Ingreso confirmado = completados, para distinguir del revenue "bruto" (pending + processing + shipped + completed).
+    const revenueConfirmed = orders
+      .filter((o) => o.status === 'completed')
+      .reduce((a, o) => a + (o.total || 0), 0)
+
+    // Clientes nuevos vs recurrentes. Para clientes registrados se identifica por user_id;
+    // para invitados se usa customer_phone como fallback para no excluirlos.
+    const identityOf = (o) => (o.user_id ? `u:${o.user_id}` : o.customer_phone ? `p:${o.customer_phone}` : null)
+    const identities = [...new Set(orders.map(identityOf).filter(Boolean))]
     let newCustomers = 0
     let returningCustomers = 0
-    if (userIds.length > 0) {
-      const placeholders = userIds.map(() => '?').join(',')
-      const prior = db
-        .prepare(
-          `SELECT user_id, COUNT(*) as c FROM orders
-           WHERE user_id IN (${placeholders}) AND created_at < ?
-           GROUP BY user_id`
-        )
-        .all(...userIds, range.from)
-      const priorSet = new Set(prior.map((p) => p.user_id))
-      for (const uid of userIds) {
-        if (priorSet.has(uid)) returningCustomers++
+    if (identities.length > 0) {
+      const userIdList = identities.filter((k) => k.startsWith('u:')).map((k) => parseInt(k.slice(2), 10))
+      const phoneList = identities.filter((k) => k.startsWith('p:')).map((k) => k.slice(2))
+      const priorUserIds = new Set()
+      const priorPhones = new Set()
+      if (userIdList.length > 0) {
+        const ph = userIdList.map(() => '?').join(',')
+        db.prepare(
+          `SELECT DISTINCT user_id FROM orders
+           WHERE user_id IN (${ph}) AND created_at < ? AND status != 'cancelled'`
+        ).all(...userIdList, range.from).forEach((r) => priorUserIds.add(r.user_id))
+      }
+      if (phoneList.length > 0) {
+        const ph = phoneList.map(() => '?').join(',')
+        db.prepare(
+          `SELECT DISTINCT customer_phone FROM orders
+           WHERE customer_phone IN (${ph}) AND user_id IS NULL
+             AND created_at < ? AND status != 'cancelled'`
+        ).all(...phoneList, range.from).forEach((r) => priorPhones.add(r.customer_phone))
+      }
+      for (const key of identities) {
+        const isReturning = key.startsWith('u:')
+          ? priorUserIds.has(parseInt(key.slice(2), 10))
+          : priorPhones.has(key.slice(2))
+        if (isReturning) returningCustomers++
         else newCustomers++
       }
     }
 
-    const byBucket = (key, valueFn) => {
+    const byBucket = (rows, key, valueFn) => {
       const acc = {}
-      for (const o of orders) {
+      for (const o of rows) {
         const k = o[key] || 'unknown'
         if (!acc[k]) acc[k] = { count: 0, total: 0 }
         acc[k].count++
@@ -83,21 +124,26 @@ router.get('/summary', (req, res, next) => {
       return acc
     }
 
-    const by_payment_method = byBucket('payment_method', (o) => o.total || 0)
-    const by_status = byBucket('status', (o) => o.total || 0)
-    const by_payment_status = byBucket('payment_status', (o) => o.total || 0)
-    const by_delivery = byBucket('delivery_method', (o) => o.total || 0)
+    // by_status usa TODOS los pedidos (así se ve cuántos cancelados hubo).
+    // El resto usa solo los no cancelados para alinear con el revenue reportado.
+    const by_payment_method = byBucket(orders, 'payment_method', (o) => o.total || 0)
+    const by_status = byBucket(allOrders, 'status', (o) => o.total || 0)
+    const by_payment_status = byBucket(orders, 'payment_status', (o) => o.total || 0)
+    const by_delivery = byBucket(orders, 'delivery_method', (o) => o.total || 0)
 
-    // Serie temporal por día. Llenamos huecos con 0.
+    // Serie temporal por día. Llenamos huecos con 0. Excluye cancelados.
+    // strftime con '-5 hours' convierte el timestamp UTC a fecha Bogotá.
     const bucketFormat =
       range.granularity === 'month' ? '%Y-%m' :
       range.granularity === 'week' ? '%Y-W%W' :
       '%Y-%m-%d'
     const seriesRows = db
       .prepare(
-        `SELECT strftime(?, created_at) AS bucket,
+        `SELECT strftime(?, created_at, ${TZ_SHIFT}) AS bucket,
                 COUNT(*) as orders, SUM(total) as revenue
-         FROM orders WHERE created_at >= ? AND created_at <= ?
+         FROM orders
+         WHERE created_at >= ? AND created_at <= ?
+           AND status != 'cancelled'
          GROUP BY bucket ORDER BY bucket ASC`
       )
       .all(bucketFormat, range.from, range.to)
@@ -121,7 +167,11 @@ router.get('/summary', (req, res, next) => {
       range: { from: range.fromISO, to: range.toISO, granularity: range.granularity },
       totals: {
         orders_count: ordersCount,
+        orders_count_all: allOrders.length,
+        cancelled_count: cancelledOrders.length,
+        cancelled_total: cancelledOrders.reduce((a, o) => a + (o.total || 0), 0),
         revenue_gross: revenueGross,
+        revenue_confirmed: revenueConfirmed,
         revenue_products: revenueProducts,
         revenue_delivery: revenueDelivery,
         avg_ticket: avgTicket,
@@ -154,6 +204,7 @@ router.get('/top-products', (req, res, next) => {
          FROM order_items oi
          INNER JOIN orders o ON o.id = oi.order_id
          WHERE o.created_at >= ? AND o.created_at <= ?
+           AND o.status != 'cancelled'
            AND oi.product_id IS NOT NULL
          GROUP BY oi.product_id, oi.product_name
          ORDER BY revenue DESC
@@ -172,9 +223,11 @@ router.get('/by-hour', (req, res, next) => {
     const range = parseRange(req.query)
     const rows = db
       .prepare(
-        `SELECT CAST(strftime('%H', created_at) AS INTEGER) AS hour,
+        `SELECT CAST(strftime('%H', created_at, ${TZ_SHIFT}) AS INTEGER) AS hour,
                 COUNT(*) AS orders, COALESCE(SUM(total),0) AS revenue
-         FROM orders WHERE created_at >= ? AND created_at <= ?
+         FROM orders
+         WHERE created_at >= ? AND created_at <= ?
+           AND status != 'cancelled'
          GROUP BY hour ORDER BY hour`
       )
       .all(range.from, range.to)
@@ -192,9 +245,11 @@ router.get('/by-weekday', (req, res, next) => {
     const labels = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
     const rows = db
       .prepare(
-        `SELECT CAST(strftime('%w', created_at) AS INTEGER) AS dow,
+        `SELECT CAST(strftime('%w', created_at, ${TZ_SHIFT}) AS INTEGER) AS dow,
                 COUNT(*) AS orders, COALESCE(SUM(total),0) AS revenue
-         FROM orders WHERE created_at >= ? AND created_at <= ?
+         FROM orders
+         WHERE created_at >= ? AND created_at <= ?
+           AND status != 'cancelled'
          GROUP BY dow ORDER BY dow`
       )
       .all(range.from, range.to)

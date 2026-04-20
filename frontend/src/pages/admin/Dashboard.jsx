@@ -63,25 +63,23 @@ const STATUS_LABEL = {
   unknown: 'N/A'
 }
 
+// Siempre trabajamos con fechas "Bogotá" para que los rangos Hoy / 7d / mtd
+// coincidan con el día del negocio y no con UTC (que se adelanta 5 h).
+function todayBogotaISO() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date())
+}
+function addDaysISO(iso, delta) {
+  const d = new Date(iso + 'T12:00:00Z')
+  d.setUTCDate(d.getUTCDate() + delta)
+  return d.toISOString().slice(0, 10)
+}
+
 function rangeFor(key) {
-  const today = new Date()
-  if (key === 'today') {
-    const d = today.toISOString().slice(0, 10)
-    return { from: d, to: d }
-  }
-  if (key === 'mtd') {
-    const first = new Date(today.getFullYear(), today.getMonth(), 1)
-    return {
-      from: first.toISOString().slice(0, 10),
-      to: today.toISOString().slice(0, 10)
-    }
-  }
+  const todayISO = todayBogotaISO()
+  if (key === 'today') return { from: todayISO, to: todayISO }
+  if (key === 'mtd') return { from: todayISO.slice(0, 7) + '-01', to: todayISO }
   const days = RANGES.find((r) => r.key === key)?.days ?? 29
-  const from = new Date(today.getTime() - days * 86400_000)
-  return {
-    from: from.toISOString().slice(0, 10),
-    to: today.toISOString().slice(0, 10)
-  }
+  return { from: addDaysISO(todayISO, -days), to: todayISO }
 }
 
 function StatCard({ label, value, icon: Icon, accent = 'bg-gray-100 text-gray-600', hint }) {
@@ -205,12 +203,14 @@ function Dashboard() {
           value={loading ? '—' : fmtCOP(totals.revenue_gross)}
           icon={DollarSign}
           accent="bg-emerald-100 text-emerald-600"
+          hint={loading ? null : `Confirmado: ${fmtCOP(totals.revenue_confirmed || 0)}`}
         />
         <StatCard
           label="Ingresos productos"
           value={loading ? '—' : fmtCOP(totals.revenue_products)}
           icon={Package}
           accent="bg-primary/10 text-primary"
+          hint="Sin cancelados"
         />
         <StatCard
           label="Domicilios cobrados"
@@ -223,6 +223,7 @@ function Dashboard() {
           value={loading ? '—' : totals.orders_count || 0}
           icon={ShoppingBag}
           accent="bg-amber-100 text-amber-600"
+          hint={loading ? null : `${totals.cancelled_count || 0} cancelados`}
         />
       </div>
 
@@ -259,10 +260,10 @@ function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           label="Tasa completados"
-          value={loading ? '—' : `${totals.orders_count ? Math.round(((summary?.by_status?.completed?.count || 0) / totals.orders_count) * 100) : 0}%`}
+          value={loading ? '—' : `${totals.orders_count_all ? Math.round(((summary?.by_status?.completed?.count || 0) / totals.orders_count_all) * 100) : 0}%`}
           icon={CheckCircle2}
           accent="bg-green-100 text-green-600"
-          hint="Pedidos completados / total"
+          hint="Completados / total (incl. cancelados)"
         />
         <StatCard
           label="Puntos emitidos"
