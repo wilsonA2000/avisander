@@ -37,6 +37,14 @@ function parseRange(query) {
 // Helper SQL: convierte created_at (UTC) a local Bogotá antes de formatear.
 const TZ_SHIFT = `'${BOGOTA_OFFSET_HOURS} hours'`
 
+// Estados que NO representan venta: el pedido nunca llegó a ser dinero real.
+// - cancelled: el admin o el cliente canceló explícitamente.
+// - abandoned: el cliente inició Bold/checkout y no terminó (timeout o cerró).
+// Para SQL se expanden a la lista literal; para filtros JS se usa el Set.
+const NON_REVENUE_STATUSES = ['cancelled', 'abandoned']
+const NON_REVENUE_SET = new Set(NON_REVENUE_STATUSES)
+const NON_REVENUE_SQL = NON_REVENUE_STATUSES.map((s) => `'${s}'`).join(',')
+
 // Tarifa estimada Bold tarjeta: 2.69% + $300 por orden aprobada.
 // Hasta que podamos distinguir tarjeta vs PSE desde el webhook.
 function estimateCommissions(orders) {
@@ -62,10 +70,12 @@ router.get('/summary', (req, res, next) => {
       )
       .all(range.from, range.to)
 
-    // Los ingresos y ticket promedio se calculan SOLO sobre pedidos no cancelados.
-    // Un pedido cancelado nunca fue dinero real en caja.
-    const orders = allOrders.filter((o) => o.status !== 'cancelled')
+    // Los ingresos y ticket promedio se calculan SOLO sobre pedidos que podrían
+    // concretarse (pending, processing, shipped, completed). Los cancelados y
+    // abandonados nunca fueron dinero real en caja.
+    const orders = allOrders.filter((o) => !NON_REVENUE_SET.has(o.status))
     const cancelledOrders = allOrders.filter((o) => o.status === 'cancelled')
+    const abandonedOrders = allOrders.filter((o) => o.status === 'abandoned')
 
     const ordersCount = orders.length
     const revenueGross = orders.reduce((a, o) => a + (o.total || 0), 0)
@@ -93,7 +103,8 @@ router.get('/summary', (req, res, next) => {
         const ph = userIdList.map(() => '?').join(',')
         db.prepare(
           `SELECT DISTINCT user_id FROM orders
-           WHERE user_id IN (${ph}) AND created_at < ? AND status != 'cancelled'`
+           WHERE user_id IN (${ph}) AND created_at < ?
+             AND status NOT IN (${NON_REVENUE_SQL})`
         ).all(...userIdList, range.from).forEach((r) => priorUserIds.add(r.user_id))
       }
       if (phoneList.length > 0) {
@@ -101,7 +112,7 @@ router.get('/summary', (req, res, next) => {
         db.prepare(
           `SELECT DISTINCT customer_phone FROM orders
            WHERE customer_phone IN (${ph}) AND user_id IS NULL
-             AND created_at < ? AND status != 'cancelled'`
+             AND created_at < ? AND status NOT IN (${NON_REVENUE_SQL})`
         ).all(...phoneList, range.from).forEach((r) => priorPhones.add(r.customer_phone))
       }
       for (const key of identities) {
@@ -143,7 +154,7 @@ router.get('/summary', (req, res, next) => {
                 COUNT(*) as orders, SUM(total) as revenue
          FROM orders
          WHERE created_at >= ? AND created_at <= ?
-           AND status != 'cancelled'
+           AND status NOT IN (${NON_REVENUE_SQL})
          GROUP BY bucket ORDER BY bucket ASC`
       )
       .all(bucketFormat, range.from, range.to)
@@ -170,6 +181,8 @@ router.get('/summary', (req, res, next) => {
         orders_count_all: allOrders.length,
         cancelled_count: cancelledOrders.length,
         cancelled_total: cancelledOrders.reduce((a, o) => a + (o.total || 0), 0),
+        abandoned_count: abandonedOrders.length,
+        abandoned_total: abandonedOrders.reduce((a, o) => a + (o.total || 0), 0),
         revenue_gross: revenueGross,
         revenue_confirmed: revenueConfirmed,
         revenue_products: revenueProducts,
@@ -204,7 +217,7 @@ router.get('/top-products', (req, res, next) => {
          FROM order_items oi
          INNER JOIN orders o ON o.id = oi.order_id
          WHERE o.created_at >= ? AND o.created_at <= ?
-           AND o.status != 'cancelled'
+           AND o.status NOT IN (${NON_REVENUE_SQL})
            AND oi.product_id IS NOT NULL
          GROUP BY oi.product_id, oi.product_name
          ORDER BY revenue DESC
@@ -227,7 +240,7 @@ router.get('/by-hour', (req, res, next) => {
                 COUNT(*) AS orders, COALESCE(SUM(total),0) AS revenue
          FROM orders
          WHERE created_at >= ? AND created_at <= ?
-           AND status != 'cancelled'
+           AND status NOT IN (${NON_REVENUE_SQL})
          GROUP BY hour ORDER BY hour`
       )
       .all(range.from, range.to)
@@ -249,7 +262,7 @@ router.get('/by-weekday', (req, res, next) => {
                 COUNT(*) AS orders, COALESCE(SUM(total),0) AS revenue
          FROM orders
          WHERE created_at >= ? AND created_at <= ?
-           AND status != 'cancelled'
+           AND status NOT IN (${NON_REVENUE_SQL})
          GROUP BY dow ORDER BY dow`
       )
       .all(range.from, range.to)

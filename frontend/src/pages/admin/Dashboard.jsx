@@ -51,7 +51,8 @@ const STATUS_COLORS = {
   processing: '#3b82f6',
   shipped: '#8b5cf6',
   completed: '#10b981',
-  cancelled: '#ef4444'
+  cancelled: '#ef4444',
+  abandoned: '#9ca3af'
 }
 const PAYMENT_LABEL = { bold: 'Bold', whatsapp: 'WhatsApp', cash: 'Efectivo', unknown: 'N/A' }
 const STATUS_LABEL = {
@@ -60,6 +61,7 @@ const STATUS_LABEL = {
   shipped: 'En camino',
   completed: 'Completado',
   cancelled: 'Cancelado',
+  abandoned: 'Abandonado',
   unknown: 'N/A'
 }
 
@@ -210,7 +212,7 @@ function Dashboard() {
           value={loading ? '—' : fmtCOP(totals.revenue_products)}
           icon={Package}
           accent="bg-primary/10 text-primary"
-          hint="Sin cancelados"
+          hint="Sin cancelados ni abandonados"
         />
         <StatCard
           label="Domicilios cobrados"
@@ -223,7 +225,7 @@ function Dashboard() {
           value={loading ? '—' : totals.orders_count || 0}
           icon={ShoppingBag}
           accent="bg-amber-100 text-amber-600"
-          hint={loading ? null : `${totals.cancelled_count || 0} cancelados`}
+          hint={loading ? null : `${totals.cancelled_count || 0} cancelados · ${totals.abandoned_count || 0} abandonados`}
         />
       </div>
 
@@ -263,7 +265,7 @@ function Dashboard() {
           value={loading ? '—' : `${totals.orders_count_all ? Math.round(((summary?.by_status?.completed?.count || 0) / totals.orders_count_all) * 100) : 0}%`}
           icon={CheckCircle2}
           accent="bg-green-100 text-green-600"
-          hint="Completados / total (incl. cancelados)"
+          hint="Completados / total (incl. cancelados y abandonados)"
         />
         <StatCard
           label="Puntos emitidos"
