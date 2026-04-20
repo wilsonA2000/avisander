@@ -6,6 +6,11 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth')
 
 const router = express.Router()
 
+// Estados que NO representan una compra real del cliente. Coincide con la
+// lista que usa reports.js para los KPIs del dashboard.
+const NON_REVENUE_SET = new Set(['cancelled', 'abandoned'])
+const NON_REVENUE_SQL = "('cancelled','abandoned')"
+
 router.get('/', authenticateToken, requireAdmin, (req, res, next) => {
   try {
     const q = (req.query.q || '').toString().trim()
@@ -24,13 +29,21 @@ router.get('/', authenticateToken, requireAdmin, (req, res, next) => {
 
     const total = db.prepare(`SELECT COUNT(*) AS n FROM users u ${whereClause}`).get(...params).n
 
+    // Los KPIs por cliente (pedidos, gastado, último pedido) SOLO cuentan
+    // compras reales; excluir cancelados y abandonados. discounts_used también
+    // se restringe a compras reales para no inflar con intentos cancelados.
     const items = db
       .prepare(
         `SELECT u.id, u.name, u.email, u.phone, u.address, u.created_at, u.loyalty_balance,
-          (SELECT COUNT(*) FROM orders WHERE user_id = u.id) AS orders_count,
-          (SELECT COALESCE(SUM(total), 0) FROM orders WHERE user_id = u.id) AS total_spent,
-          (SELECT MAX(created_at) FROM orders WHERE user_id = u.id) AS last_order_at,
-          (SELECT COUNT(*) FROM orders WHERE user_id = u.id AND discount_amount > 0) AS discounts_used
+          (SELECT COUNT(*) FROM orders
+             WHERE user_id = u.id AND status NOT IN ${NON_REVENUE_SQL}) AS orders_count,
+          (SELECT COALESCE(SUM(total), 0) FROM orders
+             WHERE user_id = u.id AND status NOT IN ${NON_REVENUE_SQL}) AS total_spent,
+          (SELECT MAX(created_at) FROM orders
+             WHERE user_id = u.id AND status NOT IN ${NON_REVENUE_SQL}) AS last_order_at,
+          (SELECT COUNT(*) FROM orders
+             WHERE user_id = u.id AND discount_amount > 0
+               AND status NOT IN ${NON_REVENUE_SQL}) AS discounts_used
          FROM users u
          ${whereClause}
          ORDER BY u.created_at DESC
@@ -61,10 +74,13 @@ router.get('/:id', authenticateToken, requireAdmin, (req, res, next) => {
       )
       .all(user.id)
 
+    // El historial visible muestra TODOS los pedidos (incluidos cancelados/abandonados).
+    // Pero los KPIs de cabecera solo cuentan compras reales.
+    const realOrders = orders.filter((o) => !NON_REVENUE_SET.has(o.status))
     const totals = {
-      orders_count: orders.length,
-      total_spent: orders.reduce((s, o) => s + (o.total || 0), 0),
-      last_order_at: orders[0]?.created_at || null
+      orders_count: realOrders.length,
+      total_spent: realOrders.reduce((s, o) => s + (o.total || 0), 0),
+      last_order_at: realOrders[0]?.created_at || null
     }
 
     res.json({ ...user, ...totals, orders })
