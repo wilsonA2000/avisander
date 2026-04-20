@@ -39,8 +39,10 @@ function PoliticaSarlaft() {
         <section>
           <h2 className="font-display text-xl font-bold text-charcoal mb-2">1. Compromiso institucional</h2>
           <p>
-            <strong>{nombre}</strong> declara su compromiso pleno con la prevención del lavado de activos
-            (LA), la financiación del terrorismo (FT) y la financiación de la proliferación de armas de
+            <strong>Distribuidora Avícola de Santander</strong> (nombre comercial <strong>Avisander</strong>),
+            con <strong>NIT 1098732110</strong>, establecimiento de comercio abierto al público en
+            Bucaramanga, declara su compromiso pleno con la prevención del lavado de activos (LA),
+            la financiación del terrorismo (FT) y la financiación de la proliferación de armas de
             destrucción masiva (FPADM). Operamos conforme a la{' '}
             <strong>Circular Externa 100-000016 de 2020</strong> de la Superintendencia de Sociedades y
             demás normas aplicables.

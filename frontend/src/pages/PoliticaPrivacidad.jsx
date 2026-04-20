@@ -38,8 +38,10 @@ function PoliticaPrivacidad() {
         <section>
           <h2 className="font-display text-xl font-bold text-charcoal mb-2">1. Responsable del tratamiento</h2>
           <p>
-            <strong>{nombre}</strong>, con domicilio en <em>{direccion}</em>, teléfono{' '}
-            {formatPhone(settings.whatsapp_number)}, correo electrónico{' '}
+            <strong>Distribuidora Avícola de Santander</strong> (nombre comercial <strong>Avisander</strong>),
+            con <strong>NIT 1098732110</strong>, establecimiento de comercio abierto al público, con
+            domicilio en <em>{direccion}</em>, teléfono {formatPhone(settings.whatsapp_number)},
+            correo electrónico{' '}
             <a href="mailto:contacto@avisander.com" className="text-primary hover:underline">
               contacto@avisander.com
             </a>

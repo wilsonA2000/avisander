@@ -140,6 +140,20 @@ function Footer() {
                   Política SARLAFT
                 </Link>
               </li>
+              <li>
+                <Link to="/terminos-y-condiciones"
+                  className="text-gray-400 hover:text-accent hover:translate-x-1
+                             inline-block transition-all duration-200">
+                  Términos y condiciones
+                </Link>
+              </li>
+              <li>
+                <Link to="/cambios-devoluciones"
+                  className="text-gray-400 hover:text-accent hover:translate-x-1
+                             inline-block transition-all duration-200">
+                  Cambios y devoluciones
+                </Link>
+              </li>
             </ul>
           </div>
 

@@ -40,9 +40,13 @@ function CookieBanner() {
           <p className="text-xs text-gray-600 mt-1 leading-relaxed">
             Utilizamos cookies esenciales para mantener tu sesión, tu carrito y
             mejorar tu experiencia en la tienda. No compartimos tu información
-            con terceros.{' '}
+            con terceros. Al continuar aceptas nuestra{' '}
             <Link to="/politica-privacidad" className="text-primary underline hover:no-underline">
-              Leer política
+              política de privacidad
+            </Link>{' '}
+            y los{' '}
+            <Link to="/terminos-y-condiciones" className="text-primary underline hover:no-underline">
+              términos
             </Link>.
           </p>
           <div className="mt-3 flex gap-2">

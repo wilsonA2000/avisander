@@ -1595,6 +1595,13 @@ function Cart() {
               <p className="text-white/85 text-sm mt-1">
                 Tarjetas · PSE · Nequi · Bancolombia
               </p>
+              <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+                <img src="/logos-pagos/visa.svg" alt="Visa" className="h-5" loading="lazy" draggable="false" />
+                <img src="/logos-pagos/mastercard.svg" alt="Mastercard" className="h-5" loading="lazy" draggable="false" />
+                <img src="/logos-pagos/pse.svg" alt="PSE" className="h-5" loading="lazy" draggable="false" />
+                <img src="/logos-pagos/nequi.svg" alt="Nequi" className="h-5" loading="lazy" draggable="false" />
+                <img src="/logos-pagos/bancolombia.svg" alt="Bancolombia" className="h-5" loading="lazy" draggable="false" />
+              </div>
             </div>
             <div className="p-6 space-y-4">
               <div className="bg-cream rounded-xl p-4 text-sm">
