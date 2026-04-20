@@ -37,11 +37,15 @@ function parseRange(query) {
 // Helper SQL: convierte created_at (UTC) a local Bogotá antes de formatear.
 const TZ_SHIFT = `'${BOGOTA_OFFSET_HOURS} hours'`
 
-// Estados que NO representan venta: el pedido nunca llegó a ser dinero real.
+// Estados que NO representan venta: el pedido nunca llegó a ser dinero real,
+// o la plata ya se devolvió.
 // - cancelled: el admin o el cliente canceló explícitamente.
 // - abandoned: el cliente inició Bold/checkout y no terminó (timeout o cerró).
+// - expired: reserva de stock vencida sin pago (equivalente lógico a abandoned,
+//   listado por si en el futuro se usa como estado independiente).
+// - refunded: pedido reembolsado — ya no es ingreso.
 // Para SQL se expanden a la lista literal; para filtros JS se usa el Set.
-const NON_REVENUE_STATUSES = ['cancelled', 'abandoned']
+const NON_REVENUE_STATUSES = ['cancelled', 'abandoned', 'expired', 'refunded']
 const NON_REVENUE_SET = new Set(NON_REVENUE_STATUSES)
 const NON_REVENUE_SQL = NON_REVENUE_STATUSES.map((s) => `'${s}'`).join(',')
 

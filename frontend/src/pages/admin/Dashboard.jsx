@@ -52,7 +52,9 @@ const STATUS_COLORS = {
   shipped: '#8b5cf6',
   completed: '#10b981',
   cancelled: '#ef4444',
-  abandoned: '#9ca3af'
+  abandoned: '#9ca3af',
+  expired: '#6b7280',
+  refunded: '#f97316'
 }
 const PAYMENT_LABEL = { bold: 'Bold', whatsapp: 'WhatsApp', cash: 'Efectivo', unknown: 'N/A' }
 const STATUS_LABEL = {
@@ -62,6 +64,8 @@ const STATUS_LABEL = {
   completed: 'Completado',
   cancelled: 'Cancelado',
   abandoned: 'Abandonado',
+  expired: 'Expirado',
+  refunded: 'Reembolsado',
   unknown: 'N/A'
 }
 

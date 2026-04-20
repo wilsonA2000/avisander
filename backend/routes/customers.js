@@ -8,8 +8,8 @@ const router = express.Router()
 
 // Estados que NO representan una compra real del cliente. Coincide con la
 // lista que usa reports.js para los KPIs del dashboard.
-const NON_REVENUE_SET = new Set(['cancelled', 'abandoned'])
-const NON_REVENUE_SQL = "('cancelled','abandoned')"
+const NON_REVENUE_SET = new Set(['cancelled', 'abandoned', 'expired', 'refunded'])
+const NON_REVENUE_SQL = "('cancelled','abandoned','expired','refunded')"
 
 router.get('/', authenticateToken, requireAdmin, (req, res, next) => {
   try {
