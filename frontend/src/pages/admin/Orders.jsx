@@ -846,10 +846,15 @@ function Orders() {
                       <p className="text-xs text-gray-500">{fmtDateTime(ev.created_at)}</p>
                       <p className="text-sm font-medium text-gray-800">{eventLabel(ev)}</p>
                       <p className="text-xs text-gray-600 mt-0.5">{eventDescription(ev)}</p>
-                      {ev.metadata && (
-                        <pre className="mt-1 bg-gray-50 border border-gray-100 rounded p-2 text-[10px] text-gray-600 overflow-x-auto">
-                          {JSON.stringify(ev.metadata, null, 2)}
-                        </pre>
+                      {ev.metadata && formatMetadata(ev.metadata).length > 0 && (
+                        <ul className="mt-1.5 space-y-0.5 text-xs text-gray-600">
+                          {formatMetadata(ev.metadata).map((row, i) => (
+                            <li key={i} className="flex gap-2">
+                              <span className="text-gray-400 shrink-0">{row.label}:</span>
+                              <span className="text-gray-700">{row.value}</span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </li>
                   ))}
@@ -888,6 +893,55 @@ function eventDescription(ev) {
   const actor = ACTOR_LABEL[ev.actor_type] || ev.actor_type
   const name = ev.actor_name ? ` (${ev.actor_name})` : ''
   return `Por ${actor}${name}`
+}
+
+const PAYMENT_METHOD_LABEL = {
+  whatsapp: 'WhatsApp',
+  bold: 'Bold (tarjeta/PSE/Nequi)',
+  manual: 'Transferencia directa'
+}
+
+const DELIVERY_METHOD_LABEL = {
+  delivery: 'Domicilio',
+  pickup: 'Recoger en tienda'
+}
+
+const BOLD_EVENT_LABEL = {
+  'SALE_APPROVED': 'Venta aprobada',
+  'SALE_REJECTED': 'Venta rechazada',
+  'VOID_APPROVED': 'Anulación aprobada',
+  'REJECTED_BY_PAYMENT_GATEWAY': 'Rechazado por pasarela'
+}
+
+function formatCOP(n) {
+  const num = Number(n)
+  if (!Number.isFinite(num)) return String(n)
+  return `$${Math.round(num).toLocaleString('es-CO')}`
+}
+
+// Convierte el metadata JSON de un evento a pares label/value legibles.
+// Oculta campos internos (transactionId, payment_id) salvo que sean relevantes.
+function formatMetadata(metadata) {
+  if (!metadata || typeof metadata !== 'object') return []
+  const rows = []
+  if (metadata.reason) rows.push({ label: 'Motivo', value: metadata.reason })
+  if (metadata.payment_method) {
+    rows.push({ label: 'Método de pago', value: PAYMENT_METHOD_LABEL[metadata.payment_method] || metadata.payment_method })
+  }
+  if (metadata.delivery_method) {
+    rows.push({ label: 'Entrega', value: DELIVERY_METHOD_LABEL[metadata.delivery_method] || metadata.delivery_method })
+  }
+  if (metadata.total != null) rows.push({ label: 'Total', value: formatCOP(metadata.total) })
+  if (metadata.items_count != null) {
+    const n = Number(metadata.items_count)
+    rows.push({ label: 'Productos', value: `${n} ${n === 1 ? 'producto' : 'productos'}` })
+  }
+  if (metadata.bold_event_type) {
+    rows.push({ label: 'Evento Bold', value: BOLD_EVENT_LABEL[metadata.bold_event_type] || metadata.bold_event_type })
+  }
+  const txId = metadata.transactionId || metadata.payment_id
+  if (txId) rows.push({ label: 'ID transacción', value: String(txId) })
+  return rows
 }
 
 function eventDotColor(ev) {
