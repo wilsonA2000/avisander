@@ -466,7 +466,10 @@ function Cart() {
     document.body.appendChild(lib)
   }, [boldPayload?.order_id])
 
-  const closeBoldModal = () => setBoldPayload(null)
+  const closeBoldModal = async () => {
+    await abandonBoldPayment()
+    setBoldPayload(null)
+  }
 
   // Cancelar voluntariamente un pago Bold en curso. Libera la reserva de stock
   // en backend para que el inventario no quede bloqueado 15 min y marca la
@@ -1005,13 +1008,6 @@ function Cart() {
               className="w-full py-2.5 border border-gray-300 hover:border-gray-400 text-gray-700 font-medium rounded-lg transition-colors text-sm"
             >
               Cancelar pago y elegir otro método
-            </button>
-            <button
-              type="button"
-              onClick={() => setValidating(false)}
-              className="w-full text-center text-xs text-gray-400 hover:text-gray-600"
-            >
-              Cerrar esta vista (seguiremos validando en segundo plano)
             </button>
           </div>
         </div>
