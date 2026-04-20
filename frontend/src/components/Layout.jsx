@@ -5,6 +5,7 @@ import WhatsAppButton from './WhatsAppButton'
 import ScrollToTopButton from './ScrollToTopButton'
 import ScrollRestorer from './ScrollRestorer'
 import WelcomeModal from './WelcomeModal'
+import CookieBanner from './CookieBanner'
 
 function Layout() {
   return (
@@ -32,6 +33,7 @@ function Layout() {
       <ScrollToTopButton />
       <WhatsAppButton />
       <WelcomeModal />
+      <CookieBanner />
     </div>
   )
 }
