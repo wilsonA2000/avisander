@@ -122,11 +122,10 @@ function RecipeDetail() {
     let added = 0
     for (const p of recipe.products) {
       if (!p.is_available) continue
-      if (p.sale_type === 'by_weight') {
-        addItem(p, { weight_grams: 500 })
-      } else {
-        addItem(p, { quantity: 1 })
-      }
+      const r = p.sale_type === 'by_weight'
+        ? addItem(p, { weight_grams: 500 })
+        : addItem(p, { quantity: 1 })
+      if (r?.blocked) return
       added++
     }
     if (added > 0) {

@@ -6,10 +6,23 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useSettings, whatsappLink } from './SettingsContext'
+import { useToast } from './ToastContext'
 
 const CartContext = createContext(null)
 
 const CART_STORAGE_KEY = 'avisander_cart_v2'
+const PENDING_BOLD_KEY = 'avisander:pending_bold_order'
+
+function hasPendingBoldOrder() {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(PENDING_BOLD_KEY) : null
+    if (!raw) return false
+    const parsed = JSON.parse(raw)
+    return !!(parsed && parsed.reference)
+  } catch {
+    return false
+  }
+}
 
 function lineTotal(item) {
   if (item.sale_type === 'by_weight') {
@@ -41,6 +54,7 @@ function loadInitialCart() {
 
 export function CartProvider({ children }) {
   const { settings } = useSettings()
+  const toast = useToast()
   const [items, setItems] = useState(loadInitialCart)
   const deliveryCost = Number(settings.delivery_cost) || 5000
 
@@ -99,9 +113,20 @@ export function CartProvider({ children }) {
 
   // API unificada: detecta el sale_type del producto.
   // Devuelve { added, requested, stock } para que el caller pueda mostrar toast preciso.
+  // Si hay un pago Bold pendiente, bloquea la adicion y retorna blocked: 'pending_payment'.
   const addItem = useCallback(
     (product, opts = {}) => {
       const saleType = product.sale_type || 'fixed'
+      if (hasPendingBoldOrder()) {
+        toast.warn('Tienes un pago pendiente con Bold. Cancélalo en el carrito para seguir comprando.')
+        return {
+          added: 0,
+          requested: opts.quantity || 1,
+          stock: null,
+          sale_type: saleType,
+          blocked: 'pending_payment'
+        }
+      }
       if (saleType === 'by_weight') {
         addByWeight(product, opts.weight_grams || 500, opts.notes || '')
         return { added: 1, requested: 1, stock: null, sale_type: 'by_weight' }
@@ -115,7 +140,7 @@ export function CartProvider({ children }) {
         sale_type: 'fixed'
       }
     },
-    [addFixed, addByWeight]
+    [addFixed, addByWeight, toast]
   )
 
   const updateLine = useCallback((lineId, patch) => {
@@ -266,7 +291,8 @@ export function CartProvider({ children }) {
     getWhatsAppUrl,
     generateWhatsAppMessage,
     toOrderItems,
-    lineTotal
+    lineTotal,
+    hasPendingBoldOrder
   }
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>
