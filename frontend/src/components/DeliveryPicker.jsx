@@ -542,9 +542,9 @@ function DeliveryPicker({ subtotal, value, onChange }) {
             <div className="mt-3 bg-amber-50 text-amber-800 p-3 rounded-lg text-sm flex items-start gap-2">
               <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium">Fuera del área de cobertura</p>
+                <p className="font-medium">¿Tu dirección está fuera de nuestra cobertura habitual?</p>
                 <p className="text-xs mt-0.5">{quote.reason}</p>
-                <p className="text-xs mt-1">Llámanos para coordinar manualmente.</p>
+                <p className="text-xs mt-1">No te preocupes — escríbenos por WhatsApp y vemos cómo llevarte tu pedido.</p>
               </div>
             </div>
           )}
