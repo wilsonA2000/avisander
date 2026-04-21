@@ -14,6 +14,12 @@ function ProtectedRoute({ children, requiredRole, requiredStatus }) {
   }
 
   if (!isAuthenticated) {
+    // Para rutas gated por status (ej: /mayoristas) enviamos a la landing
+    // informativa en vez del login crudo. La landing explica el programa y
+    // ofrece CTAs a login/registro — mejor UX y mejor conversión.
+    if (requiredStatus === 'wholesaler_approved') {
+      return <Navigate to="/mayoristas/solicitar" replace />
+    }
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 

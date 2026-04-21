@@ -16,36 +16,23 @@ function computeParts(endsAtMs) {
   return { expired: false, days, hours, minutes, seconds, totalMs: diff }
 }
 
-function Digit({ value }) {
-  return (
-    <span className="relative inline-block w-[1ch] overflow-hidden text-center tabular-nums">
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span
-          key={value}
-          initial={{ y: '100%', opacity: 0 }}
-          animate={{ y: '0%', opacity: 1 }}
-          exit={{ y: '-100%', opacity: 0 }}
-          transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
-          className="absolute inset-0"
-        >
-          {value}
-        </motion.span>
-      </AnimatePresence>
-      <span className="invisible">{value}</span>
-    </span>
-  )
-}
-
 function Chunk({ value, label }) {
   const str = pad(value)
   return (
     <div className="flex flex-col items-center">
-      <div className="font-black text-3xl sm:text-5xl md:text-6xl leading-none bg-gradient-to-b from-white to-orange-200 bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
-        <span className="inline-flex">
-          {str.split('').map((d, i) => (
-            <Digit key={i} value={d} />
-          ))}
-        </span>
+      <div className="relative h-[1em] min-w-[2.1ch] overflow-hidden font-black text-3xl sm:text-5xl md:text-6xl leading-none tabular-nums text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={str}
+            initial={{ y: '60%', opacity: 0 }}
+            animate={{ y: '0%', opacity: 1 }}
+            exit={{ y: '-60%', opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            {str}
+          </motion.span>
+        </AnimatePresence>
       </div>
       <span className="mt-1 text-[10px] sm:text-xs uppercase tracking-[0.2em] text-white/70 font-semibold">
         {label}
@@ -54,8 +41,6 @@ function Chunk({ value, label }) {
   )
 }
 
-// Contador regresivo grande con dígitos que rotan. Ideal para imperdibles:
-//   <CountdownBig endsAt={offer.ends_at} onExpire={() => ...} />
 function CountdownBig({ endsAt, onExpire, className = '', compact = false }) {
   const endsAtMs = useMemo(() => (endsAt ? new Date(endsAt).getTime() : null), [endsAt])
   const [parts, setParts] = useState(() =>
@@ -83,7 +68,7 @@ function CountdownBig({ endsAt, onExpire, className = '', compact = false }) {
 
   const showDays = parts.days > 0
   const sep = (
-    <span className="text-white/40 text-xl sm:text-3xl md:text-4xl font-black px-1 sm:px-2 pb-4 sm:pb-6">
+    <span className="text-white/40 text-2xl sm:text-4xl md:text-5xl font-black px-1 sm:px-2 pb-4 sm:pb-6 select-none">
       :
     </span>
   )
