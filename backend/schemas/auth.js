@@ -14,7 +14,21 @@ const registerSchema = z.object({
   email,
   password: passwordPolicy,
   name: z.string().trim().min(1).max(120).optional(),
-  phone: z.string().trim().max(30).optional()
+  phone: z.string().trim().max(30).optional(),
+  apply_wholesaler: z.boolean().optional(),
+  business_name: z.string().trim().max(150).optional(),
+  nit: z.string().trim().max(40).optional(),
+  business_type: z.string().trim().max(60).optional()
+})
+
+const wholesalerRequestSchema = z.object({
+  business_name: z.string().trim().min(2, 'Razón social requerida').max(150),
+  nit: z.string().trim().min(3, 'NIT requerido').max(40),
+  business_type: z.string().trim().min(2, 'Tipo de negocio requerido').max(60)
+})
+
+const wholesalerRejectSchema = z.object({
+  reason: z.string().trim().min(3).max(500)
 })
 
 const loginSchema = z.object({
@@ -45,5 +59,7 @@ module.exports = {
   resetPasswordSchema,
   refreshSchema,
   changePasswordSchema,
-  passwordPolicy
+  passwordPolicy,
+  wholesalerRequestSchema,
+  wholesalerRejectSchema
 }

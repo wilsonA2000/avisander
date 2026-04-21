@@ -185,6 +185,34 @@ function Header() {
               Productos
             </Link>
 
+            <Link
+              to="/imperdibles"
+              onClick={() => setIsMenuOpen(false)}
+              className="flex items-center justify-between py-3 text-sm font-semibold text-orange-600 border-b border-gray-100"
+            >
+              <span className="inline-flex items-center gap-2">
+                🔥 Imperdibles
+              </span>
+              <span className="text-[9px] font-black uppercase tracking-widest bg-gradient-to-r from-orange-500 to-red-500 text-white px-1.5 py-0.5 rounded-full">
+                HOT
+              </span>
+            </Link>
+
+            <Link
+              to={user?.wholesaler_status === 'approved' ? '/mayoristas' : '/mayoristas/solicitar'}
+              onClick={() => setIsMenuOpen(false)}
+              className="flex items-center justify-between py-3 text-sm font-semibold text-amber-700 border-b border-gray-100"
+            >
+              <span className="inline-flex items-center gap-2">
+                🤝 {user?.wholesaler_status === 'approved' ? 'Portal Mayorista' : 'Mayoristas'}
+              </span>
+              {user?.wholesaler_status === 'pending' && (
+                <span className="text-[9px] uppercase font-bold tracking-widest bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full">
+                  En revisión
+                </span>
+              )}
+            </Link>
+
             <MobileSection
               label="Sobre Avisander"
               expanded={mobileSection === 'sobre'}

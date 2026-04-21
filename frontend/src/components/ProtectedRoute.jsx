@@ -1,7 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-function ProtectedRoute({ children, requiredRole }) {
+function ProtectedRoute({ children, requiredRole, requiredStatus }) {
   const { user, loading, isAuthenticated } = useAuth()
   const location = useLocation()
 
@@ -14,13 +14,18 @@ function ProtectedRoute({ children, requiredRole }) {
   }
 
   if (!isAuthenticated) {
-    // Redirect to login, saving the intended destination
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   if (requiredRole && user?.role !== requiredRole) {
-    // User doesn't have required role, redirect to home
     return <Navigate to="/" replace />
+  }
+
+  if (requiredStatus === 'wholesaler_approved') {
+    if (user?.role === 'admin') return children
+    if (user?.wholesaler_status !== 'approved') {
+      return <Navigate to="/mayoristas/solicitar" replace />
+    }
   }
 
   return children

@@ -232,6 +232,18 @@ function initialize() {
   addColumnIfMissing('users', 'must_change_password', 'must_change_password INTEGER DEFAULT 0')
   // Sprint 7A: avatar del usuario
   addColumnIfMissing('users', 'avatar_url', 'avatar_url TEXT')
+  // Mayoristas: solicitud + aprobación manual por el admin. Status:
+  //   NULL | 'pending' | 'approved' | 'rejected' | 'revoked'
+  // Mantenemos role='customer' para no romper checkout normal; el flag mayorista
+  // es ortogonal al rol.
+  addColumnIfMissing('users', 'wholesaler_status', 'wholesaler_status TEXT')
+  addColumnIfMissing('users', 'wholesaler_requested_at', 'wholesaler_requested_at DATETIME')
+  addColumnIfMissing('users', 'wholesaler_approved_at', 'wholesaler_approved_at DATETIME')
+  addColumnIfMissing('users', 'wholesaler_approved_by', 'wholesaler_approved_by INTEGER REFERENCES users(id)')
+  addColumnIfMissing('users', 'wholesaler_rejection_reason', 'wholesaler_rejection_reason TEXT')
+  addColumnIfMissing('users', 'business_name', 'business_name TEXT')
+  addColumnIfMissing('users', 'nit', 'nit TEXT')
+  addColumnIfMissing('users', 'business_type', 'business_type TEXT')
   // Audit 2026-04-19: lockout de cuenta tras N logins fallidos.
   addColumnIfMissing('users', 'failed_login_count', 'failed_login_count INTEGER NOT NULL DEFAULT 0')
   addColumnIfMissing('users', 'locked_until', 'locked_until DATETIME')
@@ -408,6 +420,37 @@ function initialize() {
       order_id INTEGER PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
       sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    -- Páginas editables por admin (mayoristas, futuros: about, etc).
+    -- blocks_json: array JSON de bloques renderizados por <BlockRenderer />.
+    CREATE TABLE IF NOT EXISTS pages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT UNIQUE NOT NULL,
+      title TEXT NOT NULL,
+      blocks_json TEXT NOT NULL DEFAULT '[]',
+      published INTEGER NOT NULL DEFAULT 1,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_by INTEGER REFERENCES users(id)
+    );
+
+    -- Imperdibles: vitrina curada de hasta 10 ofertas activas con scroll storytelling.
+    -- special_price / original_price_override permiten precio clearance distinto al del producto
+    -- sin tocar la fila de products. ends_at habilita el contador regresivo.
+    CREATE TABLE IF NOT EXISTS featured_offers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL UNIQUE REFERENCES products(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      special_price REAL,
+      original_price_override REAL,
+      starts_at DATETIME,
+      ends_at DATETIME,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      headline TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME
+    );
+    CREATE INDEX IF NOT EXISTS idx_featured_offers_active_pos
+      ON featured_offers(is_active, position);
   `)
 
   // Seed admin SOLO en entornos no-producción. En prod hay que crearlo manualmente.
@@ -442,6 +485,67 @@ function initialize() {
       insert.run(cat.name, cat.icon, cat.display_order)
     }
     console.log('Default categories created')
+  }
+
+  // Seed inicial de la página /mayoristas si nunca se ha guardado.
+  // El admin puede luego editar todos los bloques desde /admin/pages/mayoristas.
+  const mayoristasPage = db.prepare('SELECT id FROM pages WHERE slug = ?').get('mayoristas')
+  if (!mayoristasPage) {
+    const defaultBlocks = [
+      {
+        type: 'hero',
+        title: 'Distribuidor Mayorista Avisander',
+        subtitle: 'Carnes premium con precios preferenciales para tu negocio.',
+        image_url: '',
+        cta_label: 'Solicitar acceso',
+        cta_href: '/mayoristas/solicitar'
+      },
+      {
+        type: 'benefits',
+        title: '¿Por qué unirte al programa?',
+        items: [
+          { icon: 'badge', title: 'Precios mayoristas', text: 'Tarifas exclusivas según volumen mensual de compra.' },
+          { icon: 'truck', title: 'Logística dedicada', text: 'Entregas programadas a tu punto de venta o restaurante.' },
+          { icon: 'shield', title: 'Cadena de frío garantizada', text: 'Trazabilidad y empaque al vacío en cada pedido.' },
+          { icon: 'star', title: 'Respaldo de marca', text: 'Material POP y soporte de tu asesor comercial directo.' }
+        ]
+      },
+      {
+        type: 'split',
+        image_url: '',
+        imagePosition: 'right',
+        title: 'Calidad que tu cliente reconoce',
+        text: 'Trabajamos con cortes seleccionados, refrigerados desde planta y empacados al vacío. Cada pieza llega lista para tu vitrina o tu cocina.'
+      },
+      {
+        type: 'numbers',
+        items: [
+          { number: '+50', label: 'Restaurantes aliados' },
+          { number: '24h', label: 'Entrega en Bucaramanga' },
+          { number: '15%', label: 'Ahorro promedio vs retail' }
+        ]
+      },
+      {
+        type: 'process',
+        steps: [
+          { n: 1, title: 'Solicita acceso', text: 'Llena el formulario con los datos de tu negocio.' },
+          { n: 2, title: 'Validamos tu solicitud', text: 'Nuestro equipo comercial te contacta en menos de 24 horas.' },
+          { n: 3, title: 'Recibe tu lista de precios', text: 'Acceso a catálogo mayorista y tu asesor asignado.' },
+          { n: 4, title: 'Haz tu primer pedido', text: 'Entrega coordinada según tu ruta y horario.' }
+        ]
+      },
+      {
+        type: 'cta',
+        title: '¿Listo para crecer con Avisander?',
+        text: 'Cotiza ahora con tu asesor comercial por WhatsApp.',
+        button_label: 'Hablar con un asesor',
+        button_href: 'https://wa.me/573123005253?text=Hola%2C%20me%20interesa%20el%20programa%20mayorista%20de%20Avisander'
+      }
+    ]
+    db.prepare(
+      'INSERT INTO pages (slug, title, blocks_json, published, updated_at) VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)'
+    ).run('mayoristas', 'Distribuidores Mayoristas', JSON.stringify(defaultBlocks))
+    console.log('[seed] Página mayoristas creada con 6 bloques iniciales')
   }
 
   // Insert default settings if not exist

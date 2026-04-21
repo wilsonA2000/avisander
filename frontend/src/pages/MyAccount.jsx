@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Package, RefreshCw, Save } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Package, RefreshCw, Save, BadgeCheck, Clock, XCircle, ArrowRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useToast } from '../context/ToastContext'
@@ -80,7 +81,7 @@ function MyAccount() {
       <h1 className="text-3xl font-bold mb-8">Mi Cuenta</h1>
 
       {/* Header usuario con avatar */}
-      <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+      <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
         <div className="flex items-center gap-5 flex-wrap">
           <AvatarUpload
             value={user?.avatar_url}
@@ -95,6 +96,8 @@ function MyAccount() {
           </div>
         </div>
       </div>
+
+      <WholesalerStatusCard user={user} />
 
       {/* Tabs */}
       <div className="flex border-b mb-6">
@@ -239,6 +242,93 @@ function MyAccount() {
           </div>
         </form>
       )}
+    </div>
+  )
+}
+
+function WholesalerStatusCard({ user }) {
+  const status = user?.wholesaler_status
+  if (!status) {
+    return (
+      <Link
+        to="/mayoristas/solicitar"
+        className="block mb-6 bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 border border-orange-200 rounded-xl p-5 transition-colors group"
+      >
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h3 className="font-bold text-charcoal flex items-center gap-2">
+              🤝 ¿Tienes un negocio?
+            </h3>
+            <p className="text-sm text-gray-600 mt-0.5">
+              Solicita acceso al programa mayorista de Avisander.
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1 text-sm font-semibold text-orange-600 group-hover:translate-x-1 transition-transform">
+            Conocer beneficios <ArrowRight size={16} />
+          </span>
+        </div>
+      </Link>
+    )
+  }
+
+  const config = {
+    pending: {
+      icon: Clock,
+      bg: 'bg-yellow-50 border-yellow-200',
+      iconColor: 'text-yellow-600',
+      title: 'Tu solicitud mayorista está en revisión',
+      desc: 'Nuestro equipo comercial te contactará en menos de 24 horas hábiles.'
+    },
+    approved: {
+      icon: BadgeCheck,
+      bg: 'bg-emerald-50 border-emerald-200',
+      iconColor: 'text-emerald-600',
+      title: 'Eres mayorista aprobado',
+      desc: 'Acceso completo al portal de distribuidores.'
+    },
+    rejected: {
+      icon: XCircle,
+      bg: 'bg-red-50 border-red-200',
+      iconColor: 'text-red-600',
+      title: 'Tu solicitud fue rechazada',
+      desc: user?.wholesaler_rejection_reason || 'Contacta al equipo comercial para más información.'
+    },
+    revoked: {
+      icon: XCircle,
+      bg: 'bg-gray-50 border-gray-200',
+      iconColor: 'text-gray-500',
+      title: 'Tu acceso mayorista fue suspendido',
+      desc: 'Contacta al equipo comercial para reactivar tu cuenta.'
+    }
+  }[status]
+
+  if (!config) return null
+  const Icon = config.icon
+  return (
+    <div className={`mb-6 ${config.bg} border rounded-xl p-5`}>
+      <div className="flex items-start gap-3">
+        <Icon size={24} className={`${config.iconColor} flex-shrink-0 mt-0.5`} />
+        <div className="flex-1">
+          <h3 className="font-bold text-charcoal">{config.title}</h3>
+          <p className="text-sm text-gray-600 mt-0.5">{config.desc}</p>
+          {status === 'approved' && (
+            <Link
+              to="/mayoristas"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800 mt-2"
+            >
+              Ir al portal mayorista <ArrowRight size={14} />
+            </Link>
+          )}
+          {(status === 'rejected' || status === 'revoked') && (
+            <Link
+              to="/mayoristas/solicitar"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline mt-2"
+            >
+              Solicitar de nuevo <ArrowRight size={14} />
+            </Link>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

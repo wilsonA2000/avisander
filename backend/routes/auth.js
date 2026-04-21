@@ -77,23 +77,61 @@ function clearAuthCookies(res) {
 // Register
 router.post('/register', validate(registerSchema), (req, res, next) => {
   try {
-    const { email, password, name, phone } = req.body
+    const {
+      email,
+      password,
+      name,
+      phone,
+      apply_wholesaler,
+      business_name,
+      nit,
+      business_type
+    } = req.body
 
     const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email)
     if (existing) {
       return res.status(400).json({ error: 'El correo ya está registrado' })
     }
 
+    // Si pidió aplicar como mayorista, exigimos los datos del negocio.
+    // Razón: necesitamos el NIT para validar la solicitud comercialmente y evitar
+    // crear cuentas mayoristas vacías que el admin tenga que perseguir.
+    if (apply_wholesaler) {
+      if (!business_name || !nit || !business_type) {
+        return res.status(400).json({
+          error: 'Para solicitar acceso mayorista debes indicar razón social, NIT y tipo de negocio.'
+        })
+      }
+    }
+
     const passwordHash = bcrypt.hashSync(password, BCRYPT_ROUNDS)
 
     const result = db
       .prepare(
-        'INSERT INTO users (email, password_hash, name, phone) VALUES (?, ?, ?, ?)'
+        `INSERT INTO users (
+          email, password_hash, name, phone,
+          wholesaler_status, wholesaler_requested_at,
+          business_name, nit, business_type
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run(email, passwordHash, name || null, phone || null)
+      .run(
+        email,
+        passwordHash,
+        name || null,
+        phone || null,
+        apply_wholesaler ? 'pending' : null,
+        apply_wholesaler ? new Date().toISOString() : null,
+        apply_wholesaler ? business_name : null,
+        apply_wholesaler ? nit : null,
+        apply_wholesaler ? business_type : null
+      )
 
     const user = db
-      .prepare('SELECT id, email, name, phone, address, avatar_url, role, must_change_password FROM users WHERE id = ?')
+      .prepare(
+        `SELECT id, email, name, phone, address, avatar_url, role, must_change_password,
+                wholesaler_status, business_name, nit, business_type
+         FROM users WHERE id = ?`
+      )
       .get(result.lastInsertRowid)
 
     const tokens = setAuthCookies(res, user.id)

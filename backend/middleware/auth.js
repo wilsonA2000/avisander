@@ -22,7 +22,7 @@ function authenticateToken(req, res, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET)
     const user = db
-      .prepare('SELECT id, email, name, role, phone, address, avatar_url, must_change_password FROM users WHERE id = ?')
+      .prepare('SELECT id, email, name, role, phone, address, avatar_url, must_change_password, wholesaler_status, business_name, nit, business_type FROM users WHERE id = ?')
       .get(decoded.userId)
 
     if (!user) {
@@ -60,6 +60,17 @@ function requireAdmin(req, res, next) {
   next()
 }
 
+function requireApprovedMayorista(req, res, next) {
+  if (req.user?.role === 'admin') return next()
+  if (req.user?.wholesaler_status !== 'approved') {
+    return res.status(403).json({
+      error: 'Acceso restringido a mayoristas aprobados.',
+      code: 'wholesaler_not_approved'
+    })
+  }
+  next()
+}
+
 function optionalAuth(req, res, next) {
   const token = extractToken(req)
 
@@ -67,7 +78,7 @@ function optionalAuth(req, res, next) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET)
       const user = db
-        .prepare('SELECT id, email, name, role, phone, address, avatar_url, must_change_password FROM users WHERE id = ?')
+        .prepare('SELECT id, email, name, role, phone, address, avatar_url, must_change_password, wholesaler_status, business_name, nit, business_type FROM users WHERE id = ?')
         .get(decoded.userId)
       req.user = user
     } catch (_error) {
@@ -81,5 +92,6 @@ function optionalAuth(req, res, next) {
 module.exports = {
   authenticateToken,
   requireAdmin,
+  requireApprovedMayorista,
   optionalAuth
 }

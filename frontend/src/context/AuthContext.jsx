@@ -71,7 +71,9 @@ export function AuthProvider({ children }) {
     refreshUser,
     updateProfile,
     isAuthenticated: !!user,
-    isAdmin: user?.role === 'admin'
+    isAdmin: user?.role === 'admin',
+    isApprovedMayorista: user?.wholesaler_status === 'approved' || user?.role === 'admin',
+    wholesalerStatus: user?.wholesaler_status || null
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

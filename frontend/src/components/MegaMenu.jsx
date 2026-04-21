@@ -19,9 +19,11 @@ import {
   ShieldAlert,
   Info,
   AlertTriangle,
-  Truck
+  Truck,
+  Flame
 } from 'lucide-react'
 import { useSettings, whatsappLink, telLink, formatPhone } from '../context/SettingsContext'
+import { useAuth } from '../context/AuthContext'
 import useClickOutside from '../hooks/useClickOutside'
 import Icon3D from './Icon3D'
 
@@ -41,6 +43,15 @@ const CATEGORIAS = [
 
 function MegaMenu({ onNavigate }) {
   const { settings } = useSettings()
+  const { user } = useAuth()
+  const wsStatus = user?.wholesaler_status
+  const wsTarget = wsStatus === 'approved' ? '/mayoristas' : '/mayoristas/solicitar'
+  const wsLabel = (() => {
+    if (wsStatus === 'approved') return 'Portal Mayorista'
+    if (wsStatus === 'pending') return 'Mayorista (en revisión)'
+    if (wsStatus === 'rejected' || wsStatus === 'revoked') return 'Mayorista (re-solicitar)'
+    return 'Mayoristas'
+  })()
   const [open, setOpen] = useState(null)
   const containerRef = useRef(null)
 
@@ -110,6 +121,27 @@ function MegaMenu({ onNavigate }) {
         >
           <ShoppingCart size={14} />
           Productos
+        </Link>
+        <Link
+          to="/imperdibles"
+          onClick={closeAndNav}
+          className="group relative inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-orange-600 hover:text-orange-700 transition-colors"
+        >
+          <Flame size={14} className="group-hover:scale-110 transition-transform" />
+          Imperdibles
+          <span className="ml-1 inline-flex items-center text-[9px] font-black uppercase tracking-widest bg-gradient-to-r from-orange-500 to-red-500 text-white px-1.5 py-0.5 rounded-full shadow-sm">
+            HOT
+          </span>
+        </Link>
+        <Link
+          to={wsTarget}
+          onClick={closeAndNav}
+          className="group relative inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-amber-700 hover:text-amber-800 transition-colors"
+        >
+          🤝 {wsLabel}
+          {wsStatus === 'pending' && (
+            <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+          )}
         </Link>
         <TopButton panelKey="sobre" label="Sobre Avisander" icon={Building2} />
         <TopButton panelKey="ayuda" label="Ayuda" icon={HelpCircle} />

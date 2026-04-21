@@ -22,7 +22,10 @@ import {
   ShoppingBag as ShoppingBagIcon,
   MessageSquare,
   MonitorPlay,
-  Star
+  Star,
+  Flame,
+  Briefcase,
+  FileText
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -31,8 +34,11 @@ const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/admin/productos', icon: Package, label: 'Productos' },
   { to: '/admin/categorias', icon: FolderOpen, label: 'Categorias' },
+  { to: '/admin/imperdibles', icon: Flame, label: 'Imperdibles' },
   { to: '/admin/pedidos', icon: ShoppingBag, label: 'Ventas' },
   { to: '/admin/clientes', icon: Users, label: 'Clientes' },
+  { to: '/admin/mayoristas', icon: Briefcase, label: 'Mayoristas' },
+  { to: '/admin/pages/mayoristas', icon: FileText, label: 'Página Mayoristas' },
   { to: '/admin/inventario', icon: Boxes, label: 'Inventario' },
   { to: '/admin/proveedores', icon: Truck, label: 'Proveedores' },
   { to: '/admin/compras', icon: ShoppingBagIcon, label: 'Compras' },

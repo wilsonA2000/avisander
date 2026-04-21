@@ -31,6 +31,9 @@ const loyaltyRoutes = require('./routes/loyalty')
 const analyticsRoutes = require('./routes/analytics')
 const eventsRoutes = require('./routes/events')
 const reviewsRoutes = require('./routes/reviews')
+const offersRoutes = require('./routes/offers')
+const mayoristasRoutes = require('./routes/mayoristas')
+const pagesRoutes = require('./routes/pages')
 
 function createApp({ enableRateLimit = true } = {}) {
   const app = express()
@@ -223,6 +226,9 @@ function createApp({ enableRateLimit = true } = {}) {
   app.use('/api/analytics', analyticsRoutes)
   app.use('/api/events', eventsRoutes)
   app.use('/api/reviews', reviewsRoutes)
+  app.use('/api/offers', offersRoutes)
+  app.use('/api/mayoristas', mayoristasRoutes)
+  app.use('/api/pages', pagesRoutes)
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() })

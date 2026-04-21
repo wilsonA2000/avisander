@@ -10,7 +10,11 @@ function Register() {
     email: '',
     password: '',
     passwordConfirm: '',
-    phone: ''
+    phone: '',
+    apply_wholesaler: false,
+    business_name: '',
+    nit: '',
+    business_type: ''
   })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
@@ -43,14 +47,19 @@ function Register() {
       newErrors.passwordConfirm = 'Las contraseñas no coinciden'
     }
 
+    if (formData.apply_wholesaler) {
+      if (!formData.business_name.trim()) newErrors.business_name = 'Razón social requerida'
+      if (!formData.nit.trim()) newErrors.nit = 'NIT requerido'
+      if (!formData.business_type.trim()) newErrors.business_type = 'Tipo de negocio requerido'
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-    // Clear error when user types
+    const { name, value, type, checked } = e.target
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }))
     }
@@ -64,9 +73,18 @@ function Register() {
     setLoading(true)
 
     try {
-      const { passwordConfirm: _pc, ...payload } = formData
+      const { passwordConfirm: _pc, ...rest } = formData
+      // Si no marcó aplicar mayorista, no enviamos los campos del negocio.
+      const payload = rest.apply_wholesaler
+        ? rest
+        : {
+            name: rest.name,
+            email: rest.email,
+            password: rest.password,
+            phone: rest.phone
+          }
       await register(payload)
-      navigate('/mi-cuenta')
+      navigate(formData.apply_wholesaler ? '/mi-cuenta?mayorista=pendiente' : '/mi-cuenta')
     } catch (err) {
       setErrors({ submit: err.message || 'Error al registrar. Intenta de nuevo.' })
     } finally {
@@ -175,6 +193,91 @@ function Register() {
                 className="input"
                 autoComplete="tel"
               />
+            </div>
+
+            <div className="border-t pt-4">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  id="apply_wholesaler"
+                  name="apply_wholesaler"
+                  type="checkbox"
+                  checked={formData.apply_wholesaler}
+                  onChange={handleChange}
+                  className="mt-0.5 w-4 h-4 accent-primary cursor-pointer"
+                />
+                <span className="text-sm">
+                  <span className="font-semibold text-charcoal flex items-center gap-1.5">
+                    🤝 Quiero ser distribuidor mayorista
+                  </span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    Acceso a precios especiales y asesor comercial. Tu solicitud será revisada por nuestro equipo.
+                  </span>
+                </span>
+              </label>
+
+              {formData.apply_wholesaler && (
+                <div className="mt-4 space-y-3 bg-orange-50/60 border border-orange-200 rounded-xl p-4">
+                  <div>
+                    <label htmlFor="business_name" className="block text-xs font-medium text-gray-700 mb-1">
+                      Razón social
+                    </label>
+                    <input
+                      id="business_name"
+                      name="business_name"
+                      type="text"
+                      value={formData.business_name}
+                      onChange={handleChange}
+                      placeholder="Restaurante La Brasa S.A.S"
+                      className={`input ${errors.business_name ? 'border-red-500' : ''}`}
+                    />
+                    {errors.business_name && (
+                      <p className="text-red-500 text-xs mt-1">{errors.business_name}</p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="nit" className="block text-xs font-medium text-gray-700 mb-1">
+                        NIT
+                      </label>
+                      <input
+                        id="nit"
+                        name="nit"
+                        type="text"
+                        value={formData.nit}
+                        onChange={handleChange}
+                        placeholder="900.123.456-7"
+                        className={`input ${errors.nit ? 'border-red-500' : ''}`}
+                      />
+                      {errors.nit && <p className="text-red-500 text-xs mt-1">{errors.nit}</p>}
+                    </div>
+
+                    <div>
+                      <label htmlFor="business_type" className="block text-xs font-medium text-gray-700 mb-1">
+                        Tipo de negocio
+                      </label>
+                      <select
+                        id="business_type"
+                        name="business_type"
+                        value={formData.business_type}
+                        onChange={handleChange}
+                        className={`input ${errors.business_type ? 'border-red-500' : ''}`}
+                      >
+                        <option value="">Selecciona...</option>
+                        <option value="restaurante">Restaurante</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="catering">Catering / Eventos</option>
+                        <option value="supermercado">Supermercado / Tienda</option>
+                        <option value="distribuidor">Distribuidor</option>
+                        <option value="otro">Otro</option>
+                      </select>
+                      {errors.business_type && (
+                        <p className="text-red-500 text-xs mt-1">{errors.business_type}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <button

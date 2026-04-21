@@ -35,6 +35,7 @@ const PoliticaSarlaft = lazy(() => import('./pages/PoliticaSarlaft'))
 const TerminosCondiciones = lazy(() => import('./pages/TerminosCondiciones'))
 const CambiosDevoluciones = lazy(() => import('./pages/CambiosDevoluciones'))
 const DespiecePollo = lazy(() => import('./pages/DespiecePollo'))
+const Imperdibles = lazy(() => import('./pages/Imperdibles'))
 
 // Admin: bundle separado. El cliente público nunca lo descarga.
 const AdminLayout = lazy(() => import('./components/AdminLayout'))
@@ -51,6 +52,11 @@ const AdminProveedores = lazy(() => import('./pages/admin/Proveedores'))
 const AdminCompras = lazy(() => import('./pages/admin/Compras'))
 const AdminPqrs = lazy(() => import('./pages/admin/Pqrs'))
 const AdminReviews = lazy(() => import('./pages/admin/Reviews'))
+const AdminImperdibles = lazy(() => import('./pages/admin/Imperdibles'))
+const AdminMayoristas = lazy(() => import('./pages/admin/Mayoristas'))
+const AdminPageEditor = lazy(() => import('./pages/admin/PageEditor'))
+const Mayoristas = lazy(() => import('./pages/Mayoristas'))
+const MayoristasSolicitar = lazy(() => import('./pages/MayoristasSolicitar'))
 // Estudio AI (Konva + FFmpeg wasm) pesa decenas de MB. Lazy obligatorio.
 const AdminEstudioMultimedia = lazy(() => import('./pages/admin/EstudioMultimedia'))
 
@@ -102,6 +108,16 @@ function App() {
         <Route path="terminos-y-condiciones" element={<TerminosCondiciones />} />
         <Route path="cambios-devoluciones" element={<CambiosDevoluciones />} />
         <Route path="despiece/pollo" element={<DespiecePollo />} />
+        <Route path="imperdibles" element={<Imperdibles />} />
+        <Route path="mayoristas/solicitar" element={<MayoristasSolicitar />} />
+        <Route
+          path="mayoristas"
+          element={
+            <ProtectedRoute requiredStatus="wholesaler_approved">
+              <Mayoristas />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="mi-cuenta"
           element={
@@ -124,6 +140,9 @@ function App() {
         <Route index element={<AdminDashboard />} />
         <Route path="productos" element={<AdminProducts />} />
         <Route path="categorias" element={<AdminCategories />} />
+        <Route path="imperdibles" element={<AdminImperdibles />} />
+        <Route path="mayoristas" element={<AdminMayoristas />} />
+        <Route path="pages/:slug" element={<AdminPageEditor />} />
         <Route path="pedidos" element={<AdminOrders />} />
         <Route path="configuracion" element={<AdminSettings />} />
         <Route path="recetas" element={<AdminRecipes />} />
