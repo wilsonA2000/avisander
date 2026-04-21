@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Volume2, VolumeX, Radio, ShoppingBag, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { fmtCOP } from '../../lib/format'
@@ -21,24 +21,43 @@ const TYPE_META = {
   }
 }
 
-// Beep sintetizado con Web Audio; evita tener que cargar un .mp3.
-function playBeep() {
+// Un único AudioContext reutilizado — Chrome bloquea creaciones repetidas sin gesto.
+// Se inicializa la primera vez dentro de un click (handler del toggle), y luego
+// queda "desbloqueado" para beeps automáticos en segundo plano.
+function getOrCreateAudioCtx(ref) {
+  if (ref.current) return ref.current
+  const Ctx = window.AudioContext || window.webkitAudioContext
+  if (!Ctx) return null
+  ref.current = new Ctx()
+  return ref.current
+}
+
+// Chrome suspende el AudioContext cuando la pestaña pasa a segundo plano o tras idle.
+// Si al llegar un evento el ctx está suspended y no esperamos a resume(), currentTime
+// queda desactualizado y los oscilladores se programan en un tiempo pasado → silencio.
+async function playDing(ctx) {
+  if (!ctx) return
   try {
-    const Ctx = window.AudioContext || window.webkitAudioContext
-    if (!Ctx) return
-    const ctx = new Ctx()
-    const o = ctx.createOscillator()
-    const g = ctx.createGain()
-    o.type = 'sine'
-    o.frequency.value = 880
-    o.connect(g)
-    g.connect(ctx.destination)
-    g.gain.setValueAtTime(0.0001, ctx.currentTime)
-    g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02)
-    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35)
-    o.start()
-    o.stop(ctx.currentTime + 0.36)
-    setTimeout(() => ctx.close(), 500)
+    if (ctx.state === 'suspended') {
+      await ctx.resume()
+    }
+    const now = ctx.currentTime
+    const play = (freq, startOffset, duration = 0.3, vol = 0.22) => {
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.type = 'sine'
+      o.frequency.value = freq
+      o.connect(g)
+      g.connect(ctx.destination)
+      const start = now + startOffset
+      g.gain.setValueAtTime(0.0001, start)
+      g.gain.exponentialRampToValueAtTime(vol, start + 0.015)
+      g.gain.exponentialRampToValueAtTime(0.0001, start + duration)
+      o.start(start)
+      o.stop(start + duration + 0.02)
+    }
+    play(987.77, 0)       // B5
+    play(783.99, 0.14)    // G5
   } catch (_err) {}
 }
 
@@ -52,6 +71,7 @@ function formatTime(iso) {
 
 export default function LiveFeed({ events, connected, soundEnabled, onToggleSound }) {
   const lastIdRef = useRef(null)
+  const audioCtxRef = useRef(null)
 
   useEffect(() => {
     const last = events[0]
@@ -59,8 +79,21 @@ export default function LiveFeed({ events, connected, soundEnabled, onToggleSoun
     const key = `${last.type}:${last.ts}`
     if (lastIdRef.current === key) return
     lastIdRef.current = key
-    if (soundEnabled) playBeep()
+    if (soundEnabled && audioCtxRef.current) playDing(audioCtxRef.current)
   }, [events, soundEnabled])
+
+  // El toggle crea/desbloquea el AudioContext dentro del gesto del usuario
+  // (único momento en que Chrome lo permite) y toca un ding de confirmación
+  // al activarlo, para que el admin escuche cómo suena antes de recibir eventos.
+  function handleToggle() {
+    const willEnable = !soundEnabled
+    if (willEnable) {
+      const ctx = getOrCreateAudioCtx(audioCtxRef)
+      if (ctx?.state === 'suspended') ctx.resume().catch(() => {})
+      if (ctx) playDing(ctx)
+    }
+    onToggleSound?.()
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -83,15 +116,31 @@ export default function LiveFeed({ events, connected, soundEnabled, onToggleSoun
             {connected ? 'En vivo' : 'Reconectando…'}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onToggleSound}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
-          title={soundEnabled ? 'Silenciar notificaciones' : 'Activar sonido'}
-        >
-          {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-          {soundEnabled ? 'Sonido activo' : 'Sonido apagado'}
-        </button>
+        <div className="flex items-center gap-2">
+          {soundEnabled ? (
+            <Volume2 size={16} className="text-emerald-500" />
+          ) : (
+            <VolumeX size={16} className="text-gray-400" />
+          )}
+          <span className="text-xs font-medium text-gray-600 select-none">Sonido</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={soundEnabled}
+            onClick={handleToggle}
+            title={soundEnabled ? 'Silenciar notificaciones' : 'Activar sonido'}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+              soundEnabled ? 'bg-emerald-500' : 'bg-gray-300'
+            }`}
+          >
+            <span className="sr-only">Activar sonido</span>
+            <span
+              className={`pointer-events-none absolute top-0.5 left-0.5 inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                soundEnabled ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
       </div>
 
       <div className="max-h-72 overflow-y-auto">
