@@ -149,4 +149,37 @@ Te contactaremos en breve por WhatsApp para coordinar la entrega.
   return { subject, text, html }
 }
 
-module.exports = { sendMail, passwordResetEmail, orderAdminEmail, orderCustomerEmail }
+function reviewInviteEmail({ customerName, orderId, products, reviewUrl }) {
+  const subject = `¿Cómo estuvo tu pedido #${orderId}? 🥩 — Avisander`
+  const greet = customerName ? `Hola ${customerName},` : 'Hola,'
+  const productList = (products || [])
+    .map((p) => `<li style="margin:4px 0">${p.name}</li>`)
+    .join('')
+  const productListText = (products || []).map((p) => `• ${p.name}`).join('\n')
+  const text = `${greet}
+
+Esperamos que hayas disfrutado tu pedido de Avisander.
+Nos encantaría saber qué te pareció — 1 minuto de tu tiempo nos ayuda a mejorar.
+
+Productos para reseñar:
+${productListText}
+
+Dejá tu reseña aquí: ${reviewUrl}
+
+Gracias por preferirnos.
+— Avisander`
+  const html = `
+    <div style="font-family:system-ui,sans-serif;max-width:520px;margin:auto;padding:24px;color:#222">
+      <h2 style="color:#b91c1c;margin:0 0 8px">¿Cómo estuvo tu pedido? 🥩</h2>
+      <p>${greet}</p>
+      <p>Esperamos que hayas disfrutado tu pedido <strong>#${orderId}</strong>. Tu opinión ayuda a otros clientes y a que sigamos mejorando.</p>
+      <ul style="padding-left:20px;color:#444">${productList}</ul>
+      <p style="text-align:center;margin:24px 0">
+        <a href="${reviewUrl}" style="background:#b91c1c;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;display:inline-block">Dejar mi reseña</a>
+      </p>
+      <p style="color:#888;font-size:13px">Solo te tomará 1 minuto. Gracias por preferirnos.<br/>— Avisander</p>
+    </div>`
+  return { subject, text, html }
+}
+
+module.exports = { sendMail, passwordResetEmail, orderAdminEmail, orderCustomerEmail, reviewInviteEmail }

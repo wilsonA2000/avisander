@@ -382,6 +382,32 @@ function initialize() {
       event_type TEXT,
       processed_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    -- Reviews de productos con compra verificada. UNIQUE evita que un cliente
+    -- reseñe dos veces el mismo producto dentro de la misma orden; pero puede
+    -- reseñar el mismo producto en distintas órdenes.
+    CREATE TABLE IF NOT EXISTS reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      comment TEXT,
+      approved INTEGER NOT NULL DEFAULT 1,
+      email_sent_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (user_id, product_id, order_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_reviews_product ON reviews(product_id);
+    CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id);
+    CREATE INDEX IF NOT EXISTS idx_reviews_approved ON reviews(approved);
+
+    -- Tracking de invitaciones a reseñar por orden (evita enviar 2 emails
+    -- para la misma orden aunque el cron se ejecute varias veces).
+    CREATE TABLE IF NOT EXISTS review_invites (
+      order_id INTEGER PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
+      sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `)
 
   // Seed admin SOLO en entornos no-producción. En prod hay que crearlo manualmente.
@@ -428,7 +454,10 @@ function initialize() {
       { key: 'delivery_hours', value: '8:00 AM - 6:00 PM' },
       { key: 'whatsapp_number', value: '3123005253' },
       { key: 'first_purchase_discount_enabled', value: '1' },
-      { key: 'first_purchase_discount_percent', value: '10' }
+      { key: 'first_purchase_discount_percent', value: '10' },
+      { key: 'reviews_auto_approve', value: '1' },
+      { key: 'reviews_email_enabled', value: '1' },
+      { key: 'reviews_email_delay_days', value: '3' }
     ]
 
     const insert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)')

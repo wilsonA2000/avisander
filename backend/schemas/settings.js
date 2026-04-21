@@ -31,7 +31,11 @@ const WRITABLE_KEYS = [
   // Programa de fidelización.
   'loyalty_enabled',
   'loyalty_points_per_1000',
-  'loyalty_point_value'
+  'loyalty_point_value',
+  // Reviews.
+  'reviews_auto_approve',
+  'reviews_email_enabled',
+  'reviews_email_delay_days'
 ]
 
 // Claves expuestas públicamente (GET sin auth). admin_notification_email se queda
@@ -80,7 +84,8 @@ const VALUE_RULES = {
   store_lng: { num: true, min: -180, max: 180 },
   first_purchase_discount_percent: { num: true, min: 0, max: 100 },
   loyalty_points_per_1000: { num: true, min: 0, max: 10000 },
-  loyalty_point_value: { num: true, min: 0, max: 100000 }
+  loyalty_point_value: { num: true, min: 0, max: 100000 },
+  reviews_email_delay_days: { num: true, min: 0, max: 60 }
 }
 
 function validateValue(key, value) {

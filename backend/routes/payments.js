@@ -10,6 +10,7 @@ const inventory = require('../lib/inventory')
 const stockReservation = require('../lib/stockReservation')
 const { clientIp } = require('../lib/client-ip')
 const orderEvents = require('../lib/orderEvents')
+const eventBus = require('../lib/eventBus')
 
 const router = express.Router()
 
@@ -195,7 +196,7 @@ router.post(
         // Al aprobar el pago: descontar stock una sola vez (idempotente).
         if (newStatus === 'approved') {
           const order = db
-            .prepare('SELECT id, stock_deducted FROM orders WHERE payment_reference = ?')
+            .prepare('SELECT id, total, customer_name, stock_deducted FROM orders WHERE payment_reference = ?')
             .get(reference)
           if (order && !order.stock_deducted) {
             try {
@@ -208,6 +209,14 @@ router.post(
             } catch (err) {
               logger.error({ err, orderId: order.id }, 'Fallo al descontar stock; revisar manualmente')
             }
+          }
+          if (order) {
+            eventBus.emit('payment.confirmed', {
+              id: order.id,
+              total: order.total,
+              customer_name: order.customer_name,
+              method: 'bold'
+            })
           }
         }
 

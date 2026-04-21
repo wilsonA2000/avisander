@@ -17,6 +17,7 @@ const { whatsappAdminLink } = require('../lib/whatsapp')
 const logger = require('../lib/logger')
 const { clientIp } = require('../lib/client-ip')
 const orderEvents = require('../lib/orderEvents')
+const eventBus = require('../lib/eventBus')
 
 const router = express.Router()
 
@@ -570,6 +571,14 @@ router.post('/', optionalAuth, validate(orderCreateSchema), (req, res, next) => 
       } catch (e) {
         logger.warn({ err: e.message }, 'Fallo enviando notificación de pedido')
       }
+    })
+
+    eventBus.emit('order.created', {
+      id: orderId,
+      total: order.total,
+      customer_name: order.customer_name,
+      items_count: orderItems.length,
+      payment_method: order.payment_method
     })
 
     res.status(201).json({ ...order, bold: boldPayload, admin_whatsapp_link: adminWaLink })

@@ -50,6 +50,7 @@ const AdminInventario = lazy(() => import('./pages/admin/Inventario'))
 const AdminProveedores = lazy(() => import('./pages/admin/Proveedores'))
 const AdminCompras = lazy(() => import('./pages/admin/Compras'))
 const AdminPqrs = lazy(() => import('./pages/admin/Pqrs'))
+const AdminReviews = lazy(() => import('./pages/admin/Reviews'))
 // Estudio AI (Konva + FFmpeg wasm) pesa decenas de MB. Lazy obligatorio.
 const AdminEstudioMultimedia = lazy(() => import('./pages/admin/EstudioMultimedia'))
 
@@ -132,6 +133,7 @@ function App() {
         <Route path="proveedores" element={<AdminProveedores />} />
         <Route path="compras" element={<AdminCompras />} />
         <Route path="pqrs" element={<AdminPqrs />} />
+        <Route path="reviews" element={<AdminReviews />} />
         <Route path="estudio-ai" element={<AdminEstudioMultimedia />} />
       </Route>
 

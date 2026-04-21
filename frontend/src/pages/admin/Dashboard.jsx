@@ -37,6 +37,8 @@ import {
 } from 'recharts'
 import { api } from '../../lib/apiClient'
 import { fmtCOP } from '../../lib/format'
+import { useAdminEvents } from '../../hooks/useAdminEvents'
+import LiveFeed from '../../components/admin/LiveFeed'
 
 const RANGES = [
   { key: 'today', label: 'Hoy', days: 0 },
@@ -115,8 +117,33 @@ function Dashboard() {
   const [byWeekday, setByWeekday] = useState([])
   const [loyaltySummary, setLoyaltySummary] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [events, setEvents] = useState([])
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem('admin_live_sound') === '1'
+  })
+  const [reloadTick, setReloadTick] = useState(0)
 
   const effectiveRange = useMemo(() => customRange || rangeFor(rangeKey), [rangeKey, customRange])
+
+  const { connected } = useAdminEvents({
+    onEvent: (evt) => {
+      setEvents((prev) => [evt, ...prev].slice(0, 30))
+      if (evt.type === 'order.created' || evt.type === 'payment.confirmed') {
+        setReloadTick((t) => t + 1)
+      }
+    }
+  })
+
+  function toggleSound() {
+    setSoundEnabled((prev) => {
+      const next = !prev
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('admin_live_sound', next ? '1' : '0')
+      }
+      return next
+    })
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -138,7 +165,7 @@ function Dashboard() {
         setLoyaltySummary(ly)
       })
       .finally(() => setLoading(false))
-  }, [effectiveRange.from, effectiveRange.to])
+  }, [effectiveRange.from, effectiveRange.to, reloadTick])
 
   const totals = summary?.totals || {}
   const series = summary?.series || []
@@ -197,6 +224,15 @@ function Dashboard() {
             />
           </div>
         </div>
+      </div>
+
+      <div className="mb-6">
+        <LiveFeed
+          events={events}
+          connected={connected}
+          soundEnabled={soundEnabled}
+          onToggleSound={toggleSound}
+        />
       </div>
 
       {/* Tráfico del sitio */}

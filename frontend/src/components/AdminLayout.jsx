@@ -21,7 +21,8 @@ import {
   Truck,
   ShoppingBag as ShoppingBagIcon,
   MessageSquare,
-  MonitorPlay
+  MonitorPlay,
+  Star
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -36,6 +37,7 @@ const navItems = [
   { to: '/admin/proveedores', icon: Truck, label: 'Proveedores' },
   { to: '/admin/compras', icon: ShoppingBagIcon, label: 'Compras' },
   { to: '/admin/pqrs', icon: MessageSquare, label: 'PQRS' },
+  { to: '/admin/reviews', icon: Star, label: 'Reseñas' },
   { to: '/admin/estudio-ai', icon: MonitorPlay, label: 'Estudio Multimedia' },
   { to: '/admin/recetas', icon: ChefHat, label: 'Recetas' },
   { to: '/admin/biblioteca', icon: ImageIcon, label: 'Biblioteca' },

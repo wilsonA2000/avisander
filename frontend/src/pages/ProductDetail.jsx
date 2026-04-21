@@ -32,6 +32,8 @@ import CulinaryIcon from '../components/CulinaryIcon'
 import SaleRibbon from '../components/SaleRibbon'
 import LowStockBadge from '../components/LowStockBadge'
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed'
+import Stars from '../components/Stars'
+import ProductReviews from '../components/ProductReviews'
 
 const PRESETS_GRAMS = [250, 500, 750, 1000, 1500, 2000]
 
@@ -60,6 +62,7 @@ function ProductDetail() {
   const [loading, setLoading] = useState(true)
   const [related, setRelated] = useState([])
   const [productRecipes, setProductRecipes] = useState([])
+  const [reviewSummary, setReviewSummary] = useState(null)
   const { items: recentlyViewed, push: pushViewed } = useRecentlyViewed(Number(id))
   const [error, setError] = useState('')
 
@@ -90,14 +93,16 @@ function ProductDetail() {
       })
       .finally(() => active && setLoading(false))
 
-    // Paralelo: relacionados y recetas
+    // Paralelo: relacionados, recetas y resumen de reseñas
     Promise.all([
       api.get(`/api/products/${id}/related?limit=8`, { skipAuth: true }).catch(() => []),
-      api.get(`/api/recipes?by_product=${id}`, { skipAuth: true }).catch(() => [])
-    ]).then(([r, rec]) => {
+      api.get(`/api/recipes?by_product=${id}`, { skipAuth: true }).catch(() => []),
+      api.get(`/api/reviews/summary-batch?ids=${id}`, { skipAuth: true }).catch(() => ({}))
+    ]).then(([r, rec, rv]) => {
       if (!active) return
       setRelated(Array.isArray(r) ? r : [])
       setProductRecipes(Array.isArray(rec) ? rec : [])
+      setReviewSummary((rv && rv[id]) || null)
     })
 
     return () => {
@@ -261,6 +266,19 @@ function ProductDetail() {
           <h1 className="font-display text-[1.75rem] lg:text-[1.875rem] font-bold text-charcoal leading-[1.15] tracking-tight mb-1.5">
             {product.name}
           </h1>
+
+          {reviewSummary && reviewSummary.total > 0 && (
+            <a
+              href="#reviews"
+              className="inline-flex items-center gap-1.5 mb-2 text-xs font-medium text-gray-600 hover:text-primary transition-colors"
+            >
+              <Stars value={reviewSummary.avg_rating} size={14} />
+              <span className="text-gray-700">{reviewSummary.avg_rating.toFixed(1)}</span>
+              <span className="text-gray-400">
+                ({reviewSummary.total} {reviewSummary.total === 1 ? 'opinión' : 'opiniones'})
+              </span>
+            </a>
+          )}
 
           {/* Micro-trust line */}
           <div className="flex items-center gap-2 text-xs text-gray-600 mb-3">
@@ -504,6 +522,10 @@ function ProductDetail() {
           </div>
         </section>
       )}
+
+      {/* Reviews de clientes */}
+      <div id="reviews" />
+      <ProductReviews productId={product.id} productName={product.name} />
 
       {/* Relacionados */}
       {related.length > 0 && (
