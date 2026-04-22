@@ -44,6 +44,16 @@ function createApp({ enableRateLimit = true } = {}) {
   // compartían "IP", lo que reventaba rate limits entre sí.
   app.set('trust proxy', 2)
 
+  // Evita fingerprinting innecesario. Los headers Via y fly-request-id los
+  // agrega el proxy de Fly DESPUÉS de Express; se eliminan con Transform
+  // Rules en Cloudflare (ver SECURITY_AUDIT.md paso 1b).
+  app.disable('x-powered-by')
+  app.use((_req, res, next) => {
+    res.removeHeader('X-Powered-By')
+    res.removeHeader('Server')
+    next()
+  })
+
   if (process.env.NODE_ENV !== 'test') {
     app.use(
       pinoHttp({
